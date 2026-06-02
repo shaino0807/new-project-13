@@ -1,0 +1,56 @@
+# Tests
+
+## Test 1 - Homepage loads [sanity]
+Viewport: desktop
+Description: Verifies the public site opens to the stock analysis Agent.
+
+Steps:
+1. Navigate to the app.
+2. Wait for the page to fully load.
+
+Expected: The title "台股技術分析 Agent" or a loaded stock title such as "2330 台積電" is visible.
+
+## Test 2 - Interactive stock analysis uses live data
+Viewport: desktop
+Description: Verifies a visitor can enter a Taiwan stock code and receive analysis from the backend quote API on the same page.
+
+Steps:
+1. Navigate to the app.
+2. Type "2454" in the stock code field.
+3. Click the analysis button.
+4. Wait for the metrics to update.
+
+Expected: The page shows a source message mentioning Yahoo Finance or TWSE MIS, plus stock metrics, 回檔機率, 訊號判讀, and 交易策略 without leaving the site.
+
+## Test 3 - Interactive Agent answers a follow-up question
+Viewport: desktop
+Description: Verifies the Agent panel can answer questions about the currently loaded stock without leaving the analysis page.
+
+Steps:
+1. Navigate to the app.
+2. Wait for the default stock analysis to load.
+3. Click the "回檔風險" Agent prompt.
+4. Wait for the Agent response.
+
+Expected: The Agent log shows the user's question and an Agent answer with 回檔風險判讀, key points, watchlist items, and source links.
+
+## Test 4 - Charts and strategy remain visible
+Viewport: desktop
+Description: Verifies the core technical-analysis surface remains available.
+
+Steps:
+1. Navigate to the app.
+2. Scroll through the page.
+
+Expected: Price, MACD, RSI/KD, volume, Bollinger, support/resistance charts and the strategy table are visible.
+
+## Test 5 - Mobile page remains readable
+Viewport: mobile
+Description: Verifies the Agent remains usable on a narrow viewport.
+
+Steps:
+1. Navigate to the app on a mobile-width viewport.
+2. Enter "0050" and run analysis.
+3. Scroll from top to bottom.
+
+Expected: The input, metric cards, charts, signal rows, and strategy table are readable without horizontal scrolling.

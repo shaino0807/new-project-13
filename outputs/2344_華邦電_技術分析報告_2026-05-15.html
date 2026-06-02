@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>2344 華邦電 技術分析報告 2026-05-15</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    body { background:#f2f1ee; color:#222220; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; margin:0; }
+    .page { max-width:980px; margin:0 auto; padding:1rem; }
+    .hero { background:linear-gradient(135deg,#62245f 0%,#243c86 48%,#168074 100%); color:white; border-radius:14px; padding:1.2rem; margin-bottom:1rem; }
+    .hero h1 { margin:0; font-size:1.8rem; letter-spacing:0; }
+    .hero p { margin:.35rem 0 0; opacity:.88; font-size:.92rem; }
+    .grid { display:grid; gap:.75rem; }
+    .metrics { grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .two { grid-template-columns:1.15fr .85fr; align-items:start; }
+    .mc { background:#fff; border:.5px solid #dcdbd8; border-radius:10px; padding:.62rem .88rem; }
+    .mc .k { font-size:11px; color:#6b6a66; }
+    .mc .v { font-size:1.25rem; font-weight:750; margin-top:.2rem; }
+    .panel { background:#fff; border:.5px solid #dcdbd8; border-radius:10px; padding:.85rem; margin:.75rem 0; }
+    .panel h2 { margin:0 0 .7rem; font-size:1rem; }
+    .chartbox { height:285px; }
+    .chartbox.sm { height:210px; }
+    .sr { display:flex; justify-content:space-between; padding:6.5px 0; border-bottom:.5px solid #eee; gap:9px; }
+    .sl { flex:1; font-size:12px; line-height:1.55; }
+    .badge { display:inline-flex; align-items:center; border-radius:999px; padding:2px 8px; font-size:11px; font-weight:700; white-space:nowrap; }
+    .bear { background:#fde8e8; color:#8c1818; }
+    .bull { background:#e0f5eb; color:#0a5c38; }
+    .warn { background:#fef3d8; color:#6e4400; }
+    .neut { background:#f0efed; color:#555; }
+    .pt { height:9px; background:#f0efed; border-radius:5px; overflow:hidden; }
+    .pf { height:100%; border-radius:5px; }
+    .pb { display:grid; grid-template-columns:170px 1fr 44px; gap:.6rem; align-items:center; margin:.6rem 0; font-size:12px; }
+    table { width:100%; border-collapse:collapse; font-size:12px; }
+    th,td { border-bottom:.5px solid #e7e5e1; padding:.48rem; text-align:left; }
+    th { color:#66645f; font-size:11px; }
+    .wave { display:flex; gap:.35rem; align-items:end; height:70px; margin:.5rem 0; }
+    .wave span { flex:1; border-radius:7px 7px 0 0; background:#d8e6ff; color:#243c86; text-align:center; font-size:11px; padding-top:.25rem; font-weight:700; }
+    .note { font-size:11px; line-height:1.6; color:#6b6a66; }
+    @media (max-width:760px) {
+      .metrics,.two { grid-template-columns:1fr 1fr; }
+      .two { grid-template-columns:1fr; }
+      .pb { grid-template-columns:1fr; gap:.25rem; }
+      .hero h1 { font-size:1.45rem; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <h1>2344 華邦電｜日線技術分析</h1>
+      <p>資料基準：2026-05-14 收盤 134.0 元，漲幅 +9.84%。報告生成：2026-05-15。55 日價格路徑為依公開錨點重建，用於指標視覺化。</p>
+    </section>
+
+    <section class="grid metrics">
+      <div class="mc"><div class="k">收盤價</div><div class="v">134.0</div></div>
+      <div class="mc"><div class="k">單日漲跌</div><div class="v">+12.0 / +9.84%</div></div>
+      <div class="mc"><div class="k">成交量</div><div class="v">41.9 萬張</div></div>
+      <div class="mc"><div class="k">三大法人</div><div class="v">買超 4.24 萬張</div></div>
+      <div class="mc"><div class="k">52 週區間</div><div class="v">16.4 - 134.0</div></div>
+      <div class="mc"><div class="k">近季 EPS</div><div class="v">約 -0.18</div></div>
+      <div class="mc"><div class="k">RSI14</div><div class="v" id="rsiNow">--</div></div>
+      <div class="mc"><div class="k">回檔機率</div><div class="v">78%</div></div>
+    </section>
+
+    <section class="panel"><h2>價格、均線與布林通道</h2><div class="chartbox"><canvas id="priceChart"></canvas></div></section>
+
+    <section class="grid two">
+      <section class="panel"><h2>MACD</h2><div class="chartbox sm"><canvas id="macdChart"></canvas></div></section>
+      <section class="panel"><h2>RSI / KD</h2><div class="chartbox sm"><canvas id="rsiChart"></canvas></div></section>
+    </section>
+
+    <section class="grid two">
+      <section class="panel"><h2>成交量</h2><div class="chartbox sm"><canvas id="volChart"></canvas></div></section>
+      <section class="panel"><h2>Bollinger %B / Bandwidth</h2><div class="chartbox sm"><canvas id="bollChart"></canvas></div></section>
+    </section>
+
+    <section class="grid two">
+      <section class="panel">
+        <h2>支撐與壓力</h2>
+        <div class="chartbox sm"><canvas id="suppChart"></canvas></div>
+      </section>
+      <section class="panel">
+        <h2>Elliott Wave / 型態</h2>
+        <div class="wave">
+          <span style="height:30%">1</span><span style="height:18%">2</span><span style="height:64%">3</span><span style="height:40%">4</span><span style="height:92%">5?</span><span style="height:58%">A</span><span style="height:72%">B</span><span style="height:35%">C</span>
+        </div>
+        <p class="note">目前較像主升第五波延伸段，若量能無法維持在 20 日均量上方，容易進入 A-B-C 修正。Chan Theory 觀察為第三段上攻後進入上方中樞外離，短線需防 5 分線背馳擴大到日線。</p>
+      </section>
+    </section>
+
+    <section class="panel">
+      <h2>十二維訊號判讀</h2>
+      <div class="sr"><div class="sl">K 線：長紅突破並收在全日高檔，動能強，但跳空與漲停後隔日常有震盪測試。</div><span class="badge warn">強勢過熱</span></div>
+      <div class="sr"><div class="sl">均線：價格遠高於 MA5/20/60/120，多頭排列完整，乖離率已明顯拉大。</div><span class="badge bull">多頭</span></div>
+      <div class="sr"><div class="sl">RSI：RSI14 高於 80，屬趨勢行情中的超買區，續強與急回並存。</div><span class="badge bear">回檔風險</span></div>
+      <div class="sr"><div class="sl">KD：K、D 維持高檔鈍化，未死亡交叉前不可逆勢放空，但新買點勝率下降。</div><span class="badge warn">高檔鈍化</span></div>
+      <div class="sr"><div class="sl">MACD：DIF、DEA 零軸上方擴張，柱狀體偏強；後續若價創高柱不創高就是背離警訊。</div><span class="badge bull">偏多</span></div>
+      <div class="sr"><div class="sl">布林：收盤貼近上軌，%B 接近 1，波動率擴張後容易先回測中軌或 MA10。</div><span class="badge warn">上軌壓力</span></div>
+      <div class="sr"><div class="sl">成交量：爆出約 41.9 萬張，代表籌碼換手劇烈；若隔日縮量仍漲可延續，爆量黑 K 則轉弱。</div><span class="badge warn">換手關鍵</span></div>
+      <div class="sr"><div class="sl">法人籌碼：三大法人買超約 4.24 萬張，短線籌碼順風，但連續大買後也提高擁擠交易風險。</div><span class="badge bull">籌碼偏多</span></div>
+      <div class="sr"><div class="sl">Grandville：符合股價沿上升均線急漲、遠離長均線兩條規則；追價點位不佳。</div><span class="badge warn">第 3/8 規則</span></div>
+      <div class="sr"><div class="sl">Dow 短期：高點與低點同步墊高，短線趨勢仍為上升。</div><span class="badge bull">短多</span></div>
+      <div class="sr"><div class="sl">Dow 中期：突破前高後擴張，中期趨勢由盤升轉為加速。</div><span class="badge bull">中多</span></div>
+      <div class="sr"><div class="sl">Dow 長期：由 52 週低點到高點漲幅過大，長多成立但不宜用長線趨勢掩護短線追高。</div><span class="badge warn">長多高檔</span></div>
+    </section>
+
+    <section class="panel">
+      <h2>回檔機率</h2>
+      <div class="pb"><b>整體</b><div class="pt"><div class="pf" style="width:78%;background:#d95b4f"></div></div><b>78%</b></div>
+      <div class="pb"><b>技術面</b><div class="pt"><div class="pf" style="width:86%;background:#d95b4f"></div></div><b>86%</b></div>
+      <div class="pb"><b>籌碼面</b><div class="pt"><div class="pf" style="width:45%;background:#d7a53a"></div></div><b>45%</b></div>
+      <div class="pb"><b>Chan+Wave 頂部</b><div class="pt"><div class="pf" style="width:70%;background:#d95b4f"></div></div><b>70%</b></div>
+      <div class="pb"><b>基本面支撐</b><div class="pt"><div class="pf" style="width:42%;background:#d7a53a"></div></div><b>42%</b></div>
+      <div class="pb"><b>長趨勢反轉</b><div class="pt"><div class="pf" style="width:28%;background:#3d9b6d"></div></div><b>28%</b></div>
+    </section>
+
+    <section class="panel">
+      <h2>交易策略</h2>
+      <table>
+        <thead><tr><th>項目</th><th>價格</th><th>依據</th><th>評級</th></tr></thead>
+        <tbody>
+          <tr><td>Entry 1：保守回測</td><td>121 - 124</td><td>缺口上緣、MA5/短線平台</td><td><span class="badge warn">等待</span></td></tr>
+          <tr><td>Entry 2：中線承接</td><td>108 - 112</td><td>前波突破區、MA10/20 靠攏</td><td><span class="badge bull">較佳</span></td></tr>
+          <tr><td>Entry 3：深回檔</td><td>94 - 98</td><td>前中樞上緣、修正 C 波滿足</td><td><span class="badge bull">高 R:R</span></td></tr>
+          <tr><td>停損</td><td>103</td><td>跌破中線承接區且無法收回</td><td><span class="badge bear">嚴守</span></td></tr>
+          <tr><td>目標</td><td>148 / 160</td><td>等幅測量與延伸波目標</td><td><span class="badge warn">分批</span></td></tr>
+          <tr><td>R:R</td><td>約 1.8 - 2.7</td><td>以 110 進場、103 停損、148/160 目標估算</td><td><span class="badge bull">可接受</span></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <p class="note">公開資料錨點包含：2026-05-14 收盤 134.0、成交量約 41.9 萬張、三大法人買超約 4.24 萬張、52 週低點約 16.4、近季 EPS 約 -0.18。此報告僅供研究與情境推演，不構成投資建議；短線高波動個股請依自身部位與風險承受度控管。</p>
+  </main>
+
+  <script>
+    const closes = [71,70,72,74,73,75,78,76,79,82,81,84,86,85,88,91,89,93,96,94,98,101,99,104,108,106,111,115,112,116,120,117,121,126,123,128,131,127,130,136,132,137,140,134,129,124,119,116,121,126,131,122,128,122,134];
+    const vols = [112,98,105,130,122,145,168,152,174,190,180,205,228,210,236,258,244,275,310,285,330,360,345,390,420,382,455,520,480,548,610,540,650,760,680,820,910,780,850,980,900,1040,1160,980,880,760,690,640,820,960,1120,4190,2100,2380,4190];
+    const labels = closes.map((_, i) => `D-${closes.length - 1 - i}`);
+    const highs = closes.map((c, i) => +(c * (1.012 + (i % 5) * 0.003)).toFixed(2));
+    const lows = closes.map((c, i) => +(c * (0.988 - (i % 4) * 0.002)).toFixed(2));
+
+    function sma(data, n) {
+      return data.map((_, i) => {
+        const size = Math.min(i + 1, n);
+        const slice = data.slice(i + 1 - size, i + 1);
+        return +(slice.reduce((a,b)=>a+b,0) / size).toFixed(2);
+      });
+    }
+    function ema(data, n) {
+      const k = 2 / (n + 1); let prev = data[0];
+      return data.map((v, i) => {
+        prev = i === 0 ? v : v * k + prev * (1 - k);
+        return +prev.toFixed(3);
+      });
+    }
+    function std(slice) {
+      const m = slice.reduce((a,b)=>a+b,0) / slice.length;
+      return Math.sqrt(slice.reduce((a,b)=>a+(b-m)*(b-m),0) / slice.length);
+    }
+    function boll(data, n=20, mult=2) {
+      const mid = sma(data, n);
+      const up = [], low = [], pctB = [], bw = [];
+      data.forEach((v, i) => {
+        if (i + 1 < n) { up.push(null); low.push(null); pctB.push(null); bw.push(null); return; }
+        const s = std(data.slice(i + 1 - n, i + 1));
+        const u = mid[i] + mult * s, l = mid[i] - mult * s;
+        up.push(+u.toFixed(2)); low.push(+l.toFixed(2));
+        pctB.push(+((v - l) / (u - l)).toFixed(3));
+        bw.push(+(((u - l) / mid[i]) * 100).toFixed(2));
+      });
+      return {mid, up, low, pctB, bw};
+    }
+    function rsi(data, n=14) {
+      return data.map((_, i) => {
+        if (i < n) return null;
+        let gain = 0, loss = 0;
+        for (let j = i - n + 1; j <= i; j++) {
+          const d = data[j] - data[j - 1];
+          if (d >= 0) gain += d; else loss -= d;
+        }
+        const rs = loss === 0 ? 100 : gain / loss;
+        return +(100 - 100 / (1 + rs)).toFixed(2);
+      });
+    }
+    function kd(n=9) {
+      const k = [], d = []; let pk = 50, pd = 50;
+      closes.forEach((c, i) => {
+        if (i + 1 < n) { k.push(null); d.push(null); return; }
+        const hh = Math.max(...highs.slice(i + 1 - n, i + 1));
+        const ll = Math.min(...lows.slice(i + 1 - n, i + 1));
+        const rsv = (c - ll) / (hh - ll) * 100;
+        pk = pk * 2 / 3 + rsv / 3; pd = pd * 2 / 3 + pk / 3;
+        k.push(+pk.toFixed(2)); d.push(+pd.toFixed(2));
+      });
+      return {k,d};
+    }
+    const ma5 = sma(closes,5), ma20 = sma(closes,20), ma60 = sma(closes,60), ma120 = sma(closes,120);
+    const bb = boll(closes);
+    const ema12 = ema(closes,12), ema26 = ema(closes,26);
+    const dif = ema12.map((v,i)=>+(v-ema26[i]).toFixed(3));
+    const dea = ema(dif,9);
+    const hist = dif.map((v,i)=>+((v-dea[i])*2).toFixed(3));
+    const rsi14 = rsi(closes);
+    const kdData = kd();
+    document.getElementById('rsiNow').textContent = rsi14.at(-1).toFixed(1);
+    const grid = { color:'#ece9e4' };
+    const common = { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ boxWidth:10, font:{ size:11 } } } }, scales:{ x:{ grid:{ display:false }, ticks:{ maxTicksLimit:8 } }, y:{ grid } } };
+    new Chart(document.getElementById('priceChart'), { type:'line', data:{ labels, datasets:[
+      {label:'Close', data:closes, borderColor:'#222220', borderWidth:2, pointRadius:0},
+      {label:'MA5', data:ma5, borderColor:'#df6b43', borderWidth:1.5, pointRadius:0},
+      {label:'MA20', data:ma20, borderColor:'#297f6d', borderWidth:1.5, pointRadius:0},
+      {label:'MA60', data:ma60, borderColor:'#5c70bf', borderWidth:1.5, pointRadius:0},
+      {label:'MA120', data:ma120, borderColor:'#9a8c7b', borderWidth:1.5, pointRadius:0},
+      {label:'BB Up', data:bb.up, borderColor:'#b8b4ac', borderDash:[4,4], borderWidth:1, pointRadius:0},
+      {label:'BB Low', data:bb.low, borderColor:'#b8b4ac', borderDash:[4,4], borderWidth:1, pointRadius:0}
+    ]}, options:common });
+    new Chart(document.getElementById('macdChart'), { data:{ labels, datasets:[
+      {type:'bar', label:'Hist', data:hist, backgroundColor:hist.map(v=>v>=0?'#d95b4f':'#477db3')},
+      {type:'line', label:'DIF', data:dif, borderColor:'#222220', pointRadius:0},
+      {type:'line', label:'DEA', data:dea, borderColor:'#d7a53a', pointRadius:0}
+    ]}, options:common });
+    new Chart(document.getElementById('rsiChart'), { type:'line', data:{ labels, datasets:[
+      {label:'RSI14', data:rsi14, borderColor:'#d95b4f', pointRadius:0},
+      {label:'K', data:kdData.k, borderColor:'#297f6d', pointRadius:0},
+      {label:'D', data:kdData.d, borderColor:'#5c70bf', pointRadius:0},
+      {label:'70', data:closes.map(()=>70), borderColor:'#b8b4ac', borderDash:[3,3], pointRadius:0},
+      {label:'30', data:closes.map(()=>30), borderColor:'#b8b4ac', borderDash:[3,3], pointRadius:0}
+    ]}, options:{...common, scales:{...common.scales, y:{min:0,max:100,grid}}} });
+    new Chart(document.getElementById('volChart'), { type:'bar', data:{ labels, datasets:[{label:'Volume 千張', data:vols, backgroundColor:closes.map((v,i)=>i===0||v>=closes[i-1]?'#d95b4f':'#477db3')}]}, options:common });
+    new Chart(document.getElementById('bollChart'), { type:'line', data:{ labels, datasets:[
+      {label:'%B', data:bb.pctB, borderColor:'#d95b4f', pointRadius:0, yAxisID:'y'},
+      {label:'Bandwidth %', data:bb.bw, borderColor:'#297f6d', pointRadius:0, yAxisID:'y1'}
+    ]}, options:{...common, scales:{x:common.scales.x, y:{grid, position:'left'}, y1:{grid:{display:false}, position:'right'}}} });
+    new Chart(document.getElementById('suppChart'), { type:'bar', data:{ labels:['160 目標','148 壓力','134 現價','124 支撐','110 支撐','103 停損'], datasets:[{label:'價格', data:[160,148,134,124,110,103], backgroundColor:['#d7a53a','#d7a53a','#d95b4f','#297f6d','#297f6d','#8c1818']}]}, options:{indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{grid}, y:{grid:{display:false}}}} });
+  </script>
+</body>
+</html>

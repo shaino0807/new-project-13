@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>台股技術分析 Skill Portal</title>
+<style>
+:root {
+  --bg: #f2f1ee;
+  --surface: #faf9f7;
+  --card: #ffffff;
+  --border: #dcdbd8;
+  --text: #222220;
+  --sub: #62605c;
+  --muted: #9a9690;
+  --accent: #1a5096;
+  --accent2: #0d7058;
+  --danger: #8c1818;
+  --warn: #6e4400;
+  --amber: #c07820;
+  --radius: 10px;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 13px;
+  line-height: 1.55;
+}
+button, input { font: inherit; }
+.page { max-width: 980px; margin: 0 auto; padding: 18px 14px 42px; }
+.hero {
+  min-height: 230px;
+  border-radius: 12px;
+  border: .5px solid rgba(255,255,255,.45);
+  background:
+    linear-gradient(135deg, rgba(26,80,150,.94), rgba(13,112,88,.88)),
+    url("https://images.unsplash.com/photo-1642790106117-e829e14a795f?auto=format&fit=crop&w=1600&q=80") center/cover;
+  color: #fff;
+  padding: 28px;
+  display: grid;
+  align-content: end;
+  overflow: hidden;
+}
+.hero-top { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 56px; }
+.pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.16);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .03em;
+}
+.hero h1 { margin: 0 0 8px; font-size: clamp(28px, 5vw, 46px); line-height: 1.05; letter-spacing: 0; }
+.hero p { max-width: 680px; margin: 0; color: rgba(255,255,255,.86); font-size: 14px; }
+.section-title {
+  margin: 22px 0 9px;
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  color: var(--sub);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+.section-title::after { content: ""; flex: 1; height: .5px; background: var(--border); }
+.card, .mc {
+  background: var(--card);
+  border: .5px solid var(--border);
+  border-radius: var(--radius);
+}
+.card { padding: 16px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--sub);
+  font-size: 11px;
+  font-weight: 700;
+}
+.field input {
+  width: 100%;
+  border: .5px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 9px 11px;
+  outline: none;
+}
+.field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26,80,150,.10); }
+.chips { display: flex; flex-wrap: wrap; gap: 7px; margin: 12px 0; }
+.chip {
+  border: .5px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--sub);
+  padding: 5px 11px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.chip:hover, .chip.active { border-color: var(--accent); background: rgba(26,80,150,.10); color: var(--accent); }
+.prompt-box {
+  position: relative;
+  margin-top: 10px;
+  min-height: 110px;
+  border-radius: 8px;
+  background: #1b1a17;
+  border: .5px solid #34322e;
+  color: #ebe7dd;
+  padding: 15px 74px 15px 15px;
+  font: 12.5px/1.7 ui-monospace, SFMono-Regular, Consolas, monospace;
+  word-break: break-word;
+}
+.copy-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  border: 0;
+  border-radius: 7px;
+  background: rgba(255,255,255,.13);
+  color: #fff;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.copy-btn.copied { background: rgba(13,112,88,.75); }
+.highlight { color: #f4c662; font-weight: 800; }
+.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.mc { padding: 12px; }
+.mc .k { color: var(--sub); font-size: 11px; font-weight: 700; }
+.mc .v { margin-top: 6px; font-size: 19px; font-weight: 800; }
+.mc .s { color: var(--muted); font-size: 11px; }
+.dim-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.dim {
+  min-height: 112px;
+  background: var(--surface);
+  border: .5px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+.dim .icon { font-size: 18px; margin-bottom: 6px; }
+.dim .name { font-weight: 800; margin-bottom: 4px; }
+.dim .desc { color: var(--sub); font-size: 12px; }
+.spec { width: 100%; border-collapse: collapse; font-size: 12px; }
+.spec th, .spec td { padding: 9px 10px; border-bottom: .5px solid #eeece8; text-align: left; vertical-align: top; }
+.spec th { background: var(--surface); color: var(--sub); font-size: 11px; }
+.spec tr:last-child td { border-bottom: 0; }
+.badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 21px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.bear { background:#fde8e8; color:#8c1818; }
+.bull { background:#e0f5eb; color:#0a5c38; }
+.warn { background:#fef3d8; color:#6e4400; }
+.neut { background:#f0efed; color:#555; }
+.sr { display:flex; justify-content:space-between; padding:7px 0; border-bottom:.5px solid #eee; gap:9px; }
+.sr:last-child { border-bottom: 0; }
+.sl { flex:1; font-size:12px; line-height:1.55; }
+.pb { display: grid; grid-template-columns: 156px 1fr 44px; gap: 10px; align-items: center; padding: 8px 0; border-bottom: .5px solid #eee; }
+.pb:last-child { border-bottom: 0; }
+.pt { height:9px; background:#f0efed; border-radius:5px; overflow:hidden; }
+.pf { height:100%; border-radius:5px; background: linear-gradient(90deg, #1d9e75, #c07820, #c04020); }
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.step {
+  background: var(--surface);
+  border: .5px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+.num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+.step b { display: block; margin-bottom: 4px; }
+.step span { color: var(--sub); font-size: 12px; }
+.examples { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.ex {
+  text-align: left;
+  border: .5px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 12px;
+  cursor: pointer;
+}
+.ex:hover { border-color: var(--accent); box-shadow: 0 5px 18px rgba(26,80,150,.08); }
+.ex b { display: block; color: var(--accent); margin-bottom: 3px; }
+.ex span { color: var(--sub); font-size: 12px; }
+.footer {
+  margin-top: 26px;
+  padding-top: 16px;
+  border-top: .5px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+@media (max-width: 820px) {
+  .metrics, .examples, .steps { grid-template-columns: repeat(2, 1fr); }
+  .dim-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+  .page { padding: 10px 10px 32px; }
+  .hero { padding: 22px; min-height: 250px; }
+  .grid-2, .metrics, .dim-grid, .steps, .examples { grid-template-columns: 1fr; }
+  .prompt-box { padding-right: 15px; padding-top: 48px; }
+  .pb { grid-template-columns: 1fr; gap: 5px; }
+}
+</style>
+</head>
+<body>
+<main class="page">
+  <section class="hero">
+    <div class="hero-top">
+      <span class="pill">tw-technical-analysis</span>
+      <span class="pill">Skill v1.0</span>
+      <span class="pill">HTML Report Generator</span>
+    </div>
+    <h1>台股技術分析 Skill Portal</h1>
+    <p>輸入股票代號與名稱，一鍵生成適合此 skill 的完整分析提示詞，覆蓋 K 線、均線、RSI、KD、MACD、布林通道、量能、籌碼、道氏理論、葛蘭碧法則、波浪與交易策略。</p>
+  </section>
+
+  <div class="section-title">Prompt Builder</div>
+  <section class="card">
+    <div class="grid-2">
+      <label class="field">
+        <span>股票代號</span>
+        <input id="stockCode" inputmode="latin" maxlength="8" placeholder="例如 2330" oninput="buildPrompt()">
+      </label>
+      <label class="field">
+        <span>股票名稱</span>
+        <input id="stockName" placeholder="例如 台積電" oninput="buildPrompt()">
+      </label>
+    </div>
+    <div class="chips" id="chips">
+      <button class="chip" onclick="setStock('2330','台積電')">2330 台積電</button>
+      <button class="chip" onclick="setStock('3231','緯創')">3231 緯創</button>
+      <button class="chip" onclick="setStock('2344','華邦電')">2344 華邦電</button>
+      <button class="chip" onclick="setStock('6770','力積電')">6770 力積電</button>
+      <button class="chip" onclick="setStock('0050','元大台灣50')">0050 元大台灣50</button>
+      <button class="chip" onclick="setStock('TAIEX','台灣加權指數')">TAIEX 台灣加權</button>
+    </div>
+    <div class="prompt-box">
+      <button class="copy-btn" id="copyBtn" onclick="copyPrompt()">複製</button>
+      <div id="promptText">請輸入股票代號與名稱，或點選上方快速範例。</div>
+    </div>
+  </section>
+
+  <div class="section-title">Report Coverage</div>
+  <section class="metrics">
+    <div class="mc"><div class="k">圖表</div><div class="v">6</div><div class="s">Chart.js 視覺化</div></div>
+    <div class="mc"><div class="k">分析維度</div><div class="v">12</div><div class="s">技術、籌碼、基本面</div></div>
+    <div class="mc"><div class="k">回檔機率</div><div class="v">0-100%</div><div class="s">多因子加權</div></div>
+    <div class="mc"><div class="k">交易策略</div><div class="v">3 Entry</div><div class="s">停損、目標、R:R</div></div>
+  </section>
+
+  <div class="section-title">Analysis Dimensions</div>
+  <section class="dim-grid">
+    <div class="dim"><div class="icon">K</div><div class="name">價格行為</div><div class="desc">K 線型態、關鍵高低點、支撐與壓力。</div></div>
+    <div class="dim"><div class="icon">MA</div><div class="name">均線結構</div><div class="desc">MA5、MA10、MA20、MA60、MA120 多空排列與乖離。</div></div>
+    <div class="dim"><div class="icon">RSI</div><div class="name">動能震盪</div><div class="desc">RSI、KD、MACD 判斷過熱、背離與轉折。</div></div>
+    <div class="dim"><div class="icon">BB</div><div class="name">布林通道</div><div class="desc">BB(20,2)、%B、Bandwidth 分析波動擴張與壓縮。</div></div>
+    <div class="dim"><div class="icon">VOL</div><div class="name">量能籌碼</div><div class="desc">成交量、均量、法人買賣超與籌碼方向。</div></div>
+    <div class="dim"><div class="icon">DOW</div><div class="name">道氏理論</div><div class="desc">短、中、長期趨勢分層判斷。</div></div>
+    <div class="dim"><div class="icon">G8</div><div class="name">葛蘭碧八法</div><div class="desc">將現價與均線關係映射到買賣法則。</div></div>
+    <div class="dim"><div class="icon">WAVE</div><div class="name">波浪與纏論</div><div class="desc">五浪、ABC、筆段中樞與頂部訊號。</div></div>
+    <div class="dim"><div class="icon">PLAN</div><div class="name">交易計畫</div><div class="desc">進場、停損、目標價、風險報酬比與操作建議。</div></div>
+  </section>
+
+  <div class="section-title">Output Spec</div>
+  <section class="card">
+    <table class="spec">
+      <thead><tr><th>區塊</th><th>內容</th><th>形式</th></tr></thead>
+      <tbody>
+        <tr><td><b>Hero</b></td><td>股票代號、名稱、現價、漲跌幅、更新日期。</td><td><span class="badge neut">HTML</span></td></tr>
+        <tr><td><b>6 張圖表</b></td><td>價格均線、MACD、RSI/KD、成交量、布林指標、支撐壓力。</td><td><span class="badge bull">Chart.js</span></td></tr>
+        <tr><td><b>訊號卡</b></td><td>每個維度用簡短中文說明，搭配多、空、警示或中性 badge。</td><td><span class="badge warn">12 rows</span></td></tr>
+        <tr><td><b>機率條</b></td><td>總回檔、技術、籌碼、波浪、基本面、長線反轉等分項。</td><td><span class="badge bear">Bars</span></td></tr>
+        <tr><td><b>策略表</b></td><td>三段進場、停損、目標、R:R、評級與操作建議。</td><td><span class="badge bull">Table</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <div class="section-title">Signal Rows</div>
+  <section class="card">
+    <div class="sr"><div class="sl">價格位於短期均線上方，但若量能無法延續，容易形成高檔震盪。</div><span class="badge warn">偏熱</span></div>
+    <div class="sr"><div class="sl">MACD 若出現柱狀體收斂，需同步觀察 RSI 是否從 70 附近回落。</div><span class="badge bear">背離風險</span></div>
+    <div class="sr"><div class="sl">若法人買超延續且回測 MA20 不破，回檔可視為趨勢整理。</div><span class="badge bull">多方支撐</span></div>
+    <div class="sr"><div class="sl">長線仍需以 MA60/MA120 方向確認，避免只用短線訊號追價。</div><span class="badge neut">等待確認</span></div>
+  </section>
+
+  <div class="section-title">Pull-back Probability</div>
+  <section class="card">
+    <div class="pb"><b>總回檔機率</b><div class="pt"><div class="pf" style="width:68%"></div></div><b>68%</b></div>
+    <div class="pb"><b>技術面</b><div class="pt"><div class="pf" style="width:72%"></div></div><b>72%</b></div>
+    <div class="pb"><b>籌碼面</b><div class="pt"><div class="pf" style="width:54%"></div></div><b>54%</b></div>
+    <div class="pb"><b>纏論與波浪</b><div class="pt"><div class="pf" style="width:63%"></div></div><b>63%</b></div>
+    <div class="pb"><b>基本面支撐</b><div class="pt"><div class="pf" style="width:36%"></div></div><b>36%</b></div>
+    <div class="pb"><b>長線反轉</b><div class="pt"><div class="pf" style="width:28%"></div></div><b>28%</b></div>
+  </section>
+
+  <div class="section-title">Workflow</div>
+  <section class="steps">
+    <div class="step"><div class="num">1</div><b>確認標的</b><span>解析股票代號與名稱，不完整時再查證。</span></div>
+    <div class="step"><div class="num">2</div><b>蒐集資料</b><span>現價、區間高低、量能、EPS、新聞與法人方向。</span></div>
+    <div class="step"><div class="num">3</div><b>計算指標</b><span>在 HTML 內用 JavaScript 計算所有技術指標。</span></div>
+    <div class="step"><div class="num">4</div><b>輸出報告</b><span>生成單一自含式 HTML，含圖表、策略與免責聲明。</span></div>
+  </section>
+
+  <div class="section-title">Examples</div>
+  <section class="examples">
+    <button class="ex" onclick="setStock('2330','台積電')"><b>2330 台積電</b><span>半導體權值股</span></button>
+    <button class="ex" onclick="setStock('3231','緯創')"><b>3231 緯創</b><span>AI 伺服器題材</span></button>
+    <button class="ex" onclick="setStock('2344','華邦電')"><b>2344 華邦電</b><span>記憶體循環</span></button>
+    <button class="ex" onclick="setStock('0050','元大台灣50')"><b>0050 元大台灣50</b><span>ETF 趨勢觀察</span></button>
+  </section>
+
+  <div class="footer">此頁為 tw-technical-analysis skill 的操作入口。分析報告僅供研究與情境推演，不構成投資建議。</div>
+</main>
+
+<script>
+const promptTemplate = (target) => `請使用 tw-technical-analysis skill，針對 ${target} 產生完整台股日線技術分析 HTML 報告。請先查證最新市場資料，包含現價、日漲跌幅、近期高低點、52 週區間、成交量、平均量、最新 EPS、重大新聞題材與法人買賣超方向。接著建立 55 個交易日的合理價格路徑，並在單一自含式 HTML 中用 JavaScript 計算 SMA(5/10/20/60/120)、MACD(12,26,9)、RSI(14)、KD(9,3,3)、Bollinger Bands(20,2)、%B、Bandwidth 與量能顏色。請用 Chart.js 4.4.1 繪製 priceChart、macdChart、rsiChart、volChart、bollChart、suppChart 六張圖，並加入 12 個分析維度、回檔機率條、道氏理論三層結論、葛蘭碧至少四條規則、波浪與纏論視覺、交易策略表、停損目標與免責聲明。最後輸出單一 HTML 檔案，並在聊天中附上 400 字內中文摘要。`;
+
+function getTarget() {
+  const code = document.getElementById("stockCode").value.trim();
+  const name = document.getElementById("stockName").value.trim();
+  return [code, name].filter(Boolean).join(" ");
+}
+
+function buildPrompt() {
+  const target = getTarget();
+  const output = document.getElementById("promptText");
+  if (!target) {
+    output.textContent = "請輸入股票代號與名稱，或點選上方快速範例。";
+    return;
+  }
+  output.innerHTML = promptTemplate(`<span class="highlight">${target}</span>`);
+  document.querySelectorAll(".chip").forEach((chip) => {
+    chip.classList.toggle("active", chip.textContent.includes(target.split(" ")[0]));
+  });
+}
+
+function setStock(code, name) {
+  document.getElementById("stockCode").value = code;
+  document.getElementById("stockName").value = name;
+  buildPrompt();
+  document.querySelector(".prompt-box").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+async function copyPrompt() {
+  const target = getTarget();
+  if (!target) {
+    alert("請先輸入股票代號或名稱。");
+    return;
+  }
+  const btn = document.getElementById("copyBtn");
+  const text = promptTemplate(target);
+  try {
+    await navigator.clipboard.writeText(text);
+    btn.textContent = "已複製";
+    btn.classList.add("copied");
+    setTimeout(() => {
+      btn.textContent = "複製";
+      btn.classList.remove("copied");
+    }, 1800);
+  } catch (error) {
+    window.prompt("請手動複製提示詞", text);
+  }
+}
+</script>
+</body>
+</html>
