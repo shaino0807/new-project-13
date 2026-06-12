@@ -39,5 +39,31 @@ token*.json
 *.db-wal
 
 *.log
+*.err
 .DS_Store
 Thumbs.db
+
+# Portable project-local skills
+!project-skills/
+!project-skills/**
+!generated-skills/
+!generated-skills/**
+!skills/
+!skills/**
+
+# Keep local Codex/Agents runtime state ignored, but allow portable skills if created there.
+.codex/*
+!.codex/skills/
+!.codex/skills/**
+.agents/*
+!.agents/skills/
+!.agents/skills/**
+
+# Project init sync additions
+desktop.ini
+*.tmp
+~$*
+package-lock.json
+credentials.*
+secrets.*
+.claude/
