@@ -46,8 +46,8 @@ If project initialization is requested later:
 - Purpose: public Taiwan stock technical-analysis Agent and reusable Codex skill/deployment workflow workspace.
 - Main working directory: `C:\Users\shaino\Documents\New project 13`
 - Default branch: `main`
-- GitHub repo: pending; GitHub CLI token is currently invalid, so repo creation/push/Pages are blocked until `gh auth login -h github.com` is refreshed.
-- GitHub Pages: workflow prepared at `.github/workflows/deploy-pages.yml`; it publishes a static `_site/` artifact built by `scripts/build-github-pages.ps1`.
+- GitHub repo: `https://github.com/shaino0807/new-project-13`.
+- GitHub Pages: `https://shaino0807.github.io/new-project-13/`; workflow at `.github/workflows/deploy-pages.yml` publishes a static `_site/` artifact built by `scripts/build-github-pages.ps1`.
 - Primary public deployment: AppDeploy, currently `https://932f5348aea14e86a7.v2.appdeploy.ai/`.
 - Obsidian vault: `G:\我的雲端硬碟\oB 與 Obsidian`
 - Obsidian project dashboard: `Projects/New project 13/專案工作流程.md`

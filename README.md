@@ -6,16 +6,22 @@ This project has been prepared for portable Codex skill restore.
 
 This workspace hosts a public Taiwan stock technical-analysis Agent, AppDeploy deployment files, and reusable Codex workflow skills.
 
-Public site:
+AppDeploy site:
 
 ```text
 https://932f5348aea14e86a7.v2.appdeploy.ai/
 ```
 
-GitHub Pages will publish a static build from the `main` branch after GitHub repo setup:
+GitHub repository:
 
 ```text
-https://<github-user>.github.io/<repo-name>/
+https://github.com/shaino0807/new-project-13
+```
+
+GitHub Pages site:
+
+```text
+https://shaino0807.github.io/new-project-13/
 ```
 
 ## Work Mode
@@ -64,7 +70,11 @@ To also restore missing project-local skills:
 
 ## GitHub Status
 
-Git is available locally. GitHub CLI currently has an invalid token, so repo creation, push, and GitHub Pages setup are blocked until re-authentication.
+GitHub repo, GitHub Pages, and GitHub Actions are configured. The Pages deployment workflow is:
+
+```text
+.github/workflows/deploy-pages.yml
+```
 
 Firebase MCP is not used by default.
 
