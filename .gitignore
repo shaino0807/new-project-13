@@ -40,6 +40,10 @@ token*.json
 
 *.log
 *.err
+rendered-*.html
+_site/
+outputs/github-pages-render.*
+outputs/pages-server.*.log
 .DS_Store
 Thumbs.db
 

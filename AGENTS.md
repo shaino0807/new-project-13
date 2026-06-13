@@ -47,7 +47,7 @@ If project initialization is requested later:
 - Main working directory: `C:\Users\shaino\Documents\New project 13`
 - Default branch: `main`
 - GitHub repo: pending; GitHub CLI token is currently invalid, so repo creation/push/Pages are blocked until `gh auth login -h github.com` is refreshed.
-- GitHub Pages: not enabled from this initialization pass.
+- GitHub Pages: workflow prepared at `.github/workflows/deploy-pages.yml`; it publishes a static `_site/` artifact built by `scripts/build-github-pages.ps1`.
 - Primary public deployment: AppDeploy, currently `https://932f5348aea14e86a7.v2.appdeploy.ai/`.
 - Obsidian vault: `G:\我的雲端硬碟\oB 與 Obsidian`
 - Obsidian project dashboard: `Projects/New project 13/專案工作流程.md`
@@ -68,6 +68,7 @@ If project initialization is requested later:
 - `tests/tests.txt`: AppDeploy QA tests.
 - `project-skills/`: portable project-local skills.
 - `scripts/project-init-sync.ps1`: non-destructive project initialization check.
+- `scripts/build-github-pages.ps1`: builds the static GitHub Pages artifact with a direct AppDeploy API bridge.
 - `scripts/restore-skills.ps1`: restore missing project-local skills to the user's global Codex skills folder.
 
 ## Safety Rules
@@ -76,3 +77,13 @@ If project initialization is requested later:
 - Do not overwrite project-local skills or generated skill files without first reporting what would change.
 - Do not set up Firebase unless the user explicitly asks.
 - If GitHub authentication is broken, report it as blocked instead of pretending repo, push, or Pages operations succeeded.
+
+## Pitfalls
+
+- `.appdeploy` contains the AppDeploy API key. Keep it ignored and never commit or print it in handoff notes.
+- GitHub Pages cannot host the AppDeploy backend; Pages must use a static frontend plus the AppDeploy API base.
+- AppDeploy public frontend `/api/...` paths can return the app shell HTML; direct API probes should use `https://api-v2.appdeploy.ai/app/<app-id>/api/...`.
+- PowerShell output may display Chinese as mojibake even when UTF-8 source and browser rendering are correct.
+- Generated inline JS should avoid literal non-ASCII text under Windows PowerShell; use Unicode escapes so GitHub Pages artifacts do not inherit mojibake.
+- Remote AppDeploy patches can mangle literal Chinese or escaped newlines; verify with rendered DOM checks after deployment.
+- Treat invalid `gh` tokens as a hard blocker for repo creation, push, GitHub Pages activation, and Actions verification.

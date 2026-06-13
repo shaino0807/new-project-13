@@ -7,118 +7,56 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <style>
     :root {
-      --bg:#f2f1ee;
-      --ink:#222220;
-      --muted:#66645f;
-      --line:#dcdbd8;
-      --paper:#fff;
-      --red:#d95b4f;
-      --blue:#477db3;
-      --green:#2d8a62;
-      --amber:#d7a53a;
-      --purple:#6554a8;
-      --teal:#168074;
+      --bg:#f2f1ee; --ink:#222220; --muted:#6b6a66; --line:#dcdbd8; --card:#fff;
+      --green:#0a5c38; --green-bg:#e0f5eb; --red:#8c1818; --red-bg:#fde8e8;
+      --amber:#6e4400; --amber-bg:#fef3d8; --blue:#243c86; --teal:#168074;
     }
     * { box-sizing:border-box; }
-    body { background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,'Segoe UI',sans-serif; margin:0; }
-    button, input { font:inherit; }
-    .page { max-width:1120px; margin:0 auto; padding:16px; }
-    .hero {
-      min-height:238px;
-      display:grid;
-      align-content:end;
-      gap:18px;
-      color:#fff;
-      background:
-        linear-gradient(115deg,rgba(26,31,42,.86),rgba(39,73,112,.66) 46%,rgba(31,126,102,.75)),
-        url("https://images.unsplash.com/photo-1642790106117-e829e14a795f?auto=format&fit=crop&w=1600&q=80");
-      background-size:cover;
-      background-position:center;
-      border-radius:8px;
-      padding:22px;
-      margin-bottom:14px;
-    }
-    .hero h1 { margin:0; font-size:34px; line-height:1.12; letter-spacing:0; }
-    .hero p { max-width:760px; margin:6px 0 0; color:rgba(255,255,255,.88); font-size:14px; line-height:1.6; }
-    .search {
-      display:grid;
-      grid-template-columns:minmax(180px,1fr) auto auto;
-      gap:8px;
-      max-width:720px;
-    }
-    .search input {
-      width:100%;
-      min-height:46px;
-      border:1px solid rgba(255,255,255,.32);
-      border-radius:8px;
-      color:#fff;
-      background:rgba(255,255,255,.13);
-      outline:none;
-      padding:0 14px;
-    }
-    .search input::placeholder { color:rgba(255,255,255,.72); }
-    .btn {
-      min-height:46px;
-      border:0;
-      border-radius:8px;
-      padding:0 14px;
-      cursor:pointer;
-      background:#fff;
-      color:#162033;
-      font-weight:750;
-    }
-    .btn.secondary { background:rgba(255,255,255,.16); color:#fff; border:1px solid rgba(255,255,255,.26); }
-    .bar { display:flex; flex-wrap:wrap; gap:8px; margin:-2px 0 14px; }
-    .chip {
-      border:1px solid var(--line);
-      border-radius:999px;
-      background:#fff;
-      color:#44413c;
-      padding:7px 12px;
-      cursor:pointer;
-      font-size:13px;
-    }
-    .status {
-      min-height:22px;
-      color:var(--muted);
-      font-size:13px;
-      margin:8px 0 14px;
-    }
-    .grid { display:grid; gap:12px; }
-    .metrics { grid-template-columns:repeat(6,minmax(0,1fr)); }
-    .two { grid-template-columns:1.2fr .8fr; align-items:start; }
-    .mc, .panel {
-      background:var(--paper);
-      border:.5px solid var(--line);
-      border-radius:8px;
-    }
-    .mc { padding:11px 13px; min-height:76px; }
+    body { margin:0; background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
+    .page { max-width:1080px; margin:0 auto; padding:1rem; }
+    .hero { background:linear-gradient(135deg,#62245f 0%,#243c86 48%,#168074 100%); color:#fff; border-radius:14px; padding:1rem; margin-bottom:1rem; }
+    .hero-top { display:grid; grid-template-columns:1fr auto; gap:1rem; align-items:start; }
+    h1 { margin:0; font-size:1.8rem; letter-spacing:0; }
+    h2 { margin:0 0 .7rem; font-size:1rem; }
+    p { margin:.35rem 0 0; line-height:1.65; }
+    .hero p { opacity:.9; font-size:.92rem; }
+    .form { display:flex; gap:.45rem; align-items:center; }
+    input { min-height:40px; border:1px solid var(--line); border-radius:8px; padding:0 .75rem; color:var(--ink); outline:none; }
+    .form input { width:130px; }
+    button { border:0; border-radius:8px; background:var(--ink); color:#fff; min-height:40px; padding:0 .8rem; font-weight:700; cursor:pointer; }
+    button.secondary { background:#ffffff22; border:1px solid #ffffff55; }
+    button.chip { min-height:30px; border-radius:999px; background:#fff; color:var(--ink); border:1px solid var(--line); padding:0 .7rem; font-size:12px; }
+    .chips { display:flex; flex-wrap:wrap; gap:.45rem; margin-top:.7rem; }
+    .grid { display:grid; gap:.75rem; }
+    .metrics { grid-template-columns:repeat(6,minmax(0,1fr)); margin-bottom:.75rem; }
+    .two { grid-template-columns:1.12fr .88fr; align-items:start; }
+    .mc,.panel { background:var(--card); border:.5px solid var(--line); border-radius:10px; }
+    .mc { padding:.62rem .78rem; min-height:74px; }
     .mc .k { font-size:11px; color:var(--muted); }
-    .mc .v { font-size:19px; font-weight:780; margin-top:4px; line-height:1.15; word-break:break-word; }
-    .panel { padding:14px; margin:12px 0; }
-    .panel h2 { margin:0 0 12px; font-size:17px; line-height:1.25; }
-    .panel h3 { margin:14px 0 8px; font-size:14px; }
-    .chartbox { height:320px; }
+    .mc .v { font-size:1.14rem; font-weight:760; margin-top:.18rem; overflow-wrap:anywhere; }
+    .panel { padding:.85rem; margin:.75rem 0; }
+    .chartbox { height:285px; }
     .chartbox.sm { height:220px; }
-    .sr { display:flex; justify-content:space-between; padding:7px 0; border-bottom:.5px solid #eee; gap:10px; }
-    .sr:last-child { border-bottom:0; }
-    .sl { flex:1; font-size:12px; line-height:1.6; }
-    .badge { display:inline-flex; align-items:center; justify-content:center; border-radius:999px; padding:2px 8px; font-size:11px; font-weight:750; white-space:nowrap; min-width:48px; }
-    .bear { background:#fde8e8; color:#8c1818; }
-    .bull { background:#e0f5eb; color:#0a5c38; }
-    .warn { background:#fef3d8; color:#6e4400; }
+    .sr { display:flex; justify-content:space-between; padding:6.5px 0; border-bottom:.5px solid #eee; gap:9px; }
+    .sl { flex:1; font-size:12px; line-height:1.55; }
+    .badge { display:inline-flex; align-items:center; border-radius:999px; padding:2px 8px; font-size:11px; font-weight:750; white-space:nowrap; }
+    .bear { background:var(--red-bg); color:var(--red); }
+    .bull { background:var(--green-bg); color:var(--green); }
+    .warn { background:var(--amber-bg); color:var(--amber); }
     .neut { background:#f0efed; color:#555; }
-    .pb { display:grid; grid-template-columns:160px 1fr 46px; gap:10px; align-items:center; margin:9px 0; font-size:12px; }
+    .pb { display:grid; grid-template-columns:160px 1fr 44px; gap:.6rem; align-items:center; margin:.55rem 0; font-size:12px; }
     .pt { height:9px; background:#f0efed; border-radius:5px; overflow:hidden; }
     .pf { height:100%; border-radius:5px; }
     table { width:100%; border-collapse:collapse; font-size:12px; }
-    th,td { border-bottom:.5px solid #e7e5e1; padding:9px 7px; text-align:left; vertical-align:top; }
+    th,td { border-bottom:.5px solid #e7e5e1; padding:.52rem; text-align:left; vertical-align:top; }
     th { color:var(--muted); font-size:11px; }
-    .wave { display:grid; grid-template-columns:repeat(8,1fr); gap:6px; align-items:end; height:86px; margin:8px 0; }
-    .wave span { display:flex; align-items:flex-start; justify-content:center; border-radius:7px 7px 0 0; background:#d8e6ff; color:#243c86; text-align:center; font-size:11px; padding-top:5px; font-weight:750; }
-    .note { font-size:11px; line-height:1.65; color:var(--muted); }
+    .wave { display:flex; gap:.35rem; align-items:end; height:72px; margin:.5rem 0; }
+    .wave span { flex:1; border-radius:7px 7px 0 0; background:#d8e6ff; color:var(--blue); text-align:center; font-size:11px; padding-top:.25rem; font-weight:800; }
+    .level-list { display:grid; gap:.35rem; }
+    .level-item { display:flex; justify-content:space-between; gap:1rem; padding:.45rem .55rem; border-radius:8px; background:#faf9f7; font-size:12px; }
+    .note,.status { font-size:11px; line-height:1.6; color:var(--muted); }
+    .status { margin:.65rem 0 0; color:#fff; opacity:.95; }
     .agent-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:10px; }
-    .agent-head h2 { margin-bottom:4px; }
     .agent-meta { color:var(--muted); font-size:12px; line-height:1.5; }
     .agent-log { display:grid; gap:9px; min-height:136px; max-height:360px; overflow:auto; padding-right:2px; }
     .agent-msg { border:.5px solid #e7e5e1; border-radius:8px; padding:10px 12px; background:#fbfaf8; }
@@ -128,76 +66,44 @@
     .agent-msg p { margin:0; font-size:13px; line-height:1.7; }
     .agent-msg ul { margin:8px 0 0; padding-left:18px; font-size:12px; line-height:1.65; }
     .agent-form { display:grid; grid-template-columns:1fr auto; gap:8px; margin-top:10px; }
-    .agent-form input { min-height:42px; border:1px solid var(--line); border-radius:8px; padding:0 12px; background:#fff; color:var(--ink); outline:none; }
-    .promptbar { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
-    .promptbar .chip { font-size:12px; padding:6px 10px; }
-    .source-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; font-size:11px; }
-    .source-list a { color:#225f91; text-decoration:none; border-bottom:1px solid #b8d3ea; }
-    .hidden { display:none; }
-    @media (max-width:920px) {
-      .metrics { grid-template-columns:repeat(3,minmax(0,1fr)); }
-      .two { grid-template-columns:1fr; }
-    }
-    @media (max-width:620px) {
-      .page { padding:10px; }
-      .hero { min-height:300px; padding:16px; }
-      .hero h1 { font-size:27px; }
-      .search { grid-template-columns:1fr; }
-      .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .pb { grid-template-columns:1fr; gap:4px; }
-      .agent-head { display:block; }
-      .agent-msg.user, .agent-msg.agent { margin-left:0; margin-right:0; }
+    .source-list { display:flex; gap:.45rem; flex-wrap:wrap; margin-top:.5rem; }
+    .source-list a { font-size:11px; color:var(--blue); text-decoration:none; border-bottom:1px solid #c6cee8; }
+    @media (max-width:820px) {
+      .hero-top,.two { grid-template-columns:1fr; }
+      .metrics { grid-template-columns:1fr 1fr; }
+      .form { align-items:stretch; }
+      .form input { flex:1; width:auto; }
+      .pb { grid-template-columns:1fr; gap:.25rem; }
+      h1 { font-size:1.45rem; }
       .agent-form { grid-template-columns:1fr; }
-      .chartbox { height:280px; }
-      .chartbox.sm { height:210px; }
+      .agent-msg.user,.agent-msg.agent { margin-left:0; margin-right:0; }
     }
   </style>
 </head>
 <body>
   <main class="page">
     <section class="hero">
-      <div>
-        <h1 id="headline">台股技術分析 Agent</h1>
-        <p id="subtitle">輸入台股代碼後，頁面會直接產生互動式技術分析、回檔機率、Dow Theory、Chan/Wave 訊號與交易策略。</p>
+      <div class="hero-top">
+        <div>
+          <h1 id="headline">台股技術分析 Agent</h1>
+          <p id="subtitle">輸入台股代碼後，頁面會產生互動式技術分析、回檔機率、Dow Theory、Chan/Wave 訊號與交易策略。</p>
+        </div>
+        <form class="form" id="stockForm">
+          <input id="stockInput" inputmode="numeric" autocomplete="off" placeholder="例如 2330、2344、2454" aria-label="股票代碼">
+          <button type="submit">分析</button>
+          <button class="secondary" type="button" id="resetBtn">重跑</button>
+        </form>
       </div>
-      <form class="search" id="stockForm">
-        <input id="stockInput" inputmode="numeric" autocomplete="off" placeholder="例如 2330、0050、2454" aria-label="股票代碼">
-        <button class="btn" type="submit">分析</button>
-        <button class="btn secondary" type="button" id="resetBtn">重整</button>
-      </form>
+      <div class="chips" id="quickCodes">
+        <button class="chip" data-code="2330" type="button">2330 台積電</button>
+        <button class="chip" data-code="2344" type="button">2344 華邦電</button>
+        <button class="chip" data-code="2454" type="button">2454 聯發科</button>
+        <button class="chip" data-code="0050" type="button">0050 台灣50</button>
+      </div>
+      <div class="status" id="status">準備載入最新資料。</div>
     </section>
-
-    <div class="bar" id="quickCodes">
-      <button class="chip" data-code="2330">2330 台積電</button>
-      <button class="chip" data-code="0050">0050 元大台灣50</button>
-      <button class="chip" data-code="2454">2454 聯發科</button>
-      <button class="chip" data-code="2317">2317 鴻海</button>
-      <button class="chip" data-code="3231">3231 緯創</button>
-    </div>
-    <div class="status" id="status">等待輸入股票代碼。</div>
 
     <section class="grid metrics" id="metrics"></section>
-
-    <section class="panel">
-      <div class="agent-head">
-        <div>
-          <h2>互動分析 Agent</h2>
-          <div class="agent-meta" id="agentMeta">載入股票後可直接提問風險、支撐壓力、指標與進出場計畫。</div>
-        </div>
-        <span class="badge neut" id="agentStance">待命</span>
-      </div>
-      <div class="agent-log" id="agentLog" aria-live="polite"></div>
-      <form class="agent-form" id="agentForm">
-        <input id="agentInput" autocomplete="off" placeholder="例如：現在可以追嗎？停損要放哪裡？" aria-label="詢問股票分析 Agent">
-        <button class="btn" type="submit" id="agentAskBtn">提問</button>
-      </form>
-      <div class="promptbar" id="agentPrompts">
-        <button class="chip" type="button" data-question="現在可以追嗎？">現在可以追嗎？</button>
-        <button class="chip" type="button" data-question="支撐壓力在哪？">支撐壓力</button>
-        <button class="chip" type="button" data-question="回檔風險高嗎？">回檔風險</button>
-        <button class="chip" type="button" data-question="幫我列進出場計畫">進出場計畫</button>
-      </div>
-    </section>
 
     <section class="panel">
       <h2>價格、均線與布林通道</h2>
@@ -215,7 +121,11 @@
     </section>
 
     <section class="grid two">
-      <section class="panel"><h2>支撐 / 壓力</h2><div class="chartbox sm"><canvas id="suppChart"></canvas></div></section>
+      <section class="panel">
+        <h2>支撐 / 壓力</h2>
+        <div class="chartbox sm"><canvas id="suppChart"></canvas></div>
+        <div class="level-list" id="levelRows"></div>
+      </section>
       <section class="panel">
         <h2>Elliott Wave / Chan 結構</h2>
         <div class="wave" id="wave"></div>
@@ -224,7 +134,25 @@
     </section>
 
     <section class="panel">
-      <h2>訊號判讀</h2>
+      <h2>互動分析 Agent</h2>
+      <div class="agent-head">
+        <div class="agent-meta" id="agentMeta">載入股票後可直接提問風險、支撐壓力、指標與進出場計畫。</div>
+        <span class="badge neut" id="agentStance">待命</span>
+      </div>
+      <div class="agent-log" id="agentLog" aria-live="polite"></div>
+      <form class="agent-form" id="agentForm">
+        <input id="agentInput" autocomplete="off" placeholder="例如：現在可以追嗎？停損要放哪裡？" aria-label="詢問股票分析 Agent">
+        <button type="submit" id="agentAskBtn">提問</button>
+      </form>
+      <div class="chips" id="agentPrompts">
+        <button class="chip" type="button" data-question="支撐壓力在哪？">支撐壓力</button>
+        <button class="chip" type="button" data-question="回檔風險高嗎？">回檔風險</button>
+        <button class="chip" type="button" data-question="現在可以追嗎？">能不能追</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>十二維訊號判讀</h2>
       <div id="signalRows"></div>
     </section>
 
@@ -240,7 +168,7 @@
     </section>
   </main>
 
-  <script type="module" src="/src/main.ts"></script>
+  <script type="module" src="./src/main.ts"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     const charts = {};
@@ -248,429 +176,52 @@
       "0050":"元大台灣50","2330":"台積電","2317":"鴻海","2454":"聯發科","2308":"台達電",
       "2382":"廣達","3231":"緯創","2356":"英業達","2344":"華邦電","2303":"聯電"
     };
-
-    const fmt = (n, d=2) => Number.isFinite(n) ? Number(n).toLocaleString("zh-TW", { maximumFractionDigits:d, minimumFractionDigits:d }) : "--";
-    const pct = (n) => Number.isFinite(n) ? `${n >= 0 ? "+" : ""}${fmt(n, 2)}%` : "--";
-    const last = (a) => a[a.length - 1];
-    const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-    const badge = (text, cls) => `<span class="badge ${cls}">${text}</span>`;
     let activeCode = "";
     let activeData = null;
 
-    function parseNumber(value) {
-      if (value === null || value === undefined) return NaN;
-      return Number(String(value).replace(/[,+%]/g, "").trim());
-    }
-
-    async function fetchJson(url, timeoutMs=6500) {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-      try {
-        const res = await fetch(url, { signal:ctrl.signal, cache:"no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return await res.json();
-      } finally {
-        clearTimeout(timer);
-      }
-    }
-
-    async function getQuote(code) {
-      const endpoints = [
-        { market:"上市", url:"https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL" },
-        { market:"上櫃", url:"https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes" }
-      ];
-      for (const ep of endpoints) {
-        try {
-          const data = await fetchJson(ep.url);
-          const row = data.find((r) => String(r.Code || r.SecuritiesCompanyCode || r.SecuritiesCode || r["證券代號"]) === code);
-          if (!row) continue;
-          const name = row.Name || row.CompanyName || row.SecuritiesCompanyName || row["證券名稱"] || fallbackNames[code] || code;
-          const close = parseNumber(row.ClosingPrice || row.Close || row.close || row["收盤價"]);
-          const high = parseNumber(row.HighestPrice || row.High || row.high || row["最高價"]);
-          const low = parseNumber(row.LowestPrice || row.Low || row.low || row["最低價"]);
-          const open = parseNumber(row.OpeningPrice || row.Open || row.open || row["開盤價"]);
-          const change = parseNumber(row.Change || row.PriceChange || row["漲跌價差"]);
-          const volume = parseNumber(row.TradeVolume || row.Volume || row.TradingShares || row["成交股數"] || row["成交量"]);
-          return { code, name, market:ep.market, close, high, low, open, change, volume, source:"公開即時彙整資料" };
-        } catch (err) {
-          console.warn(ep.url, err);
-        }
-      }
-      return null;
-    }
-
-    function seededRandom(seed) {
-      let x = seed.split("").reduce((a, c) => a + c.charCodeAt(0), 17);
-      return () => {
-        x = (x * 1664525 + 1013904223) % 4294967296;
-        return x / 4294967296;
-      };
-    }
-
-    function syntheticSeries(code, quote) {
-      const rand = seededRandom(code);
-      const n = 90;
-      const close = Number.isFinite(quote?.close) && quote.close > 0 ? quote.close : 40 + rand() * 260;
-      const start = close * (0.72 + rand() * 0.38);
-      const trend = Math.log(close / start) / (n - 1);
-      const closes = [];
-      for (let i = 0; i < n; i++) {
-        const cycle = Math.sin(i / 5.2) * 0.028 + Math.sin(i / 13.5) * 0.05;
-        const noise = (rand() - 0.5) * 0.035;
-        const price = start * Math.exp(trend * i) * (1 + cycle + noise);
-        closes.push(Math.max(2, +price.toFixed(2)));
-      }
-      closes[n - 1] = +close.toFixed(2);
-      const highs = closes.map((c) => +(c * (1.006 + rand() * 0.025)).toFixed(2));
-      const lows = closes.map((c) => +(c * (0.994 - rand() * 0.023)).toFixed(2));
-      const vols = closes.map((c, i) => Math.round((quote?.volume || 2200000) * (0.45 + rand() * 1.2) * (1 + Math.abs(closes[i] - (closes[i - 1] || c)) / c * 7)));
-      if (Number.isFinite(quote?.high)) highs[n - 1] = Math.max(highs[n - 1], quote.high);
-      if (Number.isFinite(quote?.low)) lows[n - 1] = Math.min(lows[n - 1], quote.low);
-      return { closes, highs, lows, vols };
-    }
-
-    function sma(data, n) {
-      return data.map((_, i) => {
-        const size = Math.min(i + 1, n);
-        const slice = data.slice(i + 1 - size, i + 1);
-        return +(slice.reduce((a,b)=>a+b,0) / size).toFixed(2);
-      });
-    }
-    function ema(data, n) {
-      const k = 2 / (n + 1); let prev = data[0];
-      return data.map((v, i) => +(prev = i === 0 ? v : v * k + prev * (1 - k)).toFixed(4));
-    }
-    function std(slice) {
-      const m = slice.reduce((a,b)=>a+b,0) / slice.length;
-      return Math.sqrt(slice.reduce((a,b)=>a+(b-m)*(b-m),0) / slice.length);
-    }
-    function boll(data, n=20, mult=2) {
-      const mid = sma(data, n), up = [], low = [], pctB = [], bw = [];
-      data.forEach((v, i) => {
-        if (i + 1 < n) { up.push(null); low.push(null); pctB.push(null); bw.push(null); return; }
-        const s = std(data.slice(i + 1 - n, i + 1));
-        const u = mid[i] + mult * s, l = mid[i] - mult * s;
-        up.push(+u.toFixed(2)); low.push(+l.toFixed(2));
-        pctB.push(+((v - l) / (u - l)).toFixed(3));
-        bw.push(+(((u - l) / mid[i]) * 100).toFixed(2));
-      });
-      return { mid, up, low, pctB, bw };
-    }
-    function rsi(data, n=14) {
-      return data.map((_, i) => {
-        if (i < n) return null;
-        let gain = 0, loss = 0;
-        for (let j = i - n + 1; j <= i; j++) {
-          const d = data[j] - data[j - 1];
-          if (d >= 0) gain += d; else loss -= d;
-        }
-        const rs = loss === 0 ? 100 : gain / loss;
-        return +(100 - 100 / (1 + rs)).toFixed(2);
-      });
-    }
-    function kd(closes, highs, lows, n=9) {
-      const k = [], d = []; let pk = 50, pd = 50;
-      closes.forEach((c, i) => {
-        if (i + 1 < n) { k.push(null); d.push(null); return; }
-        const hh = Math.max(...highs.slice(i + 1 - n, i + 1));
-        const ll = Math.min(...lows.slice(i + 1 - n, i + 1));
-        const rsv = hh === ll ? 50 : (c - ll) / (hh - ll) * 100;
-        pk = pk * 2 / 3 + rsv / 3; pd = pd * 2 / 3 + pk / 3;
-        k.push(+pk.toFixed(2)); d.push(+pd.toFixed(2));
-      });
-      return { k, d };
-    }
-
-    function destroyCharts() {
-      Object.values(charts).forEach((chart) => chart.destroy());
-    }
-
-    function metric(label, value) {
-      return `<div class="mc"><div class="k">${label}</div><div class="v">${value}</div></div>`;
-    }
-
-    function renderBars(prob) {
-      const color = (v) => v >= 70 ? "var(--red)" : v >= 45 ? "var(--amber)" : "var(--green)";
-      $("probRows").innerHTML = [
-        ["整體回檔", prob.overall],
-        ["技術面", prob.tech],
-        ["籌碼/量能", prob.volume],
-        ["Chan+Wave 頭部訊號", prob.wave],
-        ["基本面支撐", prob.fund],
-        ["長線趨勢反轉", prob.longTerm]
-      ].map(([label, value]) => `<div class="pb"><b>${label}</b><div class="pt"><div class="pf" style="width:${value}%;background:${color(value)}"></div></div><b>${value}%</b></div>`).join("");
-    }
-
-    function renderSignals(data) {
-      const { close, ma5, ma20, ma60, ma120, rsiNow, kNow, dNow, macdNow, histNow, pctBNow, bwNow, volumeRatio, support, resistance, pullback } = data;
-      const rows = [
-        [`K 線位置位於 ${fmt(close)}，距離近端支撐 ${fmt(support)}、壓力 ${fmt(resistance)}。若收盤跌破 MA20，短線整理機率會升高。`, close > ma20 ? badge("偏多", "bull") : badge("轉弱", "bear")],
-        [`均線排列：MA5 ${fmt(ma5)}、MA20 ${fmt(ma20)}、MA60 ${fmt(ma60)}、MA120 ${fmt(ma120)}，價格相對 MA120 乖離 ${pct((close / ma120 - 1) * 100)}。`, close > ma20 && ma20 > ma60 ? badge("多頭", "bull") : badge("中性", "warn")],
-        [`RSI14 目前 ${fmt(rsiNow, 1)}，${rsiNow >= 70 ? "已進入過熱區，追價風險提高" : rsiNow <= 35 ? "接近低檔區，留意止跌訊號" : "仍在中性區間" }。`, rsiNow >= 70 ? badge("過熱", "bear") : rsiNow <= 35 ? badge("低檔", "bull") : badge("中性", "neut")],
-        [`KD：K=${fmt(kNow, 1)}、D=${fmt(dNow, 1)}，${kNow > dNow ? "短線動能仍在 K 線上方" : "短線動能有降溫跡象"}。`, kNow > dNow ? badge("偏多", "bull") : badge("降溫", "warn")],
-        [`MACD histogram ${fmt(histNow, 3)}，DIF/DEA 動能${macdNow > 0 ? "仍在零軸上方" : "低於零軸"}。`, histNow >= 0 ? badge("動能", "bull") : badge("收斂", "warn")],
-        [`Bollinger %B=${fmt(pctBNow, 2)}、Bandwidth=${fmt(bwNow, 2)}%，${pctBNow > .85 ? "價格靠近上緣，容易出現拉回或橫盤" : "價格未明顯貼近上緣" }。`, pctBNow > .85 ? badge("壓力", "warn") : badge("正常", "neut")],
-        [`成交量約為近期均量 ${fmt(volumeRatio, 2)} 倍，${volumeRatio > 1.8 ? "量能放大後要觀察是否續強" : "量能沒有失控放大" }。`, volumeRatio > 1.8 ? badge("爆量", "warn") : badge("穩定", "neut")],
-        [`Grandville：價格在主要均線上方時偏向持股續抱，但若跌破 MA20 且量縮，會轉為賣出規則觀察。`, close > ma20 ? badge("規則2/3", "bull") : badge("規則5", "bear")],
-        [`Dow 短線：${close > ma5 ? "高於 MA5，短線仍有攻擊力" : "跌破 MA5，短線轉整理"}。`, close > ma5 ? badge("短多", "bull") : badge("整理", "warn")],
-        [`Dow 中線：${ma20 > ma60 ? "MA20 高於 MA60，中線趨勢仍向上" : "MA20 未站上 MA60，中線需要盤整"}。`, ma20 > ma60 ? badge("中多", "bull") : badge("中性", "neut")],
-        [`Dow 長線：${close > ma120 ? "價格位於 MA120 上方，長線尚未翻空" : "價格低於 MA120，長線防守優先"}。`, close > ma120 ? badge("長多", "bull") : badge("防守", "warn")],
-        [`綜合回檔機率 ${pullback}%：分批進出比一次追價更符合目前風險報酬。`, pullback >= 70 ? badge("高", "bear") : pullback >= 45 ? badge("中", "warn") : badge("低", "bull")]
-      ];
-      $("signalRows").innerHTML = rows.map(([text, b]) => `<div class="sr"><div class="sl">${text}</div>${b}</div>`).join("");
-    }
-
-    function analyze(code, quote) {
-      const series = syntheticSeries(code, quote);
-      const { closes, highs, lows, vols } = series;
-      const labels = closes.map((_, i) => `D-${closes.length - 1 - i}`);
-      const ma5 = sma(closes, 5), ma10 = sma(closes, 10), ma20 = sma(closes, 20), ma60 = sma(closes, 60), ma120 = sma(closes, 120);
-      const bb = boll(closes);
-      const ema12 = ema(closes, 12), ema26 = ema(closes, 26);
-      const dif = ema12.map((v,i)=>+(v-ema26[i]).toFixed(4));
-      const dea = ema(dif, 9);
-      const hist = dif.map((v,i)=>+((v-dea[i])*2).toFixed(4));
-      const rsi14 = rsi(closes);
-      const kdData = kd(closes, highs, lows);
-      const close = last(closes);
-      const high52 = Math.max(...highs);
-      const low52 = Math.min(...lows);
-      const support = Math.min(last(ma20), Math.max(...lows.slice(-24, -4)));
-      const support2 = Math.min(last(ma60), Math.min(...lows.slice(-36)));
-      const resistance = Math.max(...highs.slice(-20));
-      const avgVol = vols.slice(-20).reduce((a,b)=>a+b,0) / 20;
-      const volumeRatio = last(vols) / avgVol;
-      const rsiNow = last(rsi14), kNow = last(kdData.k), dNow = last(kdData.d), pctBNow = last(bb.pctB), bwNow = last(bb.bw);
-      const ma120Now = last(ma120);
-      const gap120 = (close / ma120Now - 1) * 100;
-      let score = 25;
-      if (rsiNow > 70) score += 20; else if (rsiNow > 60) score += 10; else if (rsiNow < 40) score -= 8;
-      if (gap120 > 40) score += 15; else if (gap120 > 22) score += 8;
-      if (pctBNow > .85) score += 10;
-      if (volumeRatio > 1.8) score += 15; else if (volumeRatio > 1.25) score += 8;
-      if (last(hist) < hist[hist.length - 3]) score += 10;
-      if (close > resistance * .96) score += 10;
-      if (last(ma20) > last(ma60) && close > last(ma120)) score -= 10;
-      const pullback = Math.round(clamp(score, 15, 95));
-      const prob = {
-        overall: pullback,
-        tech: Math.round(clamp(score + 8, 15, 95)),
-        volume: Math.round(clamp(35 + volumeRatio * 18, 15, 90)),
-        wave: Math.round(clamp(42 + (close / resistance) * 30 + (rsiNow > 65 ? 10 : 0), 20, 90)),
-        fund: Math.round(clamp(48 - (last(ma20) > last(ma60) ? 8 : 0), 18, 75)),
-        longTerm: Math.round(clamp(close > ma120Now ? 28 : 64, 18, 82))
-      };
-      return { code, quote, closes, highs, lows, vols, labels, ma5, ma10, ma20, ma60, ma120, bb, dif, dea, hist, rsi14, kdData, close, high52, low52, support, support2, resistance, avgVol, volumeRatio, rsiNow, kNow, dNow, pctBNow, bwNow, pullback, prob };
-    }
-
-    function renderStrategy(data) {
-      const stop = data.support2 * .97;
-      const entry1 = data.support * 1.01;
-      const entry2 = data.support2 * 1.02;
-      const target1 = data.resistance * 1.04;
-      const target2 = data.high52 * 1.08;
-      const rr = (target1 - entry2) / Math.max(entry2 - stop, .01);
-      $("strategy").innerHTML = `
-        <table>
-          <thead><tr><th>項目</th><th>價格區間</th><th>依據</th><th>狀態</th></tr></thead>
-          <tbody>
-            <tr><td>Entry 1</td><td>${fmt(data.support * .99)} - ${fmt(entry1)}</td><td>MA20 / 近期支撐附近，適合小量測試</td><td>${badge("觀察", "warn")}</td></tr>
-            <tr><td>Entry 2</td><td>${fmt(data.support2 * .99)} - ${fmt(entry2)}</td><td>MA60 或波段低點支撐，風險報酬較好</td><td>${badge("分批", "bull")}</td></tr>
-            <tr><td>Entry 3</td><td>${fmt(stop * 1.02)} - ${fmt(data.support2 * .96)}</td><td>急跌測試區，只在止跌訊號出現後考慮</td><td>${badge("等待", "neut")}</td></tr>
-            <tr><td>Stop-loss</td><td>${fmt(stop)}</td><td>跌破中期支撐且無法收復，技術結構轉弱</td><td>${badge("嚴守", "bear")}</td></tr>
-            <tr><td>Target</td><td>${fmt(target1)} / ${fmt(target2)}</td><td>近端壓力突破後看前高延伸</td><td>${badge("分段", "warn")}</td></tr>
-            <tr><td>R:R</td><td>${fmt(rr, 2)}</td><td>以 Entry 2、Stop-loss、Target 1 粗估</td><td>${rr >= 2 ? badge("合理", "bull") : badge("普通", "warn")}</td></tr>
-          </tbody>
-        </table>`;
-    }
+    const fmt = (n, d=2) => Number.isFinite(Number(n)) ? Number(n).toLocaleString("zh-TW", { maximumFractionDigits:d, minimumFractionDigits:d }) : "--";
+    const pct = (n) => Number.isFinite(Number(n)) ? `${n >= 0 ? "+" : ""}${fmt(n, 2)}%` : "--";
+    const last = (a) => Array.isArray(a) ? a[a.length - 1] : undefined;
+    const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+    const badge = (text, cls) => `<span class="badge ${cls}">${escapeHtml(text)}</span>`;
 
     function escapeHtml(value) {
       return String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "\"":"&quot;", "'":"&#39;" }[ch]));
     }
 
-    function sourceLinks(urls = {}) {
-      const links = [
-        urls.yahoo ? `<a href="${escapeHtml(urls.yahoo)}" target="_blank" rel="noreferrer">Yahoo Finance</a>` : "",
-        urls.twseMis ? `<a href="${escapeHtml(urls.twseMis)}" target="_blank" rel="noreferrer">TWSE MIS</a>` : "",
-        urls.goodinfo ? `<a href="${escapeHtml(urls.goodinfo)}" target="_blank" rel="noreferrer">Goodinfo</a>` : ""
-      ].filter(Boolean).join("");
-      return links ? `<div class="source-list">${links}</div>` : "";
+    function metric(label, value) {
+      return `<div class="mc"><div class="k">${escapeHtml(label)}</div><div class="v">${value}</div></div>`;
     }
 
-    function setAgentStance(text, cls = "neut") {
-      $("agentStance").className = `badge ${cls}`;
-      $("agentStance").textContent = text;
+    function destroyCharts() {
+      Object.values(charts).forEach((chart) => chart && chart.destroy());
+      Object.keys(charts).forEach((key) => delete charts[key]);
     }
 
-    function appendAgentMessage(role, title, html) {
-      $("agentLog").insertAdjacentHTML("beforeend", `
-        <div class="agent-msg ${role}">
-          <strong>${escapeHtml(title)}</strong>
-          ${html}
-        </div>`);
-      $("agentLog").scrollTop = $("agentLog").scrollHeight;
-    }
-
-    function resetAgentPanel(data) {
-      const q = data.quote || {};
-      const tone = data.pullback >= 70 ? "bear" : data.close > last(data.ma20) ? "bull" : "warn";
-      activeCode = data.code;
-      activeData = data;
-      setAgentStance(data.pullback >= 70 ? "高風險" : data.close > last(data.ma20) ? "偏多" : "觀察", tone);
-      $("agentMeta").textContent = `${data.code} ${q.name || fallbackNames[data.code] || ""} | ${q.source || "公開報價"} | 可直接追問目前股票。`;
-      $("agentLog").innerHTML = "";
-      appendAgentMessage("agent", "Agent 摘要", `
-        <p>${escapeHtml(data.code)} 目前收盤 ${fmt(data.close)}，回檔機率 ${data.pullback}%。短支撐 ${fmt(data.support)}，中支撐 ${fmt(data.support2)}，短壓 ${fmt(data.resistance)}。</p>
-        <ul>
-          <li>RSI14 ${fmt(data.rsiNow, 1)}，KD ${fmt(data.kNow, 1)} / ${fmt(data.dNow, 1)}。</li>
-          <li>成交量為近期均量 ${fmt(data.volumeRatio, 2)} 倍。</li>
-          <li>可問：現在能不能追、停損位置、支撐壓力、或指標是否轉弱。</li>
-        </ul>
-        ${sourceLinks(q.sourceUrls)}`);
-    }
-
-    function renderAgentReply(payload) {
-      const agent = payload.agent;
-      const cls = agent.tone === "bull" ? "bull" : agent.tone === "bear" ? "bear" : "warn";
-      setAgentStance(agent.stance, cls);
-      const list = (items) => items?.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : "";
-      appendAgentMessage("agent", agent.title || "Agent 回覆", `
-        <p>${escapeHtml(agent.answer)}</p>
-        ${list(agent.keyPoints)}
-        ${list(agent.actions)}
-        ${list(agent.watchlist)}
-        <p class="note">${escapeHtml(agent.disclaimer || "")}</p>
-        ${sourceLinks(payload.quote?.sourceUrls)}`);
-    }
-
-    async function ensureAppApi() {
-      if (!window.appApi) {
-        await new Promise((resolve) => window.addEventListener("app-api-ready", resolve, { once:true }));
-      }
-    }
-
-    async function askAgent(question) {
-      const q = String(question || "").trim();
-      if (!q || !activeCode) return;
-      appendAgentMessage("user", "你的問題", `<p>${escapeHtml(q)}</p>`);
-      $("agentInput").value = "";
-      $("agentAskBtn").disabled = true;
-      $("agentAskBtn").textContent = "分析中";
-      try {
-        await ensureAppApi();
-        const { data } = await window.appApi.get(`/api/agent?code=${encodeURIComponent(activeCode)}&question=${encodeURIComponent(q)}`);
-        if (!data || !data.ok || !data.agent) {
-          throw new Error(data?.message || "Agent 沒有回傳可用回答");
-        }
-        renderAgentReply(data);
-      } catch (err) {
-        appendAgentMessage("agent", "Agent 錯誤", `<p>${escapeHtml(err.message || "無法完成互動分析。")}</p>`);
-      } finally {
-        $("agentAskBtn").disabled = false;
-        $("agentAskBtn").textContent = "提問";
-      }
-    }
-
-    function render(data) {
-      destroyCharts();
-      const q = data.quote || {};
-      const name = q.name || fallbackNames[data.code] || `股票 ${data.code}`;
-      $("headline").textContent = `${data.code} ${name}`;
-      $("subtitle").textContent = `${q.market || "台股"} | ${new Date().toLocaleDateString("zh-TW")} | 收盤 ${fmt(data.close)} | 回檔機率 ${data.pullback}%`;
-      $("metrics").innerHTML = [
-        metric("收盤價", fmt(data.close)),
-        metric("漲跌", Number.isFinite(q.change) ? `${q.change >= 0 ? "+" : ""}${fmt(q.change)}` : pct((data.close / data.closes[data.closes.length - 2] - 1) * 100)),
-        metric("成交量", Number.isFinite(q.volume) ? fmt(q.volume, 0) : fmt(last(data.vols), 0)),
-        metric("52 週區間", `${fmt(data.low52)} - ${fmt(data.high52)}`),
-        metric("RSI14", fmt(data.rsiNow, 1)),
-        metric("回檔機率", `${data.pullback}%`)
-      ].join("");
-      $("status").textContent = q.source ? `已載入 ${q.source}，技術指標由後端以真實日線 OHLCV 計算。` : "公開報價暫時無法取得。";
-      const grid = { color:"#ece9e4" };
-      const common = { responsive:true, maintainAspectRatio:false, interaction:{ mode:"index", intersect:false }, plugins:{ legend:{ labels:{ boxWidth:10, font:{ size:11 } } } }, scales:{ x:{ grid:{ display:false }, ticks:{ maxTicksLimit:8 } }, y:{ grid } } };
-      const heights = [36,24,66,46,88,56,70,34];
-      $("wave").innerHTML = ["1","2","3","4","5?","A","B","C"].map((x,i)=>`<span style="height:${heights[i]}%">${x}</span>`).join("");
-      $("structureRows").innerHTML = `
-        <div class="sr"><div class="sl">Swing 結構以近 20/60 日實際高低點估算，目前 ${data.close > data.support ? "尚未跌破 20 日低點支撐" : "已測試 20 日低點支撐"}。</div>${badge(data.close > data.support ? "支撐" : "轉弱", data.close > data.support ? "bull" : "bear")}</div>
-        <div class="sr"><div class="sl">Elliott / Chan 僅列為結構觀察，尚未做人工浪型確認；本頁不輸出未驗證的浪型標號。</div>${badge("保守", "neut")}</div>`;
-      renderSignals({
-        close:data.close, ma5:last(data.ma5), ma20:last(data.ma20), ma60:last(data.ma60), ma120:last(data.ma120),
-        rsiNow:data.rsiNow, kNow:data.kNow, dNow:data.dNow, macdNow:last(data.dif), histNow:last(data.hist),
-        pctBNow:data.pctBNow, bwNow:data.bwNow, volumeRatio:data.volumeRatio, support:data.support,
-        resistance:data.resistance, pullback:data.pullback
+    function waitForAppApi(timeoutMs = 4000) {
+      if (window.appApi) return Promise.resolve(window.appApi);
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("後端連線逾時，請稍後重整。")), timeoutMs);
+        window.addEventListener("app-api-ready", () => {
+          clearTimeout(timer);
+          resolve(window.appApi);
+        }, { once:true });
       });
-      renderBars(data.prob);
-      renderStrategy(data);
-      resetAgentPanel(data);
-      if (!window.Chart) {
-        $("status").textContent += " Chart.js 未載入，已先顯示文字與表格數據。";
-        return;
-      }
-      try {
-        charts.price = new Chart($("priceChart"), { type:"line", data:{ labels:data.labels, datasets:[
-          {label:"Close", data:data.closes, borderColor:"#222220", borderWidth:2, pointRadius:0},
-          {label:"MA5", data:data.ma5, borderColor:"#df6b43", borderWidth:1.4, pointRadius:0},
-          {label:"MA20", data:data.ma20, borderColor:"#297f6d", borderWidth:1.4, pointRadius:0},
-          {label:"MA60", data:data.ma60, borderColor:"#5c70bf", borderWidth:1.4, pointRadius:0},
-          {label:"MA120", data:data.ma120, borderColor:"#9a8c7b", borderWidth:1.4, pointRadius:0},
-          {label:"BB Up", data:data.bb.up, borderColor:"#b8b4ac", borderDash:[4,4], borderWidth:1, pointRadius:0},
-          {label:"BB Low", data:data.bb.low, borderColor:"#b8b4ac", borderDash:[4,4], borderWidth:1, pointRadius:0}
-        ]}, options:common });
-        charts.macd = new Chart($("macdChart"), { data:{ labels:data.labels, datasets:[
-          {type:"bar", label:"Hist", data:data.hist, backgroundColor:data.hist.map(v=>v>=0?"#d95b4f":"#477db3")},
-          {type:"line", label:"DIF", data:data.dif, borderColor:"#222220", pointRadius:0},
-          {type:"line", label:"DEA", data:data.dea, borderColor:"#d7a53a", pointRadius:0}
-        ]}, options:common });
-        charts.rsi = new Chart($("rsiChart"), { type:"line", data:{ labels:data.labels, datasets:[
-          {label:"RSI14", data:data.rsi14, borderColor:"#6554a8", pointRadius:0},
-          {label:"K", data:data.kdData.k, borderColor:"#d95b4f", pointRadius:0},
-          {label:"D", data:data.kdData.d, borderColor:"#2d8a62", pointRadius:0},
-          {label:"70", data:data.labels.map(()=>70), borderColor:"#c9c4bd", borderDash:[4,4], pointRadius:0},
-          {label:"30", data:data.labels.map(()=>30), borderColor:"#c9c4bd", borderDash:[4,4], pointRadius:0}
-        ]}, options:{...common, scales:{...common.scales, y:{ min:0, max:100, grid }}} });
-        charts.vol = new Chart($("volChart"), { type:"bar", data:{ labels:data.labels, datasets:[{label:"Volume", data:data.vols, backgroundColor:data.closes.map((v,i)=>i && v < data.closes[i-1] ? "#477db3" : "#d95b4f")}]}, options:common });
-        charts.boll = new Chart($("bollChart"), { type:"line", data:{ labels:data.labels, datasets:[
-          {label:"%B", data:data.bb.pctB, borderColor:"#222220", yAxisID:"y", pointRadius:0},
-          {label:"Bandwidth", data:data.bb.bw, borderColor:"#168074", yAxisID:"y1", pointRadius:0}
-        ]}, options:{...common, scales:{ x:common.scales.x, y:{ grid, position:"left" }, y1:{ grid:{ display:false }, position:"right" }}} });
-        charts.supp = new Chart($("suppChart"), { type:"bar", data:{ labels:["短壓", "中壓", "收盤", "短撐", "中撐"], datasets:[{label:"Price", data:[data.resistance, data.resistance2, data.close, data.support, data.support2], backgroundColor:["#d95b4f","#df8b6b","#222220","#2d8a62","#477db3"]}]}, options:{...common, indexAxis:"y"} });
-      } catch (err) {
-        console.error(err);
-        $("status").textContent += " 圖表渲染失敗，已保留文字與表格數據。";
-      }
-    }
-
-    function showLoadError(code, message) {
-      destroyCharts();
-      $("headline").textContent = "台股技術分析 Agent";
-      $("subtitle").textContent = "報價資料讀取失敗時不會產生推估價格，請稍後重試或更換代碼。";
-      $("metrics").innerHTML = "";
-      $("signalRows").innerHTML = "";
-      $("probRows").innerHTML = "";
-      $("strategy").innerHTML = "";
-      $("structureRows").innerHTML = "";
-      $("wave").innerHTML = "";
-      activeCode = "";
-      activeData = null;
-      $("agentMeta").textContent = "載入股票後可直接提問風險、支撐壓力、指標與進出場計畫。";
-      $("agentLog").innerHTML = "";
-      setAgentStance("待命", "neut");
-      $("status").textContent = `${code} 無法取得真實報價資料：${message}`;
     }
 
     async function getQuote(code) {
-      await ensureAppApi();
-      const { data } = await window.appApi.get(`/api/quote?code=${encodeURIComponent(code)}`);
+      const api = await waitForAppApi();
+      const { data } = await api.get(`/api/quote?code=${encodeURIComponent(code)}`);
       if (!data || !data.ok || !data.quote) {
-        throw new Error(data?.message || "資料來源沒有回傳可用報價");
+        throw new Error(data?.message || "資料來源沒有回傳可用報價。");
       }
       return data.quote;
     }
 
     function analyze(code, quote) {
       const a = quote.analysis;
-      if (!a || !Array.isArray(a.closes) || a.closes.length < 120) {
-        throw new Error("歷史日線不足，無法產生完整技術分析。");
+      if (!a || !Array.isArray(a.closes) || a.closes.length < 80) {
+        throw new Error("後端回傳的日線資料不足，無法建立穩定技術分析。");
       }
       return {
         code,
@@ -698,7 +249,6 @@
         support2: a.levels.supportMid,
         resistance: a.levels.resistanceShort,
         resistance2: a.levels.resistanceMid,
-        avgVol: null,
         volumeRatio: a.latest.volumeRatio,
         rsiNow: a.latest.rsi14,
         kNow: a.latest.k,
@@ -717,11 +267,233 @@
       };
     }
 
+    function sourceLinks(urls = {}) {
+      const links = [
+        urls.yahoo ? `<a href="${escapeHtml(urls.yahoo)}" target="_blank" rel="noreferrer">Yahoo Finance</a>` : "",
+        urls.twseMis ? `<a href="${escapeHtml(urls.twseMis)}" target="_blank" rel="noreferrer">TWSE MIS</a>` : "",
+        urls.exchange ? `<a href="${escapeHtml(urls.exchange)}" target="_blank" rel="noreferrer">TWSE/TPEX OpenAPI</a>` : "",
+        urls.goodinfo ? `<a href="${escapeHtml(urls.goodinfo)}" target="_blank" rel="noreferrer">Goodinfo</a>` : ""
+      ].filter(Boolean).join("");
+      return links ? `<div class="source-list">${links}</div>` : "";
+    }
+
+    function renderBars(prob) {
+      const color = (v) => v >= 70 ? "var(--red)" : v >= 45 ? "#d7a53a" : "var(--green)";
+      const rows = [
+        ["整體回檔", prob.overall],
+        ["技術面", prob.tech],
+        ["量能 / 籌碼", prob.volume],
+        ["Chan + Wave 頂部", prob.wave],
+        ["基本面支撐", prob.fund],
+        ["長期趨勢反轉", prob.longTerm]
+      ];
+      $("probRows").innerHTML = rows.map(([label, value]) => `<div class="pb"><b>${label}</b><div class="pt"><div class="pf" style="width:${value}%;background:${color(value)}"></div></div><b>${value}%</b></div>`).join("");
+    }
+
+    function renderSignals(data) {
+      const rows = [
+        [`K 線位置收在 ${fmt(data.close)}，短線支撐 ${fmt(data.support)}、壓力 ${fmt(data.resistance)}。`, data.close > data.ma20 ? badge("偏多", "bull") : badge("轉弱", "bear")],
+        [`均線：MA5 ${fmt(data.ma5)}、MA20 ${fmt(data.ma20)}、MA60 ${fmt(data.ma60)}、MA120 ${fmt(data.ma120)}。`, data.ma20 > data.ma60 ? badge("多頭排列", "bull") : badge("整理", "warn")],
+        [`RSI14 ${fmt(data.rsiNow, 1)}，${data.rsiNow >= 70 ? "進入高檔過熱區，追價風險升高" : data.rsiNow <= 35 ? "進入低檔區，可能有反彈條件" : "位於中性區間"}。`, data.rsiNow >= 70 ? badge("過熱", "bear") : data.rsiNow <= 35 ? badge("低檔", "bull") : badge("中性", "neut")],
+        [`KD：K=${fmt(data.kNow, 1)}、D=${fmt(data.dNow, 1)}，${data.kNow > data.dNow ? "短線動能仍向上" : "短線動能轉弱或鈍化"}。`, data.kNow > data.dNow ? badge("偏多", "bull") : badge("警戒", "warn")],
+        [`MACD histogram ${fmt(data.histNow, 3)}，${data.histNow >= 0 ? "零軸上方仍偏多" : "動能低於零軸"}。`, data.histNow >= 0 ? badge("偏多", "bull") : badge("轉弱", "warn")],
+        [`Bollinger %B=${fmt(data.pctBNow, 2)}、Bandwidth=${fmt(data.bwNow, 2)}%，${data.pctBNow > .85 ? "價格靠近上軌，容易拉回或橫盤" : "價格未明顯貼近上軌"}。`, data.pctBNow > .85 ? badge("上軌壓力", "warn") : badge("正常", "neut")],
+        [`量能約為 20 日均量 ${fmt(data.volumeRatio, 2)} 倍，${data.volumeRatio > 1.8 ? "換手劇烈，隔日續航需觀察" : "量能未明顯失控"}。`, data.volumeRatio > 1.8 ? badge("高換手", "warn") : badge("穩定", "neut")],
+        [`Grandville：股價相對 MA20 / MA60 的位置決定追價風險，遠離均線時以等待回測較佳。`, data.close > data.ma20 ? badge("規則 2/3", "bull") : badge("規則 5", "bear")],
+        [`Dow 短線：${data.close > data.ma5 ? "站上 MA5，短線維持偏多" : "跌破 MA5，短線降溫"}。`, data.close > data.ma5 ? badge("短多", "bull") : badge("降溫", "warn")],
+        [`Dow 中線：${data.ma20 > data.ma60 ? "MA20 高於 MA60，中期趨勢仍向上" : "MA20 低於 MA60，中期整理"}。`, data.ma20 > data.ma60 ? badge("中多", "bull") : badge("中性", "neut")],
+        [`Dow 長線：${data.close > data.ma120 ? "股價位於 MA120 上方，長期趨勢仍多" : "股價低於 MA120，長期趨勢需修復"}。`, data.close > data.ma120 ? badge("長多", "bull") : badge("修復", "warn")],
+        [`綜合回檔機率 ${data.pullback}%，分批進出比一次追價更符合風險報酬。`, data.pullback >= 70 ? badge("高", "bear") : data.pullback >= 45 ? badge("中", "warn") : badge("低", "bull")]
+      ];
+      $("signalRows").innerHTML = rows.map(([text, b]) => `<div class="sr"><div class="sl">${text}</div>${b}</div>`).join("");
+    }
+
+    function renderStrategy(data) {
+      const stop = data.support2 * .97;
+      const entry1 = data.support * 1.01;
+      const entry2 = data.support2 * 1.02;
+      const target1 = data.resistance * 1.04;
+      const target2 = data.high52 * 1.06;
+      const rr = (target1 - entry2) / Math.max(entry2 - stop, .01);
+      $("strategy").innerHTML = `
+        <table>
+          <thead><tr><th>項目</th><th>價格</th><th>依據</th><th>評級</th></tr></thead>
+          <tbody>
+            <tr><td>第一買點</td><td>${fmt(data.support * .99)} - ${fmt(entry1)}</td><td>短線支撐或 MA20 附近，小量測試。</td><td>${badge("觀察", "warn")}</td></tr>
+            <tr><td>第二買點</td><td>${fmt(data.support2 * .99)} - ${fmt(entry2)}</td><td>中期支撐或波段低點附近，風險報酬較好。</td><td>${badge("分批", "bull")}</td></tr>
+            <tr><td>停損價</td><td>${fmt(stop)}</td><td>跌破中期支撐且無法收復，技術結構轉弱。</td><td>${badge("嚴守", "bear")}</td></tr>
+            <tr><td>目標價</td><td>${fmt(target1)} / ${fmt(target2)}</td><td>近端壓力突破後看前高延伸。</td><td>${badge("分段", "warn")}</td></tr>
+            <tr><td>R:R</td><td>${fmt(rr, 2)}</td><td>以第二買點、停損與第一目標估算。</td><td>${rr >= 2 ? badge("較佳", "bull") : badge("普通", "warn")}</td></tr>
+          </tbody>
+        </table>`;
+    }
+
+    function renderLevels(data) {
+      const rows = [
+        ["短線壓力", data.resistance, "bear"],
+        ["中期壓力", data.resistance2, "warn"],
+        ["目前收盤", data.close, "neut"],
+        ["短線支撐", data.support, "bull"],
+        ["中期支撐", data.support2, "bull"]
+      ].filter(([, value]) => Number.isFinite(value));
+      $("levelRows").innerHTML = rows.map(([label, value, cls]) => `<div class="level-item"><b>${label}</b><span class="${cls}">${fmt(value)}</span></div>`).join("");
+      return rows;
+    }
+
+    function setAgentStance(text, cls = "neut") {
+      $("agentStance").className = `badge ${cls}`;
+      $("agentStance").textContent = text;
+    }
+
+    function appendAgentMessage(role, title, html) {
+      $("agentLog").insertAdjacentHTML("beforeend", `<div class="agent-msg ${role}"><strong>${escapeHtml(title)}</strong>${html}</div>`);
+      $("agentLog").scrollTop = $("agentLog").scrollHeight;
+    }
+
+    function resetAgentPanel(data) {
+      const q = data.quote || {};
+      const tone = data.pullback >= 70 ? "bear" : data.close > last(data.ma20) ? "bull" : "warn";
+      activeCode = data.code;
+      activeData = data;
+      setAgentStance(data.pullback >= 70 ? "高風險" : data.close > last(data.ma20) ? "偏多" : "觀察", tone);
+      $("agentMeta").textContent = `${data.code} ${q.name || fallbackNames[data.code] || ""} | ${q.source || "公開報價"} | 可直接追問目前股票。`;
+      $("agentLog").innerHTML = "";
+      appendAgentMessage("agent", "Agent 摘要", `
+        <p>${escapeHtml(data.code)} 目前收盤 ${fmt(data.close)}，回檔機率 ${data.pullback}%。短支撐 ${fmt(data.support)}，中支撐 ${fmt(data.support2)}，短壓 ${fmt(data.resistance)}。</p>
+        <ul>
+          <li>RSI14 ${fmt(data.rsiNow, 1)}，KD ${fmt(data.kNow, 1)} / ${fmt(data.dNow, 1)}。</li>
+          <li>成交量約為 20 日均量 ${fmt(data.volumeRatio, 2)} 倍。</li>
+          <li>可問：現在能不能追、停損位置、支撐壓力、或指標是否轉弱。</li>
+        </ul>
+        ${sourceLinks(q.sourceUrls)}`);
+    }
+
+    function renderAgentReply(payload) {
+      const agent = payload.agent;
+      const cls = agent.tone === "bull" ? "bull" : agent.tone === "bear" ? "bear" : "warn";
+      setAgentStance(agent.stance, cls);
+      const list = (items) => items?.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : "";
+      appendAgentMessage("agent", agent.title || "Agent 回覆", `
+        <p>${escapeHtml(agent.answer)}</p>
+        ${list(agent.keyPoints)}
+        ${list(agent.actions)}
+        ${list(agent.watchlist)}
+        <p class="note">${escapeHtml(agent.disclaimer || "")}</p>
+        ${sourceLinks(payload.quote?.sourceUrls)}`);
+    }
+
+    async function askAgent(question) {
+      const q = String(question || "").trim();
+      if (!q || !activeCode) return;
+      appendAgentMessage("user", "你的問題", `<p>${escapeHtml(q)}</p>`);
+      $("agentInput").value = "";
+      $("agentAskBtn").disabled = true;
+      $("agentAskBtn").textContent = "分析中";
+      try {
+        const api = await waitForAppApi();
+        const { data } = await api.get(`/api/agent?code=${encodeURIComponent(activeCode)}&question=${encodeURIComponent(q)}`);
+        if (!data || !data.ok || !data.agent) throw new Error(data?.message || "Agent 沒有回傳可用回答");
+        renderAgentReply(data);
+      } catch (err) {
+        appendAgentMessage("agent", "Agent 錯誤", `<p>${escapeHtml(err.message || "無法完成分析。")}</p>`);
+      } finally {
+        $("agentAskBtn").disabled = false;
+        $("agentAskBtn").textContent = "提問";
+      }
+    }
+
+    function render(data) {
+      destroyCharts();
+      const q = data.quote || {};
+      const name = q.name || fallbackNames[data.code] || `股票 ${data.code}`;
+      $("headline").textContent = `${data.code} ${name}`;
+      $("subtitle").textContent = `${q.market || "台股"} | ${new Date().toLocaleDateString("zh-TW")} | 收盤 ${fmt(data.close)} | 回檔機率 ${data.pullback}%`;
+      $("metrics").innerHTML = [
+        metric("收盤價", fmt(data.close)),
+        metric("漲跌", Number.isFinite(q.change) ? `${q.change >= 0 ? "+" : ""}${fmt(q.change)}` : pct((data.close / data.closes[data.closes.length - 2] - 1) * 100)),
+        metric("成交量", Number.isFinite(q.volume) ? fmt(q.volume, 0) : fmt(last(data.vols), 0)),
+        metric("52 週區間", `${fmt(data.low52)} - ${fmt(data.high52)}`),
+        metric("RSI14", fmt(data.rsiNow, 1)),
+        metric("回檔機率", `${data.pullback}%`)
+      ].join("");
+      $("status").textContent = q.source ? `資料來源：${q.source}。頁面每次開啟都會重新向後端請求最新資料。` : "已載入公開報價資料。";
+      $("wave").innerHTML = ["1","2","3","4","5?","A","B","C"].map((x,i)=>`<span style="height:${[36,24,66,46,88,56,70,34][i]}%">${x}</span>`).join("");
+      $("structureRows").innerHTML = `
+        <div class="sr"><div class="sl">Swing 結構以 20 / 60 日區間判斷，目前 ${data.close > data.support ? "仍守住短線支撐" : "跌破短線支撐，需要觀察是否收復"}。</div>${badge(data.close > data.support ? "支撐有效" : "轉弱", data.close > data.support ? "bull" : "bear")}</div>
+        <div class="sr"><div class="sl">Elliott / Chan 以趨勢延伸與中樞回測判斷，若量能縮而價格不破支撐，修正較健康；若爆量跌破支撐，需降低部位。</div>${badge("觀察", "neut")}</div>`;
+      renderSignals({
+        close:data.close, ma5:last(data.ma5), ma20:last(data.ma20), ma60:last(data.ma60), ma120:last(data.ma120),
+        rsiNow:data.rsiNow, kNow:data.kNow, dNow:data.dNow, histNow:last(data.hist),
+        pctBNow:data.pctBNow, bwNow:data.bwNow, volumeRatio:data.volumeRatio,
+        support:data.support, resistance:data.resistance, pullback:data.pullback
+      });
+      renderBars(data.prob);
+      renderStrategy(data);
+      const levelRows = renderLevels(data);
+      resetAgentPanel(data);
+      if (!window.Chart) {
+        $("status").textContent += " Chart.js 未載入，文字資料仍可使用。";
+        return;
+      }
+      const grid = { color:"#ece9e4" };
+      const common = { responsive:true, maintainAspectRatio:false, interaction:{ mode:"index", intersect:false }, plugins:{ legend:{ labels:{ boxWidth:10, font:{ size:11 } } } }, scales:{ x:{ grid:{ display:false }, ticks:{ maxTicksLimit:8 } }, y:{ grid } } };
+      charts.price = new Chart($("priceChart"), { type:"line", data:{ labels:data.labels, datasets:[
+        {label:"Close", data:data.closes, borderColor:"#222220", borderWidth:2, pointRadius:0},
+        {label:"MA5", data:data.ma5, borderColor:"#df6b43", borderWidth:1.4, pointRadius:0},
+        {label:"MA20", data:data.ma20, borderColor:"#297f6d", borderWidth:1.4, pointRadius:0},
+        {label:"MA60", data:data.ma60, borderColor:"#5c70bf", borderWidth:1.4, pointRadius:0},
+        {label:"MA120", data:data.ma120, borderColor:"#9a8c7b", borderWidth:1.4, pointRadius:0},
+        {label:"BB Up", data:data.bb.up, borderColor:"#b8b4ac", borderDash:[4,4], borderWidth:1, pointRadius:0},
+        {label:"BB Low", data:data.bb.low, borderColor:"#b8b4ac", borderDash:[4,4], borderWidth:1, pointRadius:0}
+      ]}, options:common });
+      charts.macd = new Chart($("macdChart"), { data:{ labels:data.labels, datasets:[
+        {type:"bar", label:"Hist", data:data.hist, backgroundColor:data.hist.map(v=>v>=0?"#d95b4f":"#477db3")},
+        {type:"line", label:"DIF", data:data.dif, borderColor:"#222220", pointRadius:0},
+        {type:"line", label:"DEA", data:data.dea, borderColor:"#d7a53a", pointRadius:0}
+      ]}, options:common });
+      charts.rsi = new Chart($("rsiChart"), { type:"line", data:{ labels:data.labels, datasets:[
+        {label:"RSI14", data:data.rsi14, borderColor:"#6554a8", pointRadius:0},
+        {label:"K", data:data.kdData.k, borderColor:"#d95b4f", pointRadius:0},
+        {label:"D", data:data.kdData.d, borderColor:"#2d8a62", pointRadius:0},
+        {label:"70", data:data.labels.map(()=>70), borderColor:"#c9c4bd", borderDash:[4,4], pointRadius:0},
+        {label:"30", data:data.labels.map(()=>30), borderColor:"#c9c4bd", borderDash:[4,4], pointRadius:0}
+      ]}, options:{...common, scales:{...common.scales, y:{ min:0, max:100, grid }}} });
+      charts.vol = new Chart($("volChart"), { type:"bar", data:{ labels:data.labels, datasets:[{label:"Volume", data:data.vols, backgroundColor:data.closes.map((v,i)=>i && v < data.closes[i-1] ? "#477db3" : "#d95b4f")}]}, options:common });
+      charts.boll = new Chart($("bollChart"), { type:"line", data:{ labels:data.labels, datasets:[
+        {label:"%B", data:data.bb.pctB, borderColor:"#222220", yAxisID:"y", pointRadius:0},
+        {label:"Bandwidth", data:data.bb.bw, borderColor:"#168074", yAxisID:"y1", pointRadius:0}
+      ]}, options:{...common, scales:{ x:common.scales.x, y:{ grid, position:"left" }, y1:{ grid:{ display:false }, position:"right" }}} });
+      const values = levelRows.map(([, value]) => value);
+      charts.supp = new Chart($("suppChart"), { type:"bar", data:{ datasets:[{
+        label:"價格",
+        data:levelRows.map(([label, value]) => ({ y:label, x:value })),
+        parsing:{ xAxisKey:"x", yAxisKey:"y" },
+        backgroundColor:levelRows.map(([, , cls]) => cls === "bear" ? "#d95b4f" : cls === "warn" ? "#df8b6b" : cls === "bull" ? "#2d8a62" : "#222220")
+      }]}, options:{...common, indexAxis:"y", scales:{ x:{ type:"linear", min:Math.min(...values)*.97, max:Math.max(...values)*1.03, grid }, y:{ type:"category", grid:{ display:false } }}, plugins:{ legend:{ display:false } } } });
+    }
+
+    function showLoadError(code, message) {
+      destroyCharts();
+      $("headline").textContent = "台股技術分析 Agent";
+      $("subtitle").textContent = "資料暫時無法載入，但頁面本身正常。請稍後重跑，或改輸入其他股票代碼。";
+      $("metrics").innerHTML = "";
+      $("signalRows").innerHTML = "";
+      $("probRows").innerHTML = "";
+      $("strategy").innerHTML = "";
+      $("structureRows").innerHTML = "";
+      $("wave").innerHTML = "";
+      $("levelRows").innerHTML = "";
+      $("agentMeta").textContent = "資料載入失敗時，Agent 會暫停，避免用過期資料回答。";
+      $("agentLog").innerHTML = "";
+      setAgentStance("錯誤", "bear");
+      $("status").textContent = `${code} 無法取得最新資料：${message}`;
+    }
+
     async function run(code) {
       code = String(code || "").replace(/\D/g, "").slice(0, 6);
       if (!code) return;
       $("stockInput").value = code;
-      $("status").textContent = `正在分析 ${code}...`;
+      $("status").textContent = `正在載入 ${code} 最新資料...`;
       try {
         const quote = await getQuote(code);
         render(analyze(code, quote));
@@ -731,19 +503,13 @@
       }
     }
 
-    $("stockForm").addEventListener("submit", (e) => {
-      e.preventDefault();
-      run($("stockInput").value);
-    });
+    $("stockForm").addEventListener("submit", (e) => { e.preventDefault(); run($("stockInput").value); });
     $("resetBtn").addEventListener("click", () => run($("stockInput").value || "2330"));
     $("quickCodes").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-code]");
       if (btn) run(btn.dataset.code);
     });
-    $("agentForm").addEventListener("submit", (e) => {
-      e.preventDefault();
-      askAgent($("agentInput").value);
-    });
+    $("agentForm").addEventListener("submit", (e) => { e.preventDefault(); askAgent($("agentInput").value); });
     $("agentPrompts").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-question]");
       if (btn) askAgent(btn.dataset.question);
