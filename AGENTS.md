@@ -83,6 +83,7 @@ If project initialization is requested later:
 - `.appdeploy` contains the AppDeploy API key. Keep it ignored and never commit or print it in handoff notes.
 - GitHub Pages cannot host the AppDeploy backend; Pages must use a static frontend plus the AppDeploy API base.
 - AppDeploy public frontend `/api/...` paths can return the app shell HTML; direct API probes should use `https://api-v2.appdeploy.ai/app/<app-id>/api/...`.
+- Do not use `new URL("/api/...", appDeployApiBase)` in the Pages bridge because it strips the `/app/<app-id>` segment.
 - PowerShell output may display Chinese as mojibake even when UTF-8 source and browser rendering are correct.
 - Generated inline JS should avoid literal non-ASCII text under Windows PowerShell; use Unicode escapes so GitHub Pages artifacts do not inherit mojibake.
 - Remote AppDeploy patches can mangle literal Chinese or escaped newlines; verify with rendered DOM checks after deployment.

@@ -93,6 +93,7 @@ Publish path:
 - Do not commit `.appdeploy`; it contains the AppDeploy API key and must stay ignored.
 - GitHub Pages is static hosting only. The stock quote and Agent endpoints still need AppDeploy or another backend.
 - The AppDeploy public frontend URL may return HTML for direct `/api/...` probes; direct backend checks should use `https://api-v2.appdeploy.ai/app/<app-id>/api/...`.
+- In browser code, `new URL("/api/quote", "https://api-v2.appdeploy.ai/app/<app-id>")` drops the `/app/<app-id>` path. Concatenate the AppDeploy API base and normalized route path instead.
 - PowerShell console output can show mojibake even when browser DOM renders Traditional Chinese correctly; verify with UTF-8 reads or browser DOM checks.
 - Windows PowerShell can corrupt non-ASCII text inside generated HTML/JS when a script is saved or interpreted with the wrong encoding. Prefer ASCII-safe Unicode escapes for generated inline JS.
 - AppDeploy diff/upload can corrupt literal Chinese or escaped newlines in fragile patches; use ASCII-safe escaping for risky remote patches and verify the rendered page.

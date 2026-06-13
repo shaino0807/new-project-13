@@ -20,8 +20,9 @@ $bridgeTemplate = @'
   <script>
     window.appApi = {
       async get(path) {
-        const url = new URL(path, "__APPDEPLOY_API_BASE__");
-        const response = await fetch(url.toString(), {
+        const apiBase = "__APPDEPLOY_API_BASE__";
+        const normalizedPath = path.startsWith("/") ? path : "/" + path;
+        const response = await fetch(apiBase + normalizedPath, {
           headers: { "Accept": "application/json" }
         });
         const text = await response.text();
