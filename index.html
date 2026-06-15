@@ -30,7 +30,7 @@
     .grid { display:grid; gap:.75rem; }
     .metrics { grid-template-columns:repeat(6,minmax(0,1fr)); margin-bottom:.75rem; }
     .two { grid-template-columns:1.12fr .88fr; align-items:start; }
-    .mc,.panel { background:var(--card); border:.5px solid var(--line); border-radius:10px; }
+    .mc,.panel { background:var(--card); border:.5px solid var(--line); border-radius:10px; min-width:0; }
     .mc { padding:.62rem .78rem; min-height:74px; }
     .mc .k { font-size:11px; color:var(--muted); }
     .mc .v { font-size:1.14rem; font-weight:760; margin-top:.18rem; overflow-wrap:anywhere; }
@@ -49,6 +49,7 @@
     .pf { height:100%; border-radius:5px; }
     table { width:100%; border-collapse:collapse; font-size:12px; }
     th,td { border-bottom:.5px solid #e7e5e1; padding:.52rem; text-align:left; vertical-align:top; }
+    td,th { overflow-wrap:anywhere; word-break:break-word; }
     th { color:var(--muted); font-size:11px; }
     .wave { display:flex; gap:.35rem; align-items:end; height:72px; margin:.5rem 0; }
     .wave span { flex:1; border-radius:7px 7px 0 0; background:#d8e6ff; color:var(--blue); text-align:center; font-size:11px; padding-top:.25rem; font-weight:800; }
@@ -56,6 +57,7 @@
     .level-item { display:flex; justify-content:space-between; gap:1rem; padding:.45rem .55rem; border-radius:8px; background:#faf9f7; font-size:12px; }
     .note,.status { font-size:11px; line-height:1.6; color:var(--muted); }
     .status { margin:.65rem 0 0; color:#fff; opacity:.95; }
+    .status { overflow-wrap:anywhere; }
     .agent-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:10px; }
     .agent-meta { color:var(--muted); font-size:12px; line-height:1.5; }
     .agent-log { display:grid; gap:9px; min-height:136px; max-height:360px; overflow:auto; padding-right:2px; }
@@ -68,15 +70,40 @@
     .agent-form { display:grid; grid-template-columns:1fr auto; gap:8px; margin-top:10px; }
     .source-list { display:flex; gap:.45rem; flex-wrap:wrap; margin-top:.5rem; }
     .source-list a { font-size:11px; color:var(--blue); text-decoration:none; border-bottom:1px solid #c6cee8; }
+    .control-row { display:flex; flex-wrap:wrap; gap:.65rem; align-items:center; margin-bottom:.7rem; }
+    .control-row label { font-size:12px; color:var(--muted); display:flex; align-items:center; gap:.45rem; }
+    .control-row input { width:150px; min-height:34px; }
+    .decision-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.6rem; }
+    .decision-card,.horizon-card,.news-item { border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.72rem; min-width:0; }
+    .decision-card b,.horizon-card b,.news-item b { display:block; font-size:12px; margin-bottom:.24rem; }
+    .decision-card > span { display:block; font-size:1.05rem; font-weight:780; overflow-wrap:anywhere; }
+    .decision-card p,.horizon-card p,.news-item p { font-size:12px; line-height:1.65; margin:.25rem 0 0; }
+    .horizon-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.6rem; }
+    .news-list { display:grid; gap:.55rem; }
+    .news-meta { display:flex; flex-wrap:wrap; gap:.35rem; margin:.35rem 0; }
+    .news-item a { color:var(--blue); text-decoration:none; border-bottom:1px solid #c6cee8; }
     @media (max-width:820px) {
       .hero-top,.two { grid-template-columns:1fr; }
-      .metrics { grid-template-columns:1fr 1fr; }
-      .form { align-items:stretch; }
-      .form input { flex:1; width:auto; }
+      .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .decision-grid,.horizon-grid { grid-template-columns:1fr; }
+      .form { align-items:stretch; flex-wrap:wrap; }
+      .form input { flex:1 1 100%; width:auto; }
+      .form button { flex:1 1 0; min-width:0; }
+      button.chip { flex:1 1 calc(50% - .45rem); white-space:normal; line-height:1.25; }
+      .mc .v { font-size:1rem; line-height:1.3; }
       .pb { grid-template-columns:1fr; gap:.25rem; }
+      table { table-layout:fixed; font-size:11px; }
+      th,td { padding:.44rem .35rem; }
       h1 { font-size:1.45rem; }
       .agent-form { grid-template-columns:1fr; }
       .agent-msg.user,.agent-msg.agent { margin-left:0; margin-right:0; }
+    }
+    @media (max-width:520px) {
+      .metrics { grid-template-columns:1fr; }
+      table, thead, tbody, tr, th, td { display:block; width:100%; }
+      thead { display:none; }
+      tr { border-bottom:.5px solid #e7e5e1; padding:.35rem 0; }
+      td { border-bottom:0; padding:.22rem .1rem; }
     }
   </style>
 </head>
@@ -104,6 +131,39 @@
     </section>
 
     <section class="grid metrics" id="metrics"></section>
+
+    <section class="panel">
+      <div class="control-row">
+        <h2>小資決策卡</h2>
+        <label>每月可投入
+          <input id="monthlyBudget" type="number" min="1000" step="500" value="10000" aria-label="每月可投入金額">
+        </label>
+      </div>
+      <div class="decision-grid" id="retailDecision"></div>
+      <p class="note">金額只用來估算分批與停損承受度，不會送出或儲存。</p>
+    </section>
+
+    <section class="grid two">
+      <section class="panel">
+        <h2>買點好壞判斷</h2>
+        <div id="entryQuality"></div>
+      </section>
+      <section class="panel">
+        <h2>基本面白話化</h2>
+        <div id="plainFundamentals"></div>
+      </section>
+    </section>
+
+    <section class="panel">
+      <h2>短中長線分層</h2>
+      <div class="horizon-grid" id="horizonRows"></div>
+    </section>
+
+    <section class="panel">
+      <h2>新聞關聯分析</h2>
+      <div id="newsRows" class="news-list"></div>
+      <p class="note" id="newsNote">輸入股票後會搜尋外部新聞來源，並判讀關聯性與影響方向。</p>
+    </section>
 
     <section class="panel">
       <h2>價格、均線與布林通道</h2>
@@ -277,6 +337,159 @@
       return links ? `<div class="source-list">${links}</div>` : "";
     }
 
+    function budgetValue() {
+      return Math.max(0, Number($("monthlyBudget")?.value || 0));
+    }
+
+    function stopPrice(data) {
+      return data.support2 * .97;
+    }
+
+    function maNow(data, key) {
+      return last(data[key]);
+    }
+
+    function decisionLabel(data) {
+      const ma20 = maNow(data, "ma20");
+      const ma60 = maNow(data, "ma60");
+      if (data.pullback >= 72 || data.rsiNow >= 72 || data.close > data.resistance * .98) return ["不要追", "bear", "價格接近壓力或指標偏熱，先等回檔比追價合理。"];
+      if (data.close <= data.support * 1.03 && data.pullback < 62) return ["偏低", "bull", "接近短線支撐，適合用小金額測試，不適合一次買滿。"];
+      if (data.close > ma20 && ma20 >= ma60) return ["合理", "bull", "趨勢仍在，但要用分批和停損控制回撤。"];
+      if (data.close < ma60) return ["偏高或轉弱", "warn", "價格結構未修復，先觀察是否站回中期均線。"];
+      return ["合理", "warn", "訊號混合，先用小部位觀察，等方向更清楚再加碼。"];
+    }
+
+    function preferredHorizon(data) {
+      const ma20 = maNow(data, "ma20");
+      const ma60 = maNow(data, "ma60");
+      const ma120 = maNow(data, "ma120");
+      if (data.close > ma120 && ma20 > ma60 && data.pullback < 55) return "中線 / 長期";
+      if (data.close > ma20 && data.volumeRatio < 1.8) return "短線 / 中線";
+      if (data.pullback >= 70) return "只適合觀察";
+      return "短線觀察";
+    }
+
+    function renderRetailDecision(data) {
+      const budget = budgetValue();
+      const [label, cls, reason] = decisionLabel(data);
+      const batches = budget >= data.close * 3 ? 3 : budget >= data.close * 2 ? 2 : 1;
+      const maxSingle = batches > 1 ? budget / batches : budget;
+      const shares = data.close > 0 ? Math.floor(maxSingle / data.close) : 0;
+      const lossPerShare = Math.max(0, data.close - stopPrice(data));
+      const lossAtSingle = shares * lossPerShare;
+      $("retailDecision").innerHTML = [
+        `<div class="decision-card"><b>現在位置</b><span>${badge(label, cls)}</span><p>${reason}</p></div>`,
+        `<div class="decision-card"><b>適合週期</b><span>${escapeHtml(preferredHorizon(data))}</span><p>用目前趨勢、回檔風險和均線排列判斷。</p></div>`,
+        `<div class="decision-card"><b>分批方式</b><span>${batches} 次</span><p>每月 ${fmt(budget, 0)} 元，單次上限約 ${fmt(maxSingle, 0)} 元。</p></div>`,
+        `<div class="decision-card"><b>停損承受</b><span>${fmt(lossAtSingle, 0)} 元</span><p>以 ${shares} 股、停損 ${fmt(stopPrice(data))} 估算。</p></div>`
+      ].join("");
+    }
+
+    function renderEntryQuality(data) {
+      const stop = stopPrice(data);
+      const lossPerShare = Math.max(0, data.close - stop);
+      const shares1000 = data.close > 0 ? Math.floor(1000 / data.close) : 0;
+      const ma20 = maNow(data, "ma20");
+      const ma60 = maNow(data, "ma60");
+      const mode = data.close > data.resistance * .98
+        ? ["追高", "bear", "靠近短線壓力，風險報酬不划算。"]
+        : data.close <= data.support * 1.03
+          ? ["回檔低接", "bull", "接近短線支撐，可小量測試，但跌破要停損。"]
+          : data.close > ma20 && ma20 >= ma60
+            ? ["趨勢轉強確認", "bull", "趨勢仍向上，適合等拉回或分批，不適合重壓。"]
+            : ["風險報酬不明", "warn", "方向不夠清楚，先等支撐或量價訊號。"];
+      $("entryQuality").innerHTML = `
+        <div class="sr"><div class="sl">${mode[2]}</div>${badge(mode[0], mode[1])}</div>
+        <table>
+          <thead><tr><th>買法</th><th>估算停損損失</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td>買 1 股</td><td>${fmt(lossPerShare, 0)} 元</td><td>用來理解單股風險。</td></tr>
+            <tr><td>買 10 股</td><td>${fmt(lossPerShare * 10, 0)} 元</td><td>小額測試時較容易控制情緒。</td></tr>
+            <tr><td>1000 元零股</td><td>${shares1000 ? `${fmt(lossPerShare * shares1000, 0)} 元` : "不足 1 股"}</td><td>${shares1000 ? `約 ${shares1000} 股。` : "金額低於目前股價，需提高金額或改看低價標的。"}</td></tr>
+          </tbody>
+        </table>`;
+    }
+
+    function renderHorizons(data) {
+      const ma5 = maNow(data, "ma5");
+      const ma20 = maNow(data, "ma20");
+      const ma60 = maNow(data, "ma60");
+      const ma120 = maNow(data, "ma120");
+      const rows = [
+        {
+          title: "短線 1-4 週",
+          badge: data.close > ma5 && data.volumeRatio < 2 ? badge("可觀察", "bull") : badge("保守", "warn"),
+          body: `看量價、新聞與籌碼情緒。RSI ${fmt(data.rsiNow, 1)}，量能 ${fmt(data.volumeRatio, 2)} 倍。`
+        },
+        {
+          title: "中線 1-6 個月",
+          badge: ma20 >= ma60 ? badge("趨勢向上", "bull") : badge("整理", "warn"),
+          body: `看月營收、趨勢與產業事件。目前 MA20 ${ma20 >= ma60 ? "高於" : "低於"} MA60。`
+        },
+        {
+          title: "長期 1 年以上",
+          badge: data.close > ma120 && data.pullback < 65 ? badge("可追蹤", "bull") : badge("需驗證", "warn"),
+          body: `看獲利能力、產業方向與估值是否過熱。目前與 52 週高點距離約 ${pct((data.close / data.high52 - 1) * 100)}。`
+        }
+      ];
+      $("horizonRows").innerHTML = rows.map((row) => `
+        <div class="horizon-card">
+          <b>${row.title}</b>
+          ${row.badge}
+          <p>${row.body}</p>
+        </div>`).join("");
+    }
+
+    function renderPlainFundamentals(data) {
+      const nearHigh = data.close > data.high52 * .88;
+      const trendOk = data.close > maNow(data, "ma120") && maNow(data, "ma20") >= maNow(data, "ma60");
+      const rows = [
+        ["公司有沒有賺錢", "尚未接入 EPS 與損益表，不能直接判斷，只能先看價格是否反映市場期待。", "warn"],
+        ["成長有沒有變慢", "需接月營收與季報；目前用量價判斷市場是否開始降溫。", data.volumeRatio > 1.8 && data.pullback > 60 ? "bear" : "warn"],
+        ["股價是不是太貴", nearHigh ? "接近 52 週高檔，不能只因題材就追價。" : "未貼近 52 週高檔，但仍要看營收與估值。", nearHigh ? "bear" : "neut"],
+        ["現金流穩不穩", "尚未接入現金流量表，應先標成資料不足，避免假裝知道。", "warn"],
+        ["是不是只靠題材在漲", trendOk ? "趨勢支持度較高，但仍要用新聞與營收驗證。" : "趨勢支持不足，若新聞很熱更要防題材退燒。", trendOk ? "bull" : "warn"]
+      ];
+      $("plainFundamentals").innerHTML = rows.map(([text, desc, cls]) => `<div class="sr"><div class="sl"><b>${text}</b><br>${desc}</div>${badge(cls === "bull" ? "較佳" : cls === "bear" ? "警戒" : "待補", cls)}</div>`).join("");
+    }
+
+    async function getNews(code, name) {
+      const api = await waitForAppApi();
+      const { data } = await api.get(`/api/news?code=${encodeURIComponent(code)}&name=${encodeURIComponent(name || "")}`);
+      return data;
+    }
+
+    function renderNews(payload) {
+      const items = Array.isArray(payload?.items) ? payload.items : [];
+      $("newsNote").textContent = payload?.note || "新聞資料暫時無法載入。";
+      if (!items.length) {
+        $("newsRows").innerHTML = `<div class="news-item"><b>沒有可判讀新聞</b><p>${escapeHtml(payload?.note || "外部來源沒有回傳資料。")}</p></div>`;
+        return;
+      }
+      $("newsRows").innerHTML = items.slice(0, 6).map((item) => `
+        <div class="news-item">
+          <b><a href="${escapeHtml(item.link)}" target="_blank" rel="noreferrer">${escapeHtml(item.title)}</a></b>
+          <div class="news-meta">
+            ${badge(item.relation || "未分類", item.relation === "直接相關" ? "bull" : item.relation === "間接相關" ? "warn" : "neut")}
+            ${badge(item.sentiment || "中性", item.sentiment === "利多" ? "bull" : item.sentiment === "利空" ? "bear" : "neut")}
+            ${badge(item.horizon || "中線", "neut")}
+            ${badge(`信心 ${item.confidence || 0}%`, (item.confidence || 0) >= 70 ? "bull" : (item.confidence || 0) >= 45 ? "warn" : "neut")}
+          </div>
+          <p>${escapeHtml(item.impact || "需再確認與公司營收、毛利、估值或情緒的關係。")}</p>
+          <p class="note">${escapeHtml(item.source || "新聞來源")} ${item.publishedAt ? `| ${new Date(item.publishedAt).toLocaleDateString("zh-TW")}` : ""}</p>
+        </div>`).join("");
+    }
+
+    async function loadAndRenderNews(data) {
+      $("newsRows").innerHTML = `<div class="news-item"><b>正在搜尋新聞</b><p>會判讀直接相關、間接相關、雜訊、利多利空與影響週期。</p></div>`;
+      $("newsNote").textContent = "新聞由外部來源即時搜尋，結果會隨時間變動。";
+      try {
+        renderNews(await getNews(data.code, data.quote?.name || fallbackNames[data.code] || ""));
+      } catch (err) {
+        renderNews({ ok:false, items:[], note: "新聞來源暫時不可用，主分析仍可使用。" });
+      }
+    }
+
     function renderBars(prob) {
       const color = (v) => v >= 70 ? "var(--red)" : v >= 45 ? "#d7a53a" : "var(--green)";
       const rows = [
@@ -417,6 +630,11 @@
         metric("回檔機率", `${data.pullback}%`)
       ].join("");
       $("status").textContent = q.source ? `資料來源：${q.source}。頁面每次開啟都會重新向後端請求最新資料。` : "已載入公開報價資料。";
+      renderRetailDecision(data);
+      renderEntryQuality(data);
+      renderHorizons(data);
+      renderPlainFundamentals(data);
+      loadAndRenderNews(data);
       $("wave").innerHTML = ["1","2","3","4","5?","A","B","C"].map((x,i)=>`<span style="height:${[36,24,66,46,88,56,70,34][i]}%">${x}</span>`).join("");
       $("structureRows").innerHTML = `
         <div class="sr"><div class="sl">Swing 結構以 20 / 60 日區間判斷，目前 ${data.close > data.support ? "仍守住短線支撐" : "跌破短線支撐，需要觀察是否收復"}。</div>${badge(data.close > data.support ? "支撐有效" : "轉弱", data.close > data.support ? "bull" : "bear")}</div>
@@ -480,6 +698,12 @@
       $("signalRows").innerHTML = "";
       $("probRows").innerHTML = "";
       $("strategy").innerHTML = "";
+      $("retailDecision").innerHTML = "";
+      $("entryQuality").innerHTML = "";
+      $("horizonRows").innerHTML = "";
+      $("plainFundamentals").innerHTML = "";
+      $("newsRows").innerHTML = "";
+      $("newsNote").textContent = "資料載入失敗，新聞分析暫停。";
       $("structureRows").innerHTML = "";
       $("wave").innerHTML = "";
       $("levelRows").innerHTML = "";
@@ -513,6 +737,9 @@
     $("agentPrompts").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-question]");
       if (btn) askAgent(btn.dataset.question);
+    });
+    $("monthlyBudget").addEventListener("input", () => {
+      if (activeData) renderRetailDecision(activeData);
     });
     run(new URLSearchParams(location.search).get("code") || "2330");
   </script>

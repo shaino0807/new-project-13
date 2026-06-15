@@ -470,6 +470,15 @@ const server = http.createServer(async (req, res) => {
       });
       return;
     }
+    if (url.pathname === "/api/news") {
+      sendJson(res, 200, {
+        ok: false,
+        source: "Local preview",
+        items: [],
+        note: "本機預覽未連接外部新聞來源；部署後由 AppDeploy 後端搜尋 Google News RSS。",
+      });
+      return;
+    }
     if (url.pathname === "/src/main.ts") {
       sendText(res, 200, appApiShim, "application/javascript; charset=utf-8");
       return;

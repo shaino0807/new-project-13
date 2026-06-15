@@ -8,7 +8,7 @@ Steps:
 1. Navigate to the app.
 2. Wait for the page to fully load.
 
-Expected: The page shows the title "台股技術分析 Agent" or a loaded stock heading, plus metric cards and the status text mentioning a data source or latest data request.
+Expected: The page shows the title "台股技術分析 Agent" or a loaded stock heading, plus metric cards, 小資決策卡, 買點好壞判斷, 短中長線分層, 基本面白話化, 新聞關聯分析, and the status text mentioning a data source or latest data request.
 
 ## Test 2 - Visitor can analyze 2344
 Viewport: desktop
@@ -20,7 +20,18 @@ Steps:
 3. Click the analysis button.
 4. Wait for the heading and metrics to update.
 
-Expected: The page shows "2344" with stock metrics,回檔機率,支撐 / 壓力,十二維訊號判讀, and source links or source status text.
+Expected: The page shows "2344" with stock metrics, 小資決策卡, 回檔機率, 支撐 / 壓力, 十二維訊號判讀, and source links or source status text.
+
+## Test 2A - Visitor can change monthly budget
+Viewport: desktop
+Description: Verifies the small-budget card uses a visitor-provided monthly amount.
+
+Steps:
+1. Navigate to the app.
+2. Wait for the default stock analysis to load.
+3. Change 每月可投入 to "5000".
+
+Expected: 小資決策卡 updates the 分批方式 and 停損承受 values without reloading the page.
 
 ## Test 3 - Agent answers a follow-up question
 Viewport: desktop
@@ -44,7 +55,7 @@ Steps:
 3. Click the analysis button.
 4. Scroll through the page.
 
-Expected: Price, MACD, RSI/KD, volume, Bollinger, support/resistance charts,回檔機率 bars, and the strategy table are visible.
+Expected: Price, MACD, RSI/KD, volume, Bollinger, support/resistance charts, 回檔機率 bars, 小資決策卡, 買點好壞判斷, 短中長線分層, 基本面白話化, 新聞關聯分析, and the strategy table are visible.
 
 ## Test 5 - Mobile page remains readable
 Viewport: mobile
@@ -55,4 +66,15 @@ Steps:
 2. Enter "0050" and run analysis.
 3. Scroll from top to bottom.
 
-Expected: The input, metric cards, charts, signal rows, Agent panel, and strategy table are readable without horizontal scrolling.
+Expected: The input, metric cards, 小資決策卡, 買點好壞判斷, 短中長線分層, 新聞關聯分析, charts, signal rows, Agent panel, and strategy table are readable without horizontal scrolling.
+
+## Test 6 - News relation module handles external data
+Viewport: desktop
+Description: Verifies latest-news analysis is visible and does not block the quote analysis if the external source is unavailable.
+
+Steps:
+1. Navigate to the app.
+2. Wait for the default stock analysis to load.
+3. Observe 新聞關聯分析.
+
+Expected: The section either lists news cards tagged as 直接相關 / 間接相關 / 無關雜訊 with 利多 / 利空 / 中性, impact horizon, confidence, and possible impact, or shows a clear unavailable-source message while the rest of the page remains usable.

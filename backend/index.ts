@@ -73,6 +73,24 @@ async function fetchJson(url: string, timeoutMs = 9000) {
   }
 }
 
+async function fetchText(url: string, timeoutMs = 9000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        Accept: "application/rss+xml,application/xml,text/xml,text/html,*/*",
+      },
+    });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return await res.text();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchYahooChart(code: string) {
   const suffixes = code.includes(".") ? [""] : [".TW", ".TWO"];
   const hosts = ["query1.finance.yahoo.com", "query2.finance.yahoo.com"];
@@ -186,6 +204,132 @@ async function fetchExchangeSnapshot(code: string) {
   }
 
   throw new Error(errors.join("; "));
+}
+
+type NewsItem = {
+  title: string;
+  link: string;
+  source: string;
+  publishedAt: string | null;
+  snippet: string;
+};
+
+function decodeXml(value: string) {
+  return String(value || "")
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#x2F;/g, "/");
+}
+
+function stripTags(value: string) {
+  return decodeXml(value).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function tagValue(xml: string, tag: string) {
+  const match = xml.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, "i"));
+  return match ? decodeXml(match[1]).trim() : "";
+}
+
+function parseRssItems(xml: string): NewsItem[] {
+  return Array.from(xml.matchAll(/<item\b[\s\S]*?<\/item>/gi)).slice(0, 8).map((match) => {
+    const item = match[0];
+    const pubDate = tagValue(item, "pubDate");
+    const date = pubDate ? new Date(pubDate) : null;
+    const source = tagValue(item, "source") || "Google News";
+    return {
+      title: stripTags(tagValue(item, "title")),
+      link: stripTags(tagValue(item, "link")),
+      source: stripTags(source),
+      publishedAt: date && Number.isFinite(date.getTime()) ? date.toISOString() : null,
+      snippet: stripTags(tagValue(item, "description")).slice(0, 220),
+    };
+  }).filter((item) => item.title && item.link);
+}
+
+function stockThemes(code: string, name: string) {
+  const base = ["台股", "股票", name, code].filter(Boolean);
+  const semiconductor = ["2330", "2303", "2344", "2454"].includes(code) || /台積|聯電|華邦|聯發|半導體|晶片/.test(name);
+  const electronics = ["2308", "2317", "2356", "2382", "3231"].includes(code) || /電|鴻海|廣達|緯創|英業達/.test(name);
+  if (semiconductor) return [...base, "半導體", "晶片", "AI", "先進製程", "封測", "晶圓", "記憶體", "IC設計"];
+  if (electronics) return [...base, "AI伺服器", "電子", "代工", "電源", "供應鏈", "伺服器", "筆電"];
+  if (code === "0050") return [...base, "ETF", "大盤", "權值股", "台灣50", "指數"];
+  return base;
+}
+
+function countMatches(text: string, words: string[]) {
+  return words.reduce((count, word) => count + (word && text.includes(word) ? 1 : 0), 0);
+}
+
+function classifyNews(item: NewsItem, code: string, name: string) {
+  const text = `${item.title} ${item.snippet}`;
+  const themes = stockThemes(code, name);
+  const directHit = text.includes(code) || Boolean(name && text.includes(name));
+  const themeHits = countMatches(text, themes);
+  const bullWords = ["成長", "創高", "上修", "受惠", "訂單", "擴產", "漲", "突破", "買超", "獲利", "增溫", "看旺", "法說"];
+  const bearWords = ["下修", "衰退", "虧損", "跌", "賣超", "降評", "裁員", "庫存", "警示", "減少", "疲弱", "利空"];
+  const bull = countMatches(text, bullWords);
+  const bear = countMatches(text, bearWords);
+  const relation = directHit ? "直接相關" : themeHits >= 2 ? "間接相關" : "無關雜訊";
+  const sentiment = bull > bear ? "利多" : bear > bull ? "利空" : "中性";
+  const horizon = /今日|盤中|外資|買超|賣超|股價|開盤|收盤/.test(text)
+    ? "短線"
+    : /月營收|季報|法說|訂單|庫存|匯率|產品|展望/.test(text)
+      ? "中線"
+      : /產業|長期|擴產|資本支出|政策|趨勢|投資/.test(text)
+        ? "長線"
+        : "中線";
+  const confidence = Math.max(25, Math.min(92, (directHit ? 60 : themeHits >= 2 ? 42 : 25) + Math.min(18, themeHits * 6) + Math.min(10, (bull + bear) * 3)));
+  const impact = /營收|訂單|出貨|客戶/.test(text)
+    ? "可能影響營收與未來成長想像"
+    : /毛利|成本|匯率|報價|價格/.test(text)
+      ? "可能影響毛利與獲利壓力"
+      : /本益比|目標價|評等|估值/.test(text)
+        ? "可能影響估值與市場期待"
+        : /AI|政策|產業|擴產|資本支出/.test(text)
+          ? "可能影響產業方向與長期敘事"
+          : "主要影響市場情緒，需再用營收與財報驗證";
+
+  return {
+    ...item,
+    relation,
+    sentiment,
+    horizon,
+    confidence,
+    impact,
+  };
+}
+
+async function loadNews(code: string, name = FALLBACK_NAMES[code] || code) {
+  const query = `${code} ${name} 股票 OR 台股`;
+  const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
+  try {
+    const xml = await fetchText(rssUrl, 8000);
+    const items = parseRssItems(xml).map((item) => classifyNews(item, code, name));
+    return {
+      ok: true,
+      query,
+      source: "Google News RSS",
+      sourceUrl: rssUrl,
+      generatedAt: new Date().toISOString(),
+      items,
+      note: items.length ? "新聞用標題與摘要做關聯判讀，仍需點開原文確認細節。" : "外部新聞源沒有回傳可判讀的新聞。",
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      query,
+      source: "Google News RSS",
+      sourceUrl: rssUrl,
+      generatedAt: new Date().toISOString(),
+      items: [],
+      note: `新聞暫時無法載入：${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
 }
 
 function seededRandom(seed: string) {
@@ -579,5 +723,12 @@ export const handler = router({
         message: `Unable to run analysis agent for ${code}: ${err instanceof Error ? err.message : String(err)}`,
       }, 502);
     }
+  }],
+
+  "GET /api/news": [async ({ query }) => {
+    const code = cleanCode(query.code);
+    const name = String(query.name || FALLBACK_NAMES[code] || code).slice(0, 40);
+    if (!code) return error("Missing stock code", 400);
+    return json(await loadNews(code, name));
   }],
 });
