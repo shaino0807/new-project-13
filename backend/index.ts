@@ -253,8 +253,10 @@ function parseRssItems(xml: string): NewsItem[] {
 
 function stockThemes(code: string, name: string) {
   const base = ["台股", "股票", name, code].filter(Boolean);
-  const semiconductor = ["2330", "2303", "2344", "2454"].includes(code) || /台積|聯電|華邦|聯發|半導體|晶片/.test(name);
-  const electronics = ["2308", "2317", "2356", "2382", "3231"].includes(code) || /電|鴻海|廣達|緯創|英業達/.test(name);
+  const semiconductorNames = ["台積", "聯電", "華邦", "聯發", "半導體", "晶片"];
+  const electronicsNames = ["電", "鴻海", "廣達", "緯創", "英業達"];
+  const semiconductor = ["2330", "2303", "2344", "2454"].includes(code) || semiconductorNames.some((word) => name.includes(word));
+  const electronics = ["2308", "2317", "2356", "2382", "3231"].includes(code) || electronicsNames.some((word) => name.includes(word));
   if (semiconductor) return [...base, "半導體", "晶片", "AI", "先進製程", "封測", "晶圓", "記憶體", "IC設計"];
   if (electronics) return [...base, "AI伺服器", "電子", "代工", "電源", "供應鏈", "伺服器", "筆電"];
   if (code === "0050") return [...base, "ETF", "大盤", "權值股", "台灣50", "指數"];
@@ -276,21 +278,28 @@ function classifyNews(item: NewsItem, code: string, name: string) {
   const bear = countMatches(text, bearWords);
   const relation = directHit ? "直接相關" : themeHits >= 2 ? "間接相關" : "無關雜訊";
   const sentiment = bull > bear ? "利多" : bear > bull ? "利空" : "中性";
-  const horizon = /今日|盤中|外資|買超|賣超|股價|開盤|收盤/.test(text)
+  const shortWords = ["今日", "盤中", "外資", "買超", "賣超", "股價", "開盤", "收盤"];
+  const midWords = ["月營收", "季報", "法說", "訂單", "庫存", "匯率", "產品", "展望"];
+  const longWords = ["產業", "長期", "擴產", "資本支出", "政策", "趨勢", "投資"];
+  const revenueWords = ["營收", "訂單", "出貨", "客戶"];
+  const marginWords = ["毛利", "成本", "匯率", "報價", "價格"];
+  const valuationWords = ["本益比", "目標價", "評等", "估值"];
+  const industryWords = ["AI", "政策", "產業", "擴產", "資本支出"];
+  const horizon = countMatches(text, shortWords) > 0
     ? "短線"
-    : /月營收|季報|法說|訂單|庫存|匯率|產品|展望/.test(text)
+    : countMatches(text, midWords) > 0
       ? "中線"
-      : /產業|長期|擴產|資本支出|政策|趨勢|投資/.test(text)
+      : countMatches(text, longWords) > 0
         ? "長線"
         : "中線";
   const confidence = Math.max(25, Math.min(92, (directHit ? 60 : themeHits >= 2 ? 42 : 25) + Math.min(18, themeHits * 6) + Math.min(10, (bull + bear) * 3)));
-  const impact = /營收|訂單|出貨|客戶/.test(text)
+  const impact = countMatches(text, revenueWords) > 0
     ? "可能影響營收與未來成長想像"
-    : /毛利|成本|匯率|報價|價格/.test(text)
+    : countMatches(text, marginWords) > 0
       ? "可能影響毛利與獲利壓力"
-      : /本益比|目標價|評等|估值/.test(text)
+      : countMatches(text, valuationWords) > 0
         ? "可能影響估值與市場期待"
-        : /AI|政策|產業|擴產|資本支出/.test(text)
+        : countMatches(text, industryWords) > 0
           ? "可能影響產業方向與長期敘事"
           : "主要影響市場情緒，需再用營收與財報驗證";
 
