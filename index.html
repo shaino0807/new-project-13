@@ -20,6 +20,8 @@
     h2 { margin:0 0 .7rem; font-size:1rem; }
     p { margin:.35rem 0 0; line-height:1.65; }
     .hero p { opacity:.9; font-size:.92rem; }
+    .hero-facts { display:flex; flex-wrap:wrap; gap:.45rem; margin-top:.7rem; }
+    .hero-fact { display:inline-flex; align-items:center; gap:.28rem; border-radius:999px; padding:.22rem .6rem; font-size:11px; font-weight:720; background:#ffffff24; border:1px solid #ffffff30; color:#fff; }
     .form { display:flex; gap:.45rem; align-items:center; }
     input { min-height:40px; border:1px solid var(--line); border-radius:8px; padding:0 .75rem; color:var(--ink); outline:none; }
     .form input { width:130px; }
@@ -53,6 +55,8 @@
     th { color:var(--muted); font-size:11px; }
     .wave { display:flex; gap:.35rem; align-items:end; height:72px; margin:.5rem 0; }
     .wave span { flex:1; border-radius:7px 7px 0 0; background:#d8e6ff; color:var(--blue); text-align:center; font-size:11px; padding-top:.25rem; font-weight:800; }
+    .wave-legend { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.35rem; margin:.4rem 0 .7rem; }
+    .wave-legend span { font-size:11px; color:var(--muted); text-align:center; }
     .level-list { display:grid; gap:.35rem; }
     .level-item { display:flex; justify-content:space-between; gap:1rem; padding:.45rem .55rem; border-radius:8px; background:#faf9f7; font-size:12px; }
     .note,.status { font-size:11px; line-height:1.6; color:var(--muted); }
@@ -79,13 +83,24 @@
     .decision-card > span { display:block; font-size:1.05rem; font-weight:780; overflow-wrap:anywhere; }
     .decision-card p,.horizon-card p,.news-item p { font-size:12px; line-height:1.65; margin:.25rem 0 0; }
     .horizon-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.6rem; }
+    .dow-grid,.strategy-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.75rem; }
+    .strategy-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .theory-card,.strategy-card,.summary-box { border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.75rem; min-width:0; }
+    .theory-card b,.strategy-card b,.summary-box b { display:block; font-size:12px; margin-bottom:.28rem; }
+    .theory-card strong { display:block; font-size:1rem; margin:.15rem 0; }
+    .theory-card p,.strategy-card p,.summary-box p { font-size:12px; line-height:1.7; margin:.28rem 0 0; }
+    .signal-title { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; margin-bottom:.18rem; }
+    .signal-title b { font-size:12px; }
+    .mini-list { margin:.45rem 0 0; padding-left:1.1rem; font-size:12px; line-height:1.65; color:var(--muted); }
+    .prob-summary { border:1px solid #f2c8b5; background:#fff7f2; color:#51311c; border-radius:8px; padding:.7rem .85rem; margin-top:.7rem; }
+    .prob-summary b { color:#8c1818; }
     .news-list { display:grid; gap:.55rem; }
     .news-meta { display:flex; flex-wrap:wrap; gap:.35rem; margin:.35rem 0; }
     .news-item a { color:var(--blue); text-decoration:none; border-bottom:1px solid #c6cee8; }
     @media (max-width:820px) {
       .hero-top,.two { grid-template-columns:1fr; }
       .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .decision-grid,.horizon-grid { grid-template-columns:1fr; }
+      .decision-grid,.horizon-grid,.dow-grid,.strategy-grid,.wave-legend { grid-template-columns:1fr; }
       .form { align-items:stretch; flex-wrap:wrap; }
       .form input { flex:1 1 100%; width:auto; }
       .form button { flex:1 1 0; min-width:0; }
@@ -114,9 +129,10 @@
         <div>
           <h1 id="headline">台股技術分析 Agent</h1>
           <p id="subtitle">輸入台股代碼後，頁面會產生互動式技術分析、回檔機率、Dow Theory、Chan/Wave 訊號與交易策略。</p>
+          <div class="hero-facts" id="heroFacts"></div>
         </div>
         <form class="form" id="stockForm">
-          <input id="stockInput" inputmode="numeric" autocomplete="off" placeholder="例如 2330、2344、2454" aria-label="股票代碼">
+          <input id="stockInput" autocomplete="off" placeholder="例如 2330、台積電、華邦電" aria-label="股票代碼或名稱">
           <button type="submit">分析</button>
           <button class="secondary" type="button" id="resetBtn">重跑</button>
         </form>
@@ -189,8 +205,23 @@
       <section class="panel">
         <h2>Elliott Wave / Chan 結構</h2>
         <div class="wave" id="wave"></div>
+        <div class="wave-legend" id="waveLegend"></div>
         <div id="structureRows"></div>
       </section>
+    </section>
+
+    <section class="panel">
+      <h2>葛蘭威爾八大法則當前位置</h2>
+      <div id="granvilleRows"></div>
+    </section>
+
+    <section class="panel">
+      <h2>道氏理論三期趨勢</h2>
+      <div class="dow-grid" id="dowRows"></div>
+      <div class="grid two" style="margin-top:.75rem">
+        <div class="summary-box" id="dowConfirm"></div>
+        <div class="summary-box" id="dowWarning"></div>
+      </div>
     </section>
 
     <section class="panel">
@@ -219,11 +250,13 @@
     <section class="panel">
       <h2>回檔機率</h2>
       <div id="probRows"></div>
+      <div id="probSummary"></div>
     </section>
 
     <section class="panel">
       <h2>交易策略</h2>
       <div id="strategy"></div>
+      <div id="rrCompare"></div>
       <p class="note">本頁為技術分析與情境推估工具，不構成任何買賣建議。實際交易仍需搭配風險控管、成交量、籌碼與重大新聞驗證。</p>
     </section>
   </main>
@@ -244,6 +277,7 @@
     const last = (a) => Array.isArray(a) ? a[a.length - 1] : undefined;
     const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
     const badge = (text, cls) => `<span class="badge ${cls}">${escapeHtml(text)}</span>`;
+    const lastFiniteLocal = (a) => Array.isArray(a) ? [...a].reverse().find((v) => Number.isFinite(v)) : NaN;
 
     function escapeHtml(value) {
       return String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "\"":"&quot;", "'":"&#39;" }[ch]));
@@ -251,6 +285,58 @@
 
     function metric(label, value) {
       return `<div class="mc"><div class="k">${escapeHtml(label)}</div><div class="v">${value}</div></div>`;
+    }
+
+    function resolveInputCode(value) {
+      const raw = String(value || "").trim();
+      const digits = raw.replace(/\D/g, "").slice(0, 6);
+      if (digits) return digits;
+      const normalized = raw.replace(/\s+/g, "").toLowerCase();
+      const match = Object.entries(fallbackNames).find(([code, name]) => {
+        const n = String(name).replace(/\s+/g, "").toLowerCase();
+        return normalized === n || normalized.includes(n) || n.includes(normalized) || normalized === code;
+      });
+      return match ? match[0] : "";
+    }
+
+    function heroFact(text, cls = "neut") {
+      return `<span class="hero-fact ${cls}">${escapeHtml(text)}</span>`;
+    }
+
+    function priceRange(low, high) {
+      return `${fmt(Math.min(low, high))} ~ ${fmt(Math.max(low, high))} 元`;
+    }
+
+    function gapPct(price, base) {
+      return Number.isFinite(price) && Number.isFinite(base) && base !== 0 ? ((price / base) - 1) * 100 : NaN;
+    }
+
+    function pullbackLabel(value) {
+      if (value >= 70) return ["高", "bear", "回檔機率偏高，先看確認訊號，不用急著追價。"];
+      if (value >= 55) return ["中高", "warn", "短線仍有熱度，但回撤風險已經需要列入計畫。"];
+      if (value >= 40) return ["中", "warn", "訊號混合，適合用支撐與量縮確認進退。"];
+      return ["低", "bull", "回撤壓力不高，但仍要防跌破關鍵均線。"];
+    }
+
+    function trendTone(data) {
+      const ma20 = maNow(data, "ma20");
+      const ma60 = maNow(data, "ma60");
+      const ma120 = maNow(data, "ma120");
+      if (data.close > ma20 && ma20 > ma60 && ma60 > ma120) return ["多頭排列", "bull"];
+      if (data.close > ma20 && ma20 >= ma60) return ["偏多整理", "bull"];
+      if (data.close < ma60) return ["轉弱修復", "bear"];
+      return ["盤整觀察", "warn"];
+    }
+
+    function rrValue(entry, stop, target) {
+      return (target - entry) / Math.max(entry - stop, .01);
+    }
+
+    function rrBadge(rr) {
+      if (rr >= 5) return badge("最佳", "bull");
+      if (rr >= 3) return badge("優質", "bull");
+      if (rr >= 1.8) return badge("可接受", "warn");
+      return badge("偏低", "bear");
     }
 
     function destroyCharts() {
@@ -490,67 +576,225 @@
       }
     }
 
-    function renderBars(prob) {
+    function renderHeroFacts(data, name) {
+      const [trendText, trendCls] = trendTone(data);
+      const [riskText, riskCls] = pullbackLabel(data.pullback);
+      const q = data.quote || {};
+      $("heroFacts").innerHTML = [
+        heroFact(`${data.code} ${name}`, "neut"),
+        heroFact(`${q.market || "TWSE/OTC"} ${q.currency || "TWD"}`, "neut"),
+        heroFact(`今日 ${fmt(data.close)} 元`, trendCls),
+        heroFact(`RSI ${fmt(data.rsiNow, 1)}`, data.rsiNow >= 70 ? "bear" : "neut"),
+        heroFact(`回檔 ${data.pullback}% ${riskText}`, riskCls),
+        heroFact(trendText, trendCls)
+      ].join("");
+    }
+
+    function renderBars(prob, data) {
       const color = (v) => v >= 70 ? "var(--red)" : v >= 45 ? "#d7a53a" : "var(--green)";
       const rows = [
-        ["整體回檔", prob.overall],
-        ["技術面", prob.tech],
-        ["量能 / 籌碼", prob.volume],
-        ["Chan + Wave 頂部", prob.wave],
-        ["基本面支撐", prob.fund],
-        ["長期趨勢反轉", prob.longTerm]
+        ["整體回檔機率", prob.overall, "短期 1 到 2 週"],
+        ["技術面", prob.tech, "RSI、均線乖離、布林位置"],
+        ["量能面", prob.volume, "放量後是否縮量或失速"],
+        ["纏論與波浪", prob.wave, "高檔中樞、第五浪或 ABC 修正"],
+        ["急漲後動能衰退", Math.max(15, Math.min(95, Math.round((data.rsiNow > 65 ? 30 : 12) + data.volumeRatio * 16 + (data.close > data.resistance * .98 ? 25 : 8)))), "大陽線後隔日續航"],
+        ["基本面支撐", prob.fund, "現階段用趨勢代理，資料不足時保守處理"],
+        ["中長期趨勢逆轉", prob.longTerm, "MA120 與長線低點防線"]
       ];
-      $("probRows").innerHTML = rows.map(([label, value]) => `<div class="pb"><b>${label}</b><div class="pt"><div class="pf" style="width:${value}%;background:${color(value)}"></div></div><b>${value}%</b></div>`).join("");
+      const [riskText, riskCls, riskDesc] = pullbackLabel(data.pullback);
+      const keyLine = data.pullback >= 60
+        ? `關鍵觀察位置是 MA5 ${fmt(maNow(data, "ma5"))} 與短線支撐 ${fmt(data.support)}，若跌破後無法收回，回檔評分會升高。`
+        : `關鍵觀察位置是短線支撐 ${fmt(data.support)} 與 MA20 ${fmt(maNow(data, "ma20"))}，只要量縮守住，修正壓力仍可控。`;
+      $("probRows").innerHTML = rows.map(([label, value, hint]) => `<div class="pb"><b>${label}<br><span class="note">${hint}</span></b><div class="pt"><div class="pf" style="width:${value}%;background:${color(value)}"></div></div><b>${value}%</b></div>`).join("");
+      $("probSummary").innerHTML = `
+        <div class="prob-summary">
+          <p><b>核心判斷：</b>目前回檔機率 ${data.pullback}% ，屬於${riskText}風險。${riskDesc}</p>
+          <p><b>關鍵觀察指標：</b>${keyLine} 量能目前為 20 日均量 ${fmt(data.volumeRatio, 2)} 倍，RSI ${fmt(data.rsiNow, 1)}，布林 %B ${fmt(data.pctBNow, 2)}。</p>
+        </div>`;
     }
 
     function renderSignals(data) {
       const rows = [
-        [`K 線位置收在 ${fmt(data.close)}，短線支撐 ${fmt(data.support)}、壓力 ${fmt(data.resistance)}。`, data.close > data.ma20 ? badge("偏多", "bull") : badge("轉弱", "bear")],
-        [`均線：MA5 ${fmt(data.ma5)}、MA20 ${fmt(data.ma20)}、MA60 ${fmt(data.ma60)}、MA120 ${fmt(data.ma120)}。`, data.ma20 > data.ma60 ? badge("多頭排列", "bull") : badge("整理", "warn")],
-        [`RSI14 ${fmt(data.rsiNow, 1)}，${data.rsiNow >= 70 ? "進入高檔過熱區，追價風險升高" : data.rsiNow <= 35 ? "進入低檔區，可能有反彈條件" : "位於中性區間"}。`, data.rsiNow >= 70 ? badge("過熱", "bear") : data.rsiNow <= 35 ? badge("低檔", "bull") : badge("中性", "neut")],
-        [`KD：K=${fmt(data.kNow, 1)}、D=${fmt(data.dNow, 1)}，${data.kNow > data.dNow ? "短線動能仍向上" : "短線動能轉弱或鈍化"}。`, data.kNow > data.dNow ? badge("偏多", "bull") : badge("警戒", "warn")],
-        [`MACD histogram ${fmt(data.histNow, 3)}，${data.histNow >= 0 ? "零軸上方仍偏多" : "動能低於零軸"}。`, data.histNow >= 0 ? badge("偏多", "bull") : badge("轉弱", "warn")],
-        [`Bollinger %B=${fmt(data.pctBNow, 2)}、Bandwidth=${fmt(data.bwNow, 2)}%，${data.pctBNow > .85 ? "價格靠近上軌，容易拉回或橫盤" : "價格未明顯貼近上軌"}。`, data.pctBNow > .85 ? badge("上軌壓力", "warn") : badge("正常", "neut")],
-        [`量能約為 20 日均量 ${fmt(data.volumeRatio, 2)} 倍，${data.volumeRatio > 1.8 ? "換手劇烈，隔日續航需觀察" : "量能未明顯失控"}。`, data.volumeRatio > 1.8 ? badge("高換手", "warn") : badge("穩定", "neut")],
-        [`Grandville：股價相對 MA20 / MA60 的位置決定追價風險，遠離均線時以等待回測較佳。`, data.close > data.ma20 ? badge("規則 2/3", "bull") : badge("規則 5", "bear")],
-        [`Dow 短線：${data.close > data.ma5 ? "站上 MA5，短線維持偏多" : "跌破 MA5，短線降溫"}。`, data.close > data.ma5 ? badge("短多", "bull") : badge("降溫", "warn")],
-        [`Dow 中線：${data.ma20 > data.ma60 ? "MA20 高於 MA60，中期趨勢仍向上" : "MA20 低於 MA60，中期整理"}。`, data.ma20 > data.ma60 ? badge("中多", "bull") : badge("中性", "neut")],
-        [`Dow 長線：${data.close > data.ma120 ? "股價位於 MA120 上方，長期趨勢仍多" : "股價低於 MA120，長期趨勢需修復"}。`, data.close > data.ma120 ? badge("長多", "bull") : badge("修復", "warn")],
-        [`綜合回檔機率 ${data.pullback}%，分批進出比一次追價更符合風險報酬。`, data.pullback >= 70 ? badge("高", "bear") : data.pullback >= 45 ? badge("中", "warn") : badge("低", "bull")]
+        ["價格行為", `收盤 ${fmt(data.close)}，短線區間落在 ${priceRange(data.support, data.resistance)}。若收盤能站穩壓力上方，代表買盤願意接受更高成本；若跌回區間下緣，先視為回測。`, data.close > data.support ? badge("區間內偏強", "bull") : badge("跌破支撐", "bear")],
+        ["均線結構", `MA5 ${fmt(maNow(data, "ma5"))}、MA20 ${fmt(maNow(data, "ma20"))}、MA60 ${fmt(maNow(data, "ma60"))}、MA120 ${fmt(maNow(data, "ma120"))}。股價距 MA60 約 ${pct(gapPct(data.close, maNow(data, "ma60")))}。`, maNow(data, "ma20") > maNow(data, "ma60") ? badge("多頭排列", "bull") : badge("整理", "warn")],
+        ["RSI(14)", `RSI ${fmt(data.rsiNow, 1)}。70 以上代表短線強勢也代表追價成本偏高；50 到 70 代表偏多動能；低於 40 才會偏向跌深反彈觀察。`, data.rsiNow >= 70 ? badge("超買訊號", "bear") : data.rsiNow <= 40 ? badge("低檔觀察", "bull") : badge("中性偏多", "neut")],
+        ["KD 指標", `K ${fmt(data.kNow, 1)}、D ${fmt(data.dNow, 1)}。K 高於 D 代表短線動能仍在；高檔交叉向下時，隔日續航要保守確認。`, data.kNow > data.dNow ? badge("動能偏多", "bull") : badge("動能降溫", "warn")],
+        ["MACD", `柱狀體 ${fmt(last(data.hist), 3)}。柱狀體擴大代表動能推進；柱狀體縮小但股價創高時，容易形成動能背離。`, last(data.hist) >= 0 ? badge("零軸上方", "bull") : badge("零軸下方", "warn")],
+        ["布林通道", `%B ${fmt(data.pctBNow, 2)}、帶寬 ${fmt(data.bwNow, 2)}%。靠近上軌代表市場願意追價，但也容易在量能不足時出現拉回。`, data.pctBNow > .85 ? badge("接近上軌", "warn") : badge("未貼上軌", "neut")],
+        ["成交量", `今日量能約為 20 日均量 ${fmt(data.volumeRatio, 2)} 倍。急漲放量後若隔日縮量，容易變成短線換手；若放量守高，趨勢延伸機率較高。`, data.volumeRatio > 1.8 ? badge("量大需確認", "warn") : badge("量能穩定", "neut")],
+        ["纏論", `以 20 與 60 日高低點視為簡化筆段，中樞區間可先看 ${priceRange(data.support2, data.resistance2)}。站穩中樞上緣偏強，跌回中樞內則進入整理。`, data.close > data.resistance2 ? badge("脫離中樞", "bull") : badge("中樞觀察", "warn")],
+        ["波浪理論", `若目前接近短線高點，可視為推進浪後段或 B 浪反彈；若回測 MA20 不破，修正較健康；若跌破 MA60，C 浪或深度修正機率升高。`, data.pullback >= 60 ? badge("末端疑慮", "bear") : badge("推進觀察", "bull")],
+        ["葛蘭威爾八大", `股價相對 MA20 與 MA60 的位置是核心。站上均線且均線上彎偏向買進法則，遠離均線急漲則偏向賣出或等待回測法則。`, data.close > maNow(data, "ma20") ? badge("偏多法則", "bull") : badge("修復法則", "warn")],
+        ["道氏理論", `短期看 MA5 與近期高低點，中期看 MA20 對 MA60，長期看 MA120 與 52 週區間。三者同向時趨勢可信度最高。`, data.close > maNow(data, "ma120") ? badge("長線未壞", "bull") : badge("長線修復", "warn")],
+        ["基本面與籌碼", `目前頁面未直接接入 EPS、法人買賣超與財報明細，相關判斷採保守標註。新聞與價格只代表市場反應，不能替代財報驗證。`, badge("資料保守", "warn")]
       ];
-      $("signalRows").innerHTML = rows.map(([text, b]) => `<div class="sr"><div class="sl">${text}</div>${b}</div>`).join("");
+      $("signalRows").innerHTML = rows.map(([title, text, b]) => `
+        <div class="sr">
+          <div class="sl"><div class="signal-title"><b>${title}</b>${b}</div>${text}</div>
+        </div>`).join("");
     }
 
     function renderStrategy(data) {
       const stop = data.support2 * .97;
-      const entry1 = data.support * 1.01;
-      const entry2 = data.support2 * 1.02;
-      const target1 = data.resistance * 1.04;
-      const target2 = data.high52 * 1.06;
-      const rr = (target1 - entry2) / Math.max(entry2 - stop, .01);
+      const ma5 = maNow(data, "ma5");
+      const ma20 = maNow(data, "ma20");
+      const ma60 = maNow(data, "ma60");
+      const entry1 = Math.min(data.support * 1.01, ma5 * 1.01);
+      const entry2 = Math.min(data.support2 * 1.02, ma20 * 1.02);
+      const entry3 = Math.min(ma60 * 1.02, data.low52 * 1.18);
+      const target1 = Math.max(data.resistance * 1.02, data.close * 1.04);
+      const target2 = Math.max(data.resistance2 * 1.03, data.high52);
+      const cutStart = Math.max(data.resistance * .98, data.close * 1.03);
+      const cutEnd = Math.max(data.resistance2, cutStart * 1.03);
       $("strategy").innerHTML = `
+        <div class="strategy-grid">
+          <div class="strategy-card">
+            <b>減碼觀望策略</b>
+            <p>適用情境：回檔機率 ${data.pullback}% 、RSI ${fmt(data.rsiNow, 1)}，若價格接近 ${priceRange(cutStart, cutEnd)}，短線容易出現獲利了結。</p>
+            <ul class="mini-list">
+              <li>目前建議：${data.pullback >= 60 ? "急漲後不追高，先等隔日量能確認。" : "可續抱觀察，但不把加碼點放在壓力附近。"}</li>
+              <li>減碼區：${priceRange(cutStart, cutEnd)}，依據短中線壓力與近期高點。</li>
+              <li>短空進場條件：收盤跌破 ${fmt(ma5)} 且隔日無法站回，才視為短線轉弱。</li>
+              <li>短空停損：重新站回 ${fmt(data.resistance)} 並放量，代表空方判斷失效。</li>
+            </ul>
+          </div>
+          <div class="strategy-card">
+            <b>多單回撤佈局策略</b>
+            <p>適用情境：不追今日高點，等待價格回到均線或支撐附近，讓停損距離變短，風險報酬比才會改善。</p>
+            <ul class="mini-list">
+              <li>第一買點：${priceRange(entry1 * .99, entry1 * 1.01)}，用 MA5 或短支撐測試。</li>
+              <li>第二買點：${priceRange(entry2 * .99, entry2 * 1.01)}，用 MA20 與中樞下沿分批。</li>
+              <li>第三買點：${priceRange(entry3 * .98, entry3 * 1.02)}，用 MA60 或長線支撐承接。</li>
+              <li>停損設置：跌破 ${fmt(stop)} 且收盤無法收回，代表中期結構轉弱。</li>
+            </ul>
+          </div>
+        </div>`;
+      const plans = [
+        ["①積極型", entry1, stop, target1, "MA5 回測"],
+        ["②標準型", entry2, stop, target2, "MA20 與中期支撐"],
+        ["③穩健型", entry3, Math.min(stop, entry3 * .92), Math.max(target2, data.high52 * 1.06), "MA60 與長線支撐"]
+      ];
+      $("rrCompare").innerHTML = `
+        <h2 style="margin-top:1rem">三買點風險報酬比比較</h2>
         <table>
-          <thead><tr><th>項目</th><th>價格</th><th>依據</th><th>評級</th></tr></thead>
+          <thead><tr><th>買點</th><th>進場</th><th>停損</th><th>最大虧損</th><th>目標</th><th>潛在報酬</th><th>R:R比</th><th>評級</th></tr></thead>
           <tbody>
-            <tr><td>第一買點</td><td>${fmt(data.support * .99)} - ${fmt(entry1)}</td><td>短線支撐或 MA20 附近，小量測試。</td><td>${badge("觀察", "warn")}</td></tr>
-            <tr><td>第二買點</td><td>${fmt(data.support2 * .99)} - ${fmt(entry2)}</td><td>中期支撐或波段低點附近，風險報酬較好。</td><td>${badge("分批", "bull")}</td></tr>
-            <tr><td>停損價</td><td>${fmt(stop)}</td><td>跌破中期支撐且無法收復，技術結構轉弱。</td><td>${badge("嚴守", "bear")}</td></tr>
-            <tr><td>目標價</td><td>${fmt(target1)} / ${fmt(target2)}</td><td>近端壓力突破後看前高延伸。</td><td>${badge("分段", "warn")}</td></tr>
-            <tr><td>R:R</td><td>${fmt(rr, 2)}</td><td>以第二買點、停損與第一目標估算。</td><td>${rr >= 2 ? badge("較佳", "bull") : badge("普通", "warn")}</td></tr>
+            ${plans.map(([name, entry, planStop, target, basis]) => {
+              const loss = gapPct(planStop, entry);
+              const gain = gapPct(target, entry);
+              const rr = rrValue(entry, planStop, target);
+              return `<tr><td>${name}<br><span class="note">${basis}</span></td><td>${fmt(entry)} 元</td><td>${fmt(planStop)} 元</td><td>${pct(loss)}</td><td>${fmt(target)} 元</td><td>${pct(gain)}</td><td>1 : ${fmt(rr, 1)}</td><td>${rrBadge(rr)}</td></tr>`;
+            }).join("")}
           </tbody>
-        </table>`;
+        </table>
+        <div class="summary-box" style="margin-top:.75rem">
+          <b>操作核心建議</b>
+          <p>若今日已大漲，先觀察隔日是否量縮守高。最好的佈局通常不是追在壓力附近，而是等回測 MA20 或中期支撐後，用較短停損換較高 R:R。</p>
+        </div>`;
     }
 
     function renderLevels(data) {
+      const ma10 = maNow(data, "ma10");
+      const ma20 = maNow(data, "ma20");
+      const ma60 = maNow(data, "ma60");
+      const ma120 = maNow(data, "ma120");
+      const bbUp = lastFiniteLocal(data.bb.up);
+      const bbLow = lastFiniteLocal(data.bb.low);
       const rows = [
-        ["短線壓力", data.resistance, "bear"],
-        ["中期壓力", data.resistance2, "warn"],
+        ["52週高點 / 長線壓力", data.high52, "bear"],
+        ["中期壓力", data.resistance2, "bear"],
+        ["短線壓力", data.resistance, "warn"],
+        ["布林上軌", bbUp, "warn"],
         ["目前收盤", data.close, "neut"],
+        ["MA10 短均", ma10, "neut"],
+        ["MA20 月線", ma20, "bull"],
         ["短線支撐", data.support, "bull"],
-        ["中期支撐", data.support2, "bull"]
+        ["中期支撐", data.support2, "bull"],
+        ["MA60 季線", ma60, "bull"],
+        ["MA120 半年線", ma120, "neut"],
+        ["布林下軌 / 長線防線", Math.min(bbLow, data.low52), "neut"]
       ].filter(([, value]) => Number.isFinite(value));
       $("levelRows").innerHTML = rows.map(([label, value, cls]) => `<div class="level-item"><b>${label}</b><span class="${cls}">${fmt(value)}</span></div>`).join("");
       return rows;
+    }
+
+    function renderWaveStructure(data) {
+      const r1 = data.resistance;
+      const r2 = data.resistance2;
+      const s1 = data.support;
+      const s2 = data.support2;
+      const ma20 = maNow(data, "ma20");
+      const ma60 = maNow(data, "ma60");
+      const waveStage = data.pullback >= 65 || data.pctBNow > .85 ? "⑤?高檔推進" : data.close > ma20 ? "③推進中" : "A/B/C修正";
+      const waveCls = data.pullback >= 65 ? "bear" : data.close > ma20 ? "bull" : "warn";
+      const heights = [36, 24, 66, 46, data.close > ma20 ? 88 : 58, 48, 62, data.close < ma60 ? 72 : 34];
+      $("wave").innerHTML = ["①","②","③","④","⑤?","A?","B?","C?"].map((x,i)=>`<span class="${i === 4 ? waveCls : ""}" style="height:${heights[i]}%">${x}</span>`).join("");
+      $("waveLegend").innerHTML = [
+        `① ${fmt(s2)} 起漲`,
+        `③ ${priceRange(s1, r1)}`,
+        `⑤ ${fmt(r1)} 以上`,
+        `C ${fmt(ma60)} 防線`
+      ].map((x) => `<span>${escapeHtml(x)}</span>`).join("");
+      $("structureRows").innerHTML = `
+        <div class="sr"><div class="sl"><b>波浪理論判讀</b><br>目前情境偏向 ${waveStage}。五浪推進的重點不是猜最高點，而是觀察第五浪是否出現量價背離、RSI 過熱或布林上軌鈍化。若股價守住 MA20 ${fmt(ma20)}，可視為強勢修正；若跌破 MA60 ${fmt(ma60)}，修正層級會升高。</div>${badge(waveStage, waveCls)}</div>
+        <div class="sr"><div class="sl"><b>情境 A：強勢續漲</b><br>條件是收盤站穩 ${fmt(r1)}，且量能維持在 20 日均量 1.2 倍以上。目標先看中期壓力 ${fmt(r2)}，再看 52 週高點 ${fmt(data.high52)}。</div>${badge("續漲", "bull")}</div>
+        <div class="sr"><div class="sl"><b>情境 B：已達高檔後整理</b><br>若無法突破 ${fmt(r1)}，且 RSI 從 ${fmt(data.rsiNow, 1)} 往下，容易進入 A-B-C 修正。第一觀察區是 MA20 ${fmt(ma20)}，第二觀察區是中期支撐 ${fmt(s2)}。</div>${badge("回測", "warn")}</div>
+        <div class="sr"><div class="sl"><b>纏論判讀</b><br>用 ${priceRange(s2, r2)} 當作簡化中樞。中樞上沿突破後沒有跌回，代表多方控盤；若跌回中樞內，代表追價買盤退場，操作要降槓桿或減碼。</div>${badge(data.close > r2 ? "脫離中樞" : "中樞震盪", data.close > r2 ? "bull" : "warn")}</div>`;
+    }
+
+    function renderGranville(data) {
+      const ma20 = maNow(data, "ma20");
+      const ma60 = maNow(data, "ma60");
+      const gap20 = gapPct(data.close, ma20);
+      const gap60 = gapPct(data.close, ma60);
+      const rows = [
+        ["法則一（買入）", `股價由均線下方重新站回 MA20 ${fmt(ma20)}，且 MA20 開始走平或上彎時，代表空方壓力減弱。`, data.close > ma20 ? "長線仍適用" : "等待站回", data.close > ma20 ? "bull" : "warn"],
+        ["法則二（買入）", `股價站在 MA20 上方後回測不破，屬於趨勢中的續抱或分批點。現在距 MA20 約 ${pct(gap20)}。`, data.close > ma20 && gap20 < 8 ? "回測可觀察" : "需等回測", data.close > ma20 ? "bull" : "warn"],
+        ["法則三（買入）", `MA20 與 MA60 仍向上時，股價短暫跌破後快速收回，代表假跌破機率較高。`, data.close > ma60 ? "趨勢防線在" : "尚未確認", data.close > ma60 ? "bull" : "warn"],
+        ["法則四（買入）", `急跌遠離均線後容易反彈，但這是跌深反彈，不等同主升段。當股價低於 MA60 時才優先啟用。`, data.close < ma60 ? "跌深反彈" : "目前不主用", data.close < ma60 ? "warn" : "neut"],
+        ["法則五（賣出）", `股價遠高於均線且 RSI 過熱時，代表短線報酬已先反映。現在距 MA60 約 ${pct(gap60)}。`, gap60 > 15 || data.rsiNow >= 70 ? "持續監控" : "未過度乖離", gap60 > 15 || data.rsiNow >= 70 ? "bear" : "neut"],
+        ["法則六（賣出）", `股價跌破上升均線後反彈無法站回，常見於短線轉弱。觀察 MA5 ${fmt(maNow(data, "ma5"))} 與 MA20 ${fmt(ma20)}。`, data.close < ma20 ? "轉弱確認" : "尚未觸發", data.close < ma20 ? "bear" : "neut"],
+        ["法則七（賣出）", `均線下彎且股價反彈到均線附近受壓，容易形成反彈結束。`, ma20 < ma60 ? "整理偏弱" : "不適用", ma20 < ma60 ? "bear" : "neut"],
+        ["法則八（賣出）", `股價連續遠離 MA120 ${fmt(maNow(data, "ma120"))}，且量價出現失速，代表中長線籌碼可能鬆動。`, data.pullback >= 70 ? "重點檢查" : "留意即可", data.pullback >= 70 ? "bear" : "warn"]
+      ];
+      $("granvilleRows").innerHTML = rows.map(([title, desc, tag, cls]) => `
+        <div class="sr"><div class="sl"><b>${title}</b><br>${desc}</div>${badge(tag, cls)}</div>
+      `).join("");
+    }
+
+    function renderDowTheory(data) {
+      const ma5 = maNow(data, "ma5");
+      const ma20 = maNow(data, "ma20");
+      const ma60 = maNow(data, "ma60");
+      const ma120 = maNow(data, "ma120");
+      const shortBias = data.close > ma5 && data.close > data.support ? ["強勢偏多", "bull", "短期看數小時到 3 週，股價站上 MA5 並守住短線支撐，代表短線高低點尚未破壞。"] : ["弱多偏空", "bear", "短期若跌破 MA5 且無法收回，代表急漲後進入修正確認期。"];
+      const midBias = ma20 > ma60 && data.close > ma20 ? ["整理偏多", "bull", "中期看 3 週到 3 個月，MA20 高於 MA60 且股價站在 MA20 上方，主趨勢仍向上。"] : ["整理修復", "warn", "中期若跌回 MA20 下方，先看 MA60 是否能承接，否則中期趨勢會轉為盤整。"];
+      const longBias = data.close > ma120 ? ["牛市格局", "bull", "長期看 1 年到數年，股價位於 MA120 上方且 52 週低點未被跌破，長線結構仍成立。"] : ["長線修復", "warn", "長期若低於 MA120，代表市場仍在修復估值或基本面預期。"];
+      $("dowRows").innerHTML = [
+        ["短期 | 數小時到 3週", ...shortBias],
+        ["中期 | 3週到 3個月", ...midBias],
+        ["長期 | 1年到數年", ...longBias]
+      ].map(([period, label, cls, body]) => `
+        <div class="theory-card">
+          <b>${period}</b>
+          <strong class="${cls}">${label}</strong>
+          <p>${body}</p>
+        </div>
+      `).join("");
+      const confirmations = [
+        data.close > ma5 ? `短期收盤站上 MA5 ${fmt(ma5)}` : `短期尚未站穩 MA5 ${fmt(ma5)}`,
+        ma20 > ma60 ? `MA20 ${fmt(ma20)} 高於 MA60 ${fmt(ma60)}` : `MA20 尚未高於 MA60`,
+        data.close > ma120 ? `股價仍在 MA120 ${fmt(ma120)} 上方` : `股價低於 MA120，長線待修復`,
+        data.close > data.support ? `短線支撐 ${fmt(data.support)} 未失守` : `短線支撐 ${fmt(data.support)} 已失守`
+      ];
+      const warnings = [
+        data.pullback >= 60 ? `回檔機率 ${data.pullback}% 偏高，需觀察隔日量能` : `回檔機率 ${data.pullback}% 尚未失控`,
+        data.rsiNow >= 70 ? `RSI ${fmt(data.rsiNow, 1)} 過熱，追價風險升高` : `RSI ${fmt(data.rsiNow, 1)} 未明顯過熱`,
+        data.close < ma20 ? `收盤低於 MA20，短中線轉弱` : `若跌破 MA20 ${fmt(ma20)}，中期整理會加深`,
+        data.close < data.support2 ? `已跌破中期支撐 ${fmt(data.support2)}` : `中期支撐 ${fmt(data.support2)} 是下一道防線`
+      ];
+      $("dowConfirm").innerHTML = `<b>道氏確認訊號</b><ul class="mini-list">${confirmations.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`;
+      $("dowWarning").innerHTML = `<b>道氏警示訊號</b><ul class="mini-list">${warnings.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`;
     }
 
     function setAgentStance(text, cls = "neut") {
@@ -621,12 +865,22 @@
       const name = q.name || fallbackNames[data.code] || `股票 ${data.code}`;
       $("headline").textContent = `${data.code} ${name}`;
       $("subtitle").textContent = `${q.market || "台股"} | ${new Date().toLocaleDateString("zh-TW")} | 收盤 ${fmt(data.close)} | 回檔機率 ${data.pullback}%`;
+      renderHeroFacts(data, name);
       $("metrics").innerHTML = [
-        metric("收盤價", fmt(data.close)),
+        metric("今日收盤", fmt(data.close)),
         metric("漲跌", Number.isFinite(q.change) ? `${q.change >= 0 ? "+" : ""}${fmt(q.change)}` : pct((data.close / data.closes[data.closes.length - 2] - 1) * 100)),
+        metric("今日區間", `${fmt(q.low || last(data.lows))} - ${fmt(q.high || last(data.highs))}`),
         metric("成交量", Number.isFinite(q.volume) ? fmt(q.volume, 0) : fmt(last(data.vols), 0)),
-        metric("52 週區間", `${fmt(data.low52)} - ${fmt(data.high52)}`),
+        metric("MA5", fmt(last(data.ma5))),
+        metric("MA10", fmt(last(data.ma10))),
+        metric("MA20（月線）", fmt(last(data.ma20))),
+        metric("MA60（季線）", fmt(last(data.ma60))),
+        metric("MA120（半年線）", fmt(last(data.ma120))),
         metric("RSI14", fmt(data.rsiNow, 1)),
+        metric("布林位置", `%B ${fmt(data.pctBNow, 2)}`),
+        metric("52 週區間", `${fmt(data.low52)} - ${fmt(data.high52)}`),
+        metric("短線支撐", fmt(data.support)),
+        metric("短線壓力", fmt(data.resistance)),
         metric("回檔機率", `${data.pullback}%`)
       ].join("");
       $("status").textContent = q.source ? `資料來源：${q.source}。頁面每次開啟都會重新向後端請求最新資料。` : "已載入公開報價資料。";
@@ -635,17 +889,11 @@
       renderHorizons(data);
       renderPlainFundamentals(data);
       loadAndRenderNews(data);
-      $("wave").innerHTML = ["1","2","3","4","5?","A","B","C"].map((x,i)=>`<span style="height:${[36,24,66,46,88,56,70,34][i]}%">${x}</span>`).join("");
-      $("structureRows").innerHTML = `
-        <div class="sr"><div class="sl">Swing 結構以 20 / 60 日區間判斷，目前 ${data.close > data.support ? "仍守住短線支撐" : "跌破短線支撐，需要觀察是否收復"}。</div>${badge(data.close > data.support ? "支撐有效" : "轉弱", data.close > data.support ? "bull" : "bear")}</div>
-        <div class="sr"><div class="sl">Elliott / Chan 以趨勢延伸與中樞回測判斷，若量能縮而價格不破支撐，修正較健康；若爆量跌破支撐，需降低部位。</div>${badge("觀察", "neut")}</div>`;
-      renderSignals({
-        close:data.close, ma5:last(data.ma5), ma20:last(data.ma20), ma60:last(data.ma60), ma120:last(data.ma120),
-        rsiNow:data.rsiNow, kNow:data.kNow, dNow:data.dNow, histNow:last(data.hist),
-        pctBNow:data.pctBNow, bwNow:data.bwNow, volumeRatio:data.volumeRatio,
-        support:data.support, resistance:data.resistance, pullback:data.pullback
-      });
-      renderBars(data.prob);
+      renderWaveStructure(data);
+      renderGranville(data);
+      renderDowTheory(data);
+      renderSignals(data);
+      renderBars(data.prob, data);
       renderStrategy(data);
       const levelRows = renderLevels(data);
       resetAgentPanel(data);
@@ -694,10 +942,13 @@
       destroyCharts();
       $("headline").textContent = "台股技術分析 Agent";
       $("subtitle").textContent = "資料暫時無法載入，但頁面本身正常。請稍後重跑，或改輸入其他股票代碼。";
+      $("heroFacts").innerHTML = "";
       $("metrics").innerHTML = "";
       $("signalRows").innerHTML = "";
       $("probRows").innerHTML = "";
+      $("probSummary").innerHTML = "";
       $("strategy").innerHTML = "";
+      $("rrCompare").innerHTML = "";
       $("retailDecision").innerHTML = "";
       $("entryQuality").innerHTML = "";
       $("horizonRows").innerHTML = "";
@@ -706,6 +957,11 @@
       $("newsNote").textContent = "資料載入失敗，新聞分析暫停。";
       $("structureRows").innerHTML = "";
       $("wave").innerHTML = "";
+      $("waveLegend").innerHTML = "";
+      $("granvilleRows").innerHTML = "";
+      $("dowRows").innerHTML = "";
+      $("dowConfirm").innerHTML = "";
+      $("dowWarning").innerHTML = "";
       $("levelRows").innerHTML = "";
       $("agentMeta").textContent = "資料載入失敗時，Agent 會暫停，避免用過期資料回答。";
       $("agentLog").innerHTML = "";
@@ -714,7 +970,7 @@
     }
 
     async function run(code) {
-      code = String(code || "").replace(/\D/g, "").slice(0, 6);
+      code = resolveInputCode(code);
       if (!code) return;
       $("stockInput").value = code;
       $("status").textContent = `正在載入 ${code} 最新資料...`;

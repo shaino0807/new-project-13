@@ -8,19 +8,19 @@ Steps:
 1. Navigate to the app.
 2. Wait for the page to fully load.
 
-Expected: The page shows the title "台股技術分析 Agent" or a loaded stock heading, plus metric cards, 小資決策卡, 買點好壞判斷, 短中長線分層, 基本面白話化, 新聞關聯分析, and the status text mentioning a data source or latest data request.
+Expected: The page shows the title "台股技術分析 Agent" or a loaded stock heading, plus metric cards, 小資決策卡, 買點好壞判斷, 短中長線分層, 基本面白話化, 新聞關聯分析, 葛蘭威爾八大法則當前位置, 道氏理論三期趨勢, and the status text mentioning a data source or latest data request.
 
 ## Test 2 - Visitor can analyze 2344
 Viewport: desktop
-Description: Verifies a shared visitor can enter 2344 and receive fresh backend quote analysis on the same page.
+Description: Verifies a shared visitor can enter a stock name and receive fresh backend quote analysis on the same page.
 
 Steps:
 1. Navigate to the app.
-2. Type "2344" in the stock code field.
+2. Type "華邦電" in the stock code or name field.
 3. Click the analysis button.
 4. Wait for the heading and metrics to update.
 
-Expected: The page shows "2344" with stock metrics, 小資決策卡, 回檔機率, 支撐 / 壓力, 十二維訊號判讀, and source links or source status text.
+Expected: The page shows "2344" with stock metrics, 小資決策卡, 回檔機率 with 核心判斷 and 關鍵觀察指標, 支撐 / 壓力, 十二維訊號判讀, 葛蘭威爾八大法則當前位置, 道氏理論三期趨勢, and source links or source status text.
 
 ## Test 2A - Visitor can change monthly budget
 Viewport: desktop
@@ -55,7 +55,7 @@ Steps:
 3. Click the analysis button.
 4. Scroll through the page.
 
-Expected: Price, MACD, RSI/KD, volume, Bollinger, support/resistance charts, 回檔機率 bars, 小資決策卡, 買點好壞判斷, 短中長線分層, 基本面白話化, 新聞關聯分析, and the strategy table are visible.
+Expected: Price, MACD, RSI/KD, volume, Bollinger, support/resistance charts, 回檔機率 bars and summary, 小資決策卡, 買點好壞判斷, 短中長線分層, 基本面白話化, 新聞關聯分析, 波浪理論判讀, 葛蘭威爾八大法則當前位置, 道氏理論三期趨勢, and the strategy sections are visible.
 
 ## Test 5 - Mobile page remains readable
 Viewport: mobile
@@ -66,7 +66,7 @@ Steps:
 2. Enter "0050" and run analysis.
 3. Scroll from top to bottom.
 
-Expected: The input, metric cards, 小資決策卡, 買點好壞判斷, 短中長線分層, 新聞關聯分析, charts, signal rows, Agent panel, and strategy table are readable without horizontal scrolling.
+Expected: The input, metric cards, 小資決策卡, 買點好壞判斷, 短中長線分層, 新聞關聯分析, charts, signal rows, 葛蘭威爾八大法則當前位置, 道氏理論三期趨勢, Agent panel, 回檔機率 summary, and strategy sections are readable without horizontal scrolling.
 
 ## Test 6 - News relation module handles external data
 Viewport: desktop
