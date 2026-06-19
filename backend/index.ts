@@ -728,7 +728,10 @@ async function loadFundamentals(code: string) {
   }
   const infoRows = infoResult?.data || [];
   const stockInfo = latestRow(infoRows);
-  const assetType = stockInfo?.industry_category === "ETF" ? "etf" : "stock";
+  const isEtf = infoRows.some(row =>
+    String(row?.industry_category || "").trim().toUpperCase().includes("ETF")
+  ) || code === "0050";
+  const assetType = isEtf ? "etf" : "stock";
   const datasets = assetType === "etf"
     ? [
         "TaiwanStockInstitutionalInvestorsBuySellWide",
