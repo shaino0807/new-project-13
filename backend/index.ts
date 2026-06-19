@@ -1,4 +1,4 @@
-import { router, json, error } from "@appdeploy/sdk";
+import { router, json, error, secrets } from "@appdeploy/sdk";
 
 type DailyBar = {
   date: string;
@@ -89,6 +89,720 @@ async function fetchText(url: string, timeoutMs = 9000) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+type FinMindRow = Record<string, any>;
+
+type FinMindCacheEntry = {
+  data: FinMindRow[];
+  fetchedAt: number;
+};
+
+type FinMindDatasetResult = {
+  dataset: string;
+  data: FinMindRow[];
+  fetchedAt: string;
+  cached: boolean;
+  stale: boolean;
+  warning?: string;
+};
+
+class FinMindError extends Error {
+  status: number;
+  code: "quota_exceeded" | "auth_error" | "upstream_error" | "invalid_response";
+
+  constructor(message: string, status: number, code: FinMindError["code"]) {
+    super(message);
+    this.name = "FinMindError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+const FINMIND_API_URL = "https://api.finmindtrade.com/api/v4/data";
+const FINMIND_SOURCE_URL = "https://finmind.github.io/";
+const finMindCache = new Map<string, FinMindCacheEntry>();
+const finMindInflight = new Map<string, Promise<FinMindDatasetResult>>();
+let finMindTokenPromise: Promise<string> | null = null;
+
+async function getFinMindToken() {
+  if (!finMindTokenPromise) {
+    finMindTokenPromise = secrets.readSecret("FINMIND_TOKEN").catch(() => "");
+  }
+  const token = await finMindTokenPromise;
+  if (!token) finMindTokenPromise = null;
+  return token;
+}
+
+function isoDateDaysAgo(days: number) {
+  return new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+}
+
+function finMindCacheTtl(dataset: string) {
+  if (dataset === "TaiwanStockInfo") return 24 * 60 * 60 * 1000;
+  if ([
+    "TaiwanStockFinancialStatements",
+    "TaiwanStockBalanceSheet",
+    "TaiwanStockCashFlowsStatement",
+  ].includes(dataset)) return 6 * 60 * 60 * 1000;
+  if (dataset === "TaiwanStockMonthRevenue") return 2 * 60 * 60 * 1000;
+  return 30 * 60 * 1000;
+}
+
+function finMindStartDate(dataset: string) {
+  if (dataset === "TaiwanStockInfo") return isoDateDaysAgo(30);
+  if ([
+    "TaiwanStockFinancialStatements",
+    "TaiwanStockBalanceSheet",
+    "TaiwanStockCashFlowsStatement",
+  ].includes(dataset)) return isoDateDaysAgo(900);
+  if (dataset === "TaiwanStockMonthRevenue") return isoDateDaysAgo(760);
+  if (dataset === "TaiwanStockPER") return isoDateDaysAgo(120);
+  return isoDateDaysAgo(90);
+}
+
+function finMindErrorCode(status: number): FinMindError["code"] {
+  if (status === 402 || status === 429) return "quota_exceeded";
+  if (status === 401 || status === 403) return "auth_error";
+  if (status >= 500) return "upstream_error";
+  return "invalid_response";
+}
+
+function finMindPublicMessage(err: unknown) {
+  if (err instanceof FinMindError) {
+    if (err.code === "quota_exceeded") return "FinMind API 額度暫時用完，已保留其他可用資料。";
+    if (err.code === "auth_error") return "FinMind Token 無效或來源暫時拒絕存取。";
+    if (err.code === "upstream_error") return "FinMind 服務暫時異常。";
+    return "FinMind 回傳格式不符合預期。";
+  }
+  return err instanceof Error ? err.message : String(err);
+}
+
+async function requestFinMindDataset(dataset: string, code: string): Promise<FinMindDatasetResult> {
+  const cacheKey = `${dataset}:${code}`;
+  const now = Date.now();
+  const cached = finMindCache.get(cacheKey);
+  const ttl = finMindCacheTtl(dataset);
+  if (cached && now - cached.fetchedAt < ttl) {
+    return {
+      dataset,
+      data: cached.data,
+      fetchedAt: new Date(cached.fetchedAt).toISOString(),
+      cached: true,
+      stale: false,
+    };
+  }
+
+  const activeRequest = finMindInflight.get(cacheKey);
+  if (activeRequest) return activeRequest;
+
+  const request = (async () => {
+    const params = new URLSearchParams({
+      dataset,
+      data_id: code,
+      start_date: finMindStartDate(dataset),
+      end_date: new Date().toISOString().slice(0, 10),
+    });
+    const token = await getFinMindToken();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    try {
+      const res = await fetch(`${FINMIND_API_URL}?${params.toString()}`, {
+        signal: controller.signal,
+        headers: {
+          Accept: "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      const text = await res.text();
+      let payload: any = null;
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        throw new FinMindError("FinMind returned non-JSON content", res.status || 502, "invalid_response");
+      }
+      const status = Number(payload?.status || res.status);
+      if (!res.ok || status !== 200 || !Array.isArray(payload?.data)) {
+        throw new FinMindError(
+          String(payload?.msg || `${res.status} ${res.statusText}`),
+          status || res.status || 502,
+          finMindErrorCode(status || res.status || 502),
+        );
+      }
+      const entry = { data: payload.data as FinMindRow[], fetchedAt: Date.now() };
+      finMindCache.set(cacheKey, entry);
+      return {
+        dataset,
+        data: entry.data,
+        fetchedAt: new Date(entry.fetchedAt).toISOString(),
+        cached: false,
+        stale: false,
+      };
+    } catch (err) {
+      if (cached && now - cached.fetchedAt < 24 * 60 * 60 * 1000) {
+        return {
+          dataset,
+          data: cached.data,
+          fetchedAt: new Date(cached.fetchedAt).toISOString(),
+          cached: true,
+          stale: true,
+          warning: finMindPublicMessage(err),
+        };
+      }
+      if (err instanceof FinMindError) throw err;
+      throw new FinMindError(
+        err instanceof Error ? err.message : String(err),
+        502,
+        "upstream_error",
+      );
+    } finally {
+      clearTimeout(timer);
+    }
+  })();
+
+  finMindInflight.set(cacheKey, request);
+  try {
+    return await request;
+  } finally {
+    finMindInflight.delete(cacheKey);
+  }
+}
+
+function sortByDate(rows: FinMindRow[]) {
+  return [...rows].sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
+}
+
+function latestRow(rows: FinMindRow[]) {
+  const sorted = sortByDate(rows);
+  return sorted.length ? sorted[sorted.length - 1] : null;
+}
+
+function finiteOrNull(value: unknown) {
+  const number = toNumber(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function percentChange(current: number | null, previous: number | null) {
+  if (current === null || previous === null || previous === 0) return null;
+  return round(((current / previous) - 1) * 100, 2);
+}
+
+function rowsForLatestDate(rows: FinMindRow[]) {
+  const date = latestRow(rows)?.date;
+  return date ? rows.filter(row => row.date === date) : [];
+}
+
+function statementValue(rows: FinMindRow[], types: string[]) {
+  for (const type of types) {
+    const row = rows.find(item => item.type === type);
+    const value = finiteOrNull(row?.value);
+    if (value !== null) return value;
+  }
+  return null;
+}
+
+function statementPeriods(rows: FinMindRow[]) {
+  const dates = [...new Set(rows.map(row => String(row.date || "")).filter(Boolean))].sort();
+  return dates.map(date => ({ date, rows: rows.filter(row => row.date === date) }));
+}
+
+function sameQuarterLastYear(periods: ReturnType<typeof statementPeriods>, date: string) {
+  const year = Number(date.slice(0, 4)) - 1;
+  const monthDay = date.slice(4);
+  return periods.find(period => period.date === `${year}${monthDay}`) || null;
+}
+
+function buildFinancialSummary(rows: FinMindRow[]) {
+  const periods = statementPeriods(rows);
+  const latest = periods[periods.length - 1] || null;
+  if (!latest) return null;
+  const previousYear = sameQuarterLastYear(periods, latest.date);
+  const eps = statementValue(latest.rows, ["EPS", "BasicEarningsLossPerShare"]);
+  const previousEps = previousYear ? statementValue(previousYear.rows, ["EPS", "BasicEarningsLossPerShare"]) : null;
+  const revenue = statementValue(latest.rows, ["Revenue", "OperatingRevenue"]);
+  const previousRevenue = previousYear ? statementValue(previousYear.rows, ["Revenue", "OperatingRevenue"]) : null;
+  const netIncome = statementValue(latest.rows, [
+    "IncomeAfterTaxes",
+    "IncomeFromContinuingOperations",
+    "EquityAttributableToOwnersOfParent",
+  ]);
+  return {
+    date: latest.date,
+    eps,
+    epsYoY: percentChange(eps, previousEps),
+    previousYearEps: previousEps,
+    revenue,
+    revenueYoY: percentChange(revenue, previousRevenue),
+    previousYearRevenue: previousRevenue,
+    netIncome,
+    operatingIncome: statementValue(latest.rows, ["OperatingIncome"]),
+    grossProfit: statementValue(latest.rows, ["GrossProfit"]),
+  };
+}
+
+function buildRevenueSummary(rows: FinMindRow[]) {
+  const sorted = sortByDate(rows);
+  const latest = latestRow(sorted);
+  if (!latest) return null;
+  const previousYear = sorted.find(row =>
+    Number(row.revenue_year) === Number(latest.revenue_year) - 1 &&
+    Number(row.revenue_month) === Number(latest.revenue_month)
+  ) || null;
+  const latestRevenue = finiteOrNull(latest.revenue);
+  const previousRevenue = finiteOrNull(previousYear?.revenue);
+  const recent = sorted.slice(-6).map(row => {
+    const comparison = sorted.find(item =>
+      Number(item.revenue_year) === Number(row.revenue_year) - 1 &&
+      Number(item.revenue_month) === Number(row.revenue_month)
+    );
+    return {
+      date: row.date,
+      year: Number(row.revenue_year),
+      month: Number(row.revenue_month),
+      revenue: finiteOrNull(row.revenue),
+      yoy: percentChange(finiteOrNull(row.revenue), finiteOrNull(comparison?.revenue)),
+    };
+  });
+  const validGrowth = recent.map(row => row.yoy).filter((value): value is number => value !== null);
+  const latestThree = validGrowth.slice(-3);
+  const priorThree = validGrowth.slice(-6, -3);
+  const average = (values: number[]) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+  const latestAverage = average(latestThree);
+  const priorAverage = average(priorThree);
+  return {
+    date: latest.date,
+    createTime: latest.create_time || null,
+    revenue: latestRevenue,
+    yoy: percentChange(latestRevenue, previousRevenue),
+    recent,
+    growthMomentum: latestAverage !== null && priorAverage !== null ? round(latestAverage - priorAverage, 2) : null,
+  };
+}
+
+function buildValuationSummary(rows: FinMindRow[]) {
+  const latest = latestRow(rows);
+  if (!latest) return null;
+  return {
+    date: latest.date,
+    per: finiteOrNull(latest.PER),
+    pbr: finiteOrNull(latest.PBR),
+    dividendYield: finiteOrNull(latest.dividend_yield),
+  };
+}
+
+function buildCashFlowSummary(rows: FinMindRow[]) {
+  const latest = rowsForLatestDate(rows);
+  if (!latest.length) return null;
+  const operatingCashFlow = statementValue(latest, [
+    "CashFlowsFromOperatingActivities",
+    "NetCashInflowFromOperatingActivities",
+  ]);
+  const capitalExpenditure = statementValue(latest, [
+    "PropertyAndPlantAndEquipment",
+    "AcquisitionOfPropertyPlantAndEquipment",
+  ]);
+  const freeCashFlow = operatingCashFlow !== null && capitalExpenditure !== null
+    ? round(operatingCashFlow + capitalExpenditure, 0)
+    : null;
+  return {
+    date: latest[0].date,
+    operatingCashFlow,
+    capitalExpenditure,
+    freeCashFlow,
+    cashChange: statementValue(latest, ["CashBalancesIncrease"]),
+    endingCash: statementValue(latest, ["CashBalancesEndOfPeriod"]),
+  };
+}
+
+function buildBalanceSheetSummary(rows: FinMindRow[]) {
+  const latest = rowsForLatestDate(rows);
+  if (!latest.length) return null;
+  const totalAssets = statementValue(latest, ["TotalAssets"]);
+  const liabilities = statementValue(latest, ["Liabilities", "TotalLiabilities"]);
+  const currentAssets = statementValue(latest, ["CurrentAssets"]);
+  const currentLiabilities = statementValue(latest, ["CurrentLiabilities"]);
+  return {
+    date: latest[0].date,
+    totalAssets,
+    liabilities,
+    liabilityRatio: totalAssets && liabilities !== null ? round((liabilities / totalAssets) * 100, 2) : null,
+    currentAssets,
+    currentLiabilities,
+    currentRatio: currentLiabilities && currentAssets !== null ? round(currentAssets / currentLiabilities, 2) : null,
+    cashAndEquivalents: statementValue(latest, ["CashAndCashEquivalents"]),
+    equity: statementValue(latest, ["Equity", "EquityAttributableToOwnersOfParent"]),
+  };
+}
+
+function buildInstitutionalSummary(rows: FinMindRow[]) {
+  const sorted = sortByDate(rows);
+  const recent = sorted.slice(-5);
+  if (!recent.length) return null;
+  const net = (row: FinMindRow, buyFields: string[], sellFields: string[]) =>
+    buyFields.reduce((sum, field) => sum + (finiteOrNull(row[field]) || 0), 0) -
+    sellFields.reduce((sum, field) => sum + (finiteOrNull(row[field]) || 0), 0);
+  const foreignNet = recent.reduce((sum, row) => sum + net(
+    row,
+    ["Foreign_Investor_buy", "Foreign_Dealer_Self_buy"],
+    ["Foreign_Investor_sell", "Foreign_Dealer_Self_sell"],
+  ), 0);
+  const trustNet = recent.reduce((sum, row) => sum + net(
+    row,
+    ["Investment_Trust_buy"],
+    ["Investment_Trust_sell"],
+  ), 0);
+  const dealerNet = recent.reduce((sum, row) => sum + net(
+    row,
+    ["Dealer_buy", "Dealer_self_buy", "Dealer_Hedging_buy"],
+    ["Dealer_sell", "Dealer_self_sell", "Dealer_Hedging_sell"],
+  ), 0);
+  return {
+    date: recent[recent.length - 1].date,
+    days: recent.length,
+    foreignNet: round(foreignNet, 0),
+    investmentTrustNet: round(trustNet, 0),
+    dealerNet: round(dealerNet, 0),
+    totalNet: round(foreignNet + trustNet + dealerNet, 0),
+  };
+}
+
+function buildShareholdingSummary(rows: FinMindRow[]) {
+  const sorted = sortByDate(rows);
+  const latest = latestRow(sorted);
+  if (!latest) return null;
+  const previous = sorted[Math.max(0, sorted.length - 6)] || null;
+  const ratio = finiteOrNull(latest.ForeignInvestmentSharesRatio);
+  const previousRatio = finiteOrNull(previous?.ForeignInvestmentSharesRatio);
+  return {
+    date: latest.date,
+    foreignShares: finiteOrNull(latest.ForeignInvestmentShares),
+    foreignRatio: ratio,
+    fiveDayRatioChange: ratio !== null && previousRatio !== null ? round(ratio - previousRatio, 2) : null,
+  };
+}
+
+function buildMarginSummary(rows: FinMindRow[]) {
+  const sorted = sortByDate(rows);
+  const latest = latestRow(sorted);
+  if (!latest) return null;
+  const fiveDaysAgo = sorted[Math.max(0, sorted.length - 6)] || null;
+  const twentyDaysAgo = sorted[Math.max(0, sorted.length - 21)] || null;
+  const marginBalance = finiteOrNull(latest.MarginPurchaseTodayBalance);
+  const shortBalance = finiteOrNull(latest.ShortSaleTodayBalance);
+  return {
+    date: latest.date,
+    marginBalance,
+    marginFiveDayChange: percentChange(marginBalance, finiteOrNull(fiveDaysAgo?.MarginPurchaseTodayBalance)),
+    marginTwentyDayChange: percentChange(marginBalance, finiteOrNull(twentyDaysAgo?.MarginPurchaseTodayBalance)),
+    shortBalance,
+    shortFiveDayChange: percentChange(shortBalance, finiteOrNull(fiveDaysAgo?.ShortSaleTodayBalance)),
+  };
+}
+
+function buildLendingSummary(rows: FinMindRow[]) {
+  const daily = new Map<string, number>();
+  rows.forEach(row => {
+    const date = String(row.date || "");
+    if (!date) return;
+    daily.set(date, (daily.get(date) || 0) + (finiteOrNull(row.volume) || 0));
+  });
+  const dates = [...daily.keys()].sort();
+  if (!dates.length) return null;
+  const latestDate = dates[dates.length - 1];
+  const latestVolume = daily.get(latestDate) || 0;
+  const previous = dates.slice(-21, -1).map(date => daily.get(date) || 0);
+  const average20 = previous.length ? previous.reduce((sum, value) => sum + value, 0) / previous.length : null;
+  return {
+    date: latestDate,
+    volume: round(latestVolume, 0),
+    average20: average20 === null ? null : round(average20, 0),
+    volumeRatio: average20 ? round(latestVolume / average20, 2) : null,
+  };
+}
+
+type EtfHolding = {
+  code: string;
+  name: string;
+  weight: number;
+};
+
+type EtfProfile = {
+  code: string;
+  name: string;
+  holdingsDate: string | null;
+  holdings: EtfHolding[];
+  holdingsSourceUrl: string | null;
+  nav: {
+    date: string | null;
+    value: number | null;
+    marketPrice: number | null;
+    premiumDiscount: number | null;
+    sourceUrl: string | null;
+  };
+  componentSummary: {
+    coverageWeight: number;
+    profitableWeight: number | null;
+    positiveEpsGrowthWeight: number | null;
+    weightedEpsYoY: number | null;
+    weightedRevenueYoY: number | null;
+    weightedPer: number | null;
+    weightedPbr: number | null;
+    weightedDividendYield: number | null;
+    availableComponents: number;
+  } | null;
+  warnings: string[];
+};
+
+const etfProfileCache = new Map<string, { data: EtfProfile; fetchedAt: number }>();
+const ETF_PROFILE_TTL_MS = 30 * 60 * 1000;
+
+function normalizeDate(value: string | null | undefined) {
+  const match = String(value || "").match(/(\d{4})[/-](\d{2})[/-](\d{2})/);
+  return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
+}
+
+function parseYuantaHoldings(html: string) {
+  const holdings: EtfHolding[] = [];
+  const pattern = /商品代碼<\/span>\s*<span[^>]*>(\d{4,6})<\/span>[\s\S]*?商品名稱<\/span>\s*<span[^>]*>([^<]+)<\/span>[\s\S]*?商品數量<\/span>\s*<span[^>]*>[^<]*<\/span>[\s\S]*?商品權重<\/span>\s*<span[^>]*>([\d.]+)<\/span>/g;
+  for (const match of html.matchAll(pattern)) {
+    const weight = toNumber(match[3]);
+    if (!Number.isFinite(weight)) continue;
+    holdings.push({
+      code: match[1],
+      name: stripTags(match[2]),
+      weight: round(weight, 2),
+    });
+  }
+  const dateMatch = html.match(/交易日期:\s*(?:<br[^>]*>)?\s*(\d{4}\/\d{2}\/\d{2})/);
+  return {
+    date: normalizeDate(dateMatch?.[1]),
+    holdings,
+  };
+}
+
+function parseYuantaNav(html: string) {
+  const match = html.match(/<h5[^>]*>(\d{4}\/\d{2}\/\d{2})<\/h5>\s*<h4[^>]*>\s*每受益權單位淨資產價值\(元\)\s*<\/h4>\s*<p[^>]*>NTD\s*([\d,.]+)<\/p>/);
+  return {
+    date: normalizeDate(match?.[1]),
+    value: finiteOrNull(match?.[2]),
+  };
+}
+
+function weightedMetric<T>(rows: T[], weight: (row: T) => number, value: (row: T) => number | null) {
+  const usable = rows.map(row => ({ weight: weight(row), value: value(row) }))
+    .filter(row => Number.isFinite(row.weight) && row.weight > 0 && row.value !== null && Number.isFinite(row.value));
+  const totalWeight = usable.reduce((sum, row) => sum + row.weight, 0);
+  if (!totalWeight) return null;
+  return round(usable.reduce((sum, row) => sum + row.weight * (row.value as number), 0) / totalWeight, 2);
+}
+
+async function buildEtfComponentSummary(holdings: EtfHolding[]) {
+  const major = holdings.slice(0, 5);
+  const rows = await Promise.all(major.map(async holding => {
+    try {
+      const [financial, revenue, valuation] = await Promise.all([
+        requestFinMindDataset("TaiwanStockFinancialStatements", holding.code),
+        requestFinMindDataset("TaiwanStockMonthRevenue", holding.code),
+        requestFinMindDataset("TaiwanStockPER", holding.code),
+      ]);
+      return {
+        ...holding,
+        financial: buildFinancialSummary(financial.data),
+        revenue: buildRevenueSummary(revenue.data),
+        valuation: buildValuationSummary(valuation.data),
+      };
+    } catch {
+      return {
+        ...holding,
+        financial: null,
+        revenue: null,
+        valuation: null,
+      };
+    }
+  }));
+  const available = rows.filter(row => row.financial || row.revenue || row.valuation);
+  const coverageWeight = round(major.reduce((sum, row) => sum + row.weight, 0), 2);
+  const financialWeight = rows.filter(row => Number.isFinite(row.financial?.netIncome))
+    .reduce((sum, row) => sum + row.weight, 0);
+  const profitableWeight = financialWeight
+    ? round(rows.filter(row => (row.financial?.netIncome || 0) > 0).reduce((sum, row) => sum + row.weight, 0), 2)
+    : null;
+  const epsGrowthWeight = rows.filter(row => Number.isFinite(row.financial?.epsYoY))
+    .reduce((sum, row) => sum + row.weight, 0);
+  const positiveEpsGrowthWeight = epsGrowthWeight
+    ? round(rows.filter(row => (row.financial?.epsYoY || 0) > 0).reduce((sum, row) => sum + row.weight, 0), 2)
+    : null;
+  return {
+    holdings: rows.map(row => ({
+      code: row.code,
+      name: row.name,
+      weight: row.weight,
+      epsYoY: row.financial?.epsYoY ?? null,
+      revenueYoY: row.revenue?.yoy ?? row.financial?.revenueYoY ?? null,
+      per: row.valuation?.per ?? null,
+      pbr: row.valuation?.pbr ?? null,
+      dividendYield: row.valuation?.dividendYield ?? null,
+      profitable: row.financial?.netIncome !== null ? (row.financial?.netIncome || 0) > 0 : null,
+    })),
+    summary: {
+      coverageWeight,
+      profitableWeight,
+      positiveEpsGrowthWeight,
+      weightedEpsYoY: weightedMetric(rows, row => row.weight, row => row.financial?.epsYoY ?? null),
+      weightedRevenueYoY: weightedMetric(rows, row => row.weight, row => row.revenue?.yoy ?? row.financial?.revenueYoY ?? null),
+      weightedPer: weightedMetric(rows, row => row.weight, row => row.valuation?.per ?? null),
+      weightedPbr: weightedMetric(rows, row => row.weight, row => row.valuation?.pbr ?? null),
+      weightedDividendYield: weightedMetric(rows, row => row.weight, row => row.valuation?.dividendYield ?? null),
+      availableComponents: available.length,
+    },
+  };
+}
+
+async function loadEtfProfile(code: string, name: string): Promise<EtfProfile> {
+  const cached = etfProfileCache.get(code);
+  if (cached && Date.now() - cached.fetchedAt < ETF_PROFILE_TTL_MS) return cached.data;
+
+  const profile: EtfProfile = {
+    code,
+    name,
+    holdingsDate: null,
+    holdings: [],
+    holdingsSourceUrl: null,
+    nav: {
+      date: null,
+      value: null,
+      marketPrice: null,
+      premiumDiscount: null,
+      sourceUrl: null,
+    },
+    componentSummary: null,
+    warnings: [],
+  };
+
+  if (code === "0050") {
+    const holdingsUrl = "https://www.yuantaetfs.com/product/detail/0050/ratio";
+    const navUrl = "https://www.yuantaetfs.com/tradeInfo/pcf/0050";
+    try {
+      const [holdingsHtml, navHtml, quote] = await Promise.all([
+        fetchText(holdingsUrl, 18000),
+        fetchText(navUrl, 18000),
+        fetchTwseMis(code),
+      ]);
+      const holdingsResult = parseYuantaHoldings(holdingsHtml);
+      const navResult = parseYuantaNav(navHtml);
+      profile.holdingsDate = holdingsResult.date;
+      profile.holdings = holdingsResult.holdings;
+      profile.holdingsSourceUrl = holdingsUrl;
+      profile.nav.date = navResult.date;
+      profile.nav.value = navResult.value;
+      profile.nav.marketPrice = finiteOrNull(quote?.close);
+      profile.nav.premiumDiscount = profile.nav.value && profile.nav.marketPrice !== null
+        ? round(((profile.nav.marketPrice / profile.nav.value) - 1) * 100, 2)
+        : null;
+      profile.nav.sourceUrl = navUrl;
+      if (profile.holdings.length) {
+        const components = await buildEtfComponentSummary(profile.holdings);
+        profile.holdings = components.holdings;
+        profile.componentSummary = components.summary;
+      } else {
+        profile.warnings.push("元大投信持股頁目前沒有可解析的成分股。");
+      }
+    } catch (err) {
+      profile.warnings.push(`0050 ETF 官方資料暫時無法取得：${err instanceof Error ? err.message : String(err)}`);
+    }
+  } else {
+    profile.warnings.push("目前完整成分股與淨值聚合先支援 0050，其他 ETF 仍保留法人與籌碼資料。");
+  }
+
+  etfProfileCache.set(code, { data: profile, fetchedAt: Date.now() });
+  return profile;
+}
+
+async function loadFundamentals(code: string) {
+  const authenticated = Boolean(await getFinMindToken());
+  let infoResult: FinMindDatasetResult | null = null;
+  try {
+    infoResult = await requestFinMindDataset("TaiwanStockInfo", code);
+  } catch {
+    infoResult = null;
+  }
+  const infoRows = infoResult?.data || [];
+  const stockInfo = latestRow(infoRows);
+  const assetType = stockInfo?.industry_category === "ETF" ? "etf" : "stock";
+  const datasets = assetType === "etf"
+    ? [
+        "TaiwanStockInstitutionalInvestorsBuySellWide",
+        "TaiwanStockShareholding",
+        "TaiwanStockMarginPurchaseShortSale",
+        "TaiwanStockSecuritiesLending",
+      ]
+    : [
+        "TaiwanStockFinancialStatements",
+        "TaiwanStockBalanceSheet",
+        "TaiwanStockCashFlowsStatement",
+        "TaiwanStockMonthRevenue",
+        "TaiwanStockPER",
+        "TaiwanStockInstitutionalInvestorsBuySellWide",
+        "TaiwanStockShareholding",
+        "TaiwanStockMarginPurchaseShortSale",
+        "TaiwanStockSecuritiesLending",
+      ];
+  const results = await Promise.allSettled(datasets.map(dataset => requestFinMindDataset(dataset, code)));
+  const available = new Map<string, FinMindDatasetResult>();
+  if (infoResult) available.set("TaiwanStockInfo", infoResult);
+  const errors: Array<{ dataset: string; code: string; message: string }> = [];
+  results.forEach((result, index) => {
+    const dataset = datasets[index];
+    if (result.status === "fulfilled") {
+      available.set(dataset, result.value);
+    } else {
+      const reason = result.reason;
+      errors.push({
+        dataset,
+        code: reason instanceof FinMindError ? reason.code : "upstream_error",
+        message: finMindPublicMessage(reason),
+      });
+    }
+  });
+
+  const rows = (dataset: string) => available.get(dataset)?.data || [];
+  const successful = [...available.values()];
+  const staleDatasets = successful.filter(result => result.stale).map(result => result.dataset);
+  const cachedDatasets = successful.filter(result => result.cached).map(result => result.dataset);
+  const fetchedTimes = successful.map(result => Date.parse(result.fetchedAt)).filter(Number.isFinite);
+  const etf = assetType === "etf"
+    ? await loadEtfProfile(code, stockInfo?.stock_name || FALLBACK_NAMES[code] || code)
+    : null;
+
+  return {
+    ok: successful.length > 0,
+    partial: errors.length > 0 || staleDatasets.length > 0,
+    code,
+    assetType,
+    source: "FinMind",
+    sourceUrl: FINMIND_SOURCE_URL,
+    requestMode: authenticated ? "token" : "anonymous",
+    generatedAt: new Date().toISOString(),
+    fetchedAt: fetchedTimes.length ? new Date(Math.max(...fetchedTimes)).toISOString() : null,
+    cache: {
+      cachedDatasets,
+      staleDatasets,
+      policy: "財報 6 小時、月營收 2 小時、估值與籌碼 30 分鐘；來源失敗時最多沿用 24 小時舊快取。",
+    },
+    data: {
+      profitability: assetType === "stock" ? buildFinancialSummary(rows("TaiwanStockFinancialStatements")) : null,
+      revenue: assetType === "stock" ? buildRevenueSummary(rows("TaiwanStockMonthRevenue")) : null,
+      valuation: assetType === "stock" ? buildValuationSummary(rows("TaiwanStockPER")) : null,
+      cashFlow: assetType === "stock" ? buildCashFlowSummary(rows("TaiwanStockCashFlowsStatement")) : null,
+      balanceSheet: assetType === "stock" ? buildBalanceSheetSummary(rows("TaiwanStockBalanceSheet")) : null,
+      institutional: buildInstitutionalSummary(rows("TaiwanStockInstitutionalInvestorsBuySellWide")),
+      foreignShareholding: buildShareholdingSummary(rows("TaiwanStockShareholding")),
+      margin: buildMarginSummary(rows("TaiwanStockMarginPurchaseShortSale")),
+      securitiesLending: buildLendingSummary(rows("TaiwanStockSecuritiesLending")),
+      etf,
+    },
+    errors,
+  };
 }
 
 async function fetchYahooChart(code: string) {
@@ -214,6 +928,29 @@ type NewsItem = {
   snippet: string;
 };
 
+type NewsPayload = {
+  ok: boolean;
+  query: string;
+  source: string;
+  sourceUrl: string;
+  generatedAt: string;
+  items: ReturnType<typeof classifyNews>[];
+  note: string;
+  cached?: boolean;
+  stale?: boolean;
+  unavailableReason?: "timeout" | "upstream";
+};
+
+type NewsCacheEntry = {
+  payload: NewsPayload;
+  fetchedAt: number;
+};
+
+const newsCache = new Map<string, NewsCacheEntry>();
+const newsInflight = new Map<string, Promise<NewsPayload>>();
+const NEWS_CACHE_TTL_MS = 15 * 60 * 1000;
+const NEWS_STALE_TTL_MS = 6 * 60 * 60 * 1000;
+
 function decodeXml(value: string) {
   return String(value || "")
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
@@ -314,30 +1051,86 @@ function classifyNews(item: NewsItem, code: string, name: string) {
 }
 
 async function loadNews(code: string, name = FALLBACK_NAMES[code] || code) {
-  const query = `${code} ${name} 股票 OR 台股`;
+  const cacheKey = `${code}:${name}`;
+  const now = Date.now();
+  const cached = newsCache.get(cacheKey);
+  if (cached && now - cached.fetchedAt < NEWS_CACHE_TTL_MS) {
+    return {
+      ...cached.payload,
+      cached: true,
+      stale: false,
+      note: cached.payload.items.length
+        ? "新聞由短期快取提供，仍需點開原文確認細節。"
+        : "新聞來源查詢成功，但目前沒有符合條件的可判讀新聞。",
+    };
+  }
+
+  const activeRequest = newsInflight.get(cacheKey);
+  if (activeRequest) return activeRequest;
+
+  const query = code === "0050"
+    ? "0050 元大台灣50 ETF OR 成分股 OR 台股大盤"
+    : `${code} ${name} 股票 OR 台股`;
   const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
+  const request = (async (): Promise<NewsPayload> => {
+    try {
+      const xml = await fetchText(rssUrl, 18000);
+      const items = parseRssItems(xml).map((item) => classifyNews(item, code, name));
+      const payload: NewsPayload = {
+        ok: true,
+        query,
+        source: "Google News RSS",
+        sourceUrl: rssUrl,
+        generatedAt: new Date().toISOString(),
+        items,
+        cached: false,
+        stale: false,
+        note: items.length
+          ? "新聞用標題與摘要做關聯判讀，仍需點開原文確認細節。"
+          : "新聞來源查詢成功，但目前沒有符合條件的可判讀新聞。",
+      };
+      newsCache.set(cacheKey, { payload, fetchedAt: Date.now() });
+      return payload;
+    } catch (err) {
+      const isTimeout = err instanceof Error && (
+        err.name === "AbortError" ||
+        /aborted|timeout/i.test(err.message)
+      );
+      if (cached && now - cached.fetchedAt < NEWS_STALE_TTL_MS) {
+        return {
+          ...cached.payload,
+          ok: true,
+          cached: true,
+          stale: true,
+          unavailableReason: isTimeout ? "timeout" : "upstream",
+          generatedAt: new Date().toISOString(),
+          note: isTimeout
+            ? "新聞來源本次逾時，顯示最近一次成功取得的快取。"
+            : "新聞來源本次暫時不可用，顯示最近一次成功取得的快取。",
+        };
+      }
+      return {
+        ok: false,
+        query,
+        source: "Google News RSS",
+        sourceUrl: rssUrl,
+        generatedAt: new Date().toISOString(),
+        items: [],
+        cached: false,
+        stale: false,
+        unavailableReason: isTimeout ? "timeout" : "upstream",
+        note: isTimeout
+          ? "新聞來源讀取逾時，不代表沒有新聞，請稍後重試。"
+          : "新聞來源暫時無法連線，不代表沒有新聞，請稍後重試。",
+      };
+    }
+  })();
+
+  newsInflight.set(cacheKey, request);
   try {
-    const xml = await fetchText(rssUrl, 8000);
-    const items = parseRssItems(xml).map((item) => classifyNews(item, code, name));
-    return {
-      ok: true,
-      query,
-      source: "Google News RSS",
-      sourceUrl: rssUrl,
-      generatedAt: new Date().toISOString(),
-      items,
-      note: items.length ? "新聞用標題與摘要做關聯判讀，仍需點開原文確認細節。" : "外部新聞源沒有回傳可判讀的新聞。",
-    };
-  } catch (err) {
-    return {
-      ok: false,
-      query,
-      source: "Google News RSS",
-      sourceUrl: rssUrl,
-      generatedAt: new Date().toISOString(),
-      items: [],
-      note: `新聞暫時無法載入：${err instanceof Error ? err.message : String(err)}`,
-    };
+    return await request;
+  } finally {
+    newsInflight.delete(cacheKey);
   }
 }
 
@@ -739,5 +1532,22 @@ export const handler = router({
     const name = String(query.name || FALLBACK_NAMES[code] || code).slice(0, 40);
     if (!code) return error("Missing stock code", 400);
     return json(await loadNews(code, name));
+  }],
+
+  "GET /api/fundamentals": [async ({ query }) => {
+    const code = cleanCode(query.code);
+    if (!code || !/^\d{4,6}$/.test(code)) return error("Missing or invalid stock code", 400);
+    try {
+      const payload = await loadFundamentals(code);
+      return json(payload, payload.ok ? 200 : 503);
+    } catch (err) {
+      return json({
+        ok: false,
+        partial: false,
+        code,
+        message: finMindPublicMessage(err),
+        generatedAt: new Date().toISOString(),
+      }, 503);
+    }
   }],
 });

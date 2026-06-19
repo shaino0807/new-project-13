@@ -36,6 +36,9 @@
     .mc { padding:.62rem .78rem; min-height:74px; }
     .mc .k { font-size:11px; color:var(--muted); }
     .mc .v { font-size:1.14rem; font-weight:760; margin-top:.18rem; overflow-wrap:anywhere; }
+    .mc .v.up { color:var(--red); }
+    .mc .v.down { color:var(--green); }
+    .mc .v.flat { color:var(--amber); }
     .panel { padding:.85rem; margin:.75rem 0; }
     .chartbox { height:285px; }
     .chartbox.sm { height:220px; }
@@ -97,6 +100,8 @@
     .news-list { display:grid; gap:.55rem; }
     .news-meta { display:flex; flex-wrap:wrap; gap:.35rem; margin:.35rem 0; }
     .news-item a { color:var(--blue); text-decoration:none; border-bottom:1px solid #c6cee8; }
+    .fund-meta { margin-top:.7rem; padding-top:.55rem; border-top:.5px solid #e7e5e1; color:var(--muted); font-size:11px; line-height:1.65; }
+    .fund-meta a { color:var(--blue); }
     @media (max-width:820px) {
       .hero-top,.two { grid-template-columns:1fr; }
       .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -283,8 +288,16 @@
       return String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "\"":"&quot;", "'":"&#39;" }[ch]));
     }
 
-    function metric(label, value) {
-      return `<div class="mc"><div class="k">${escapeHtml(label)}</div><div class="v">${value}</div></div>`;
+    function metric(label, value, tone = "") {
+      const cls = ["up", "down", "flat"].includes(tone) ? ` ${tone}` : "";
+      return `<div class="mc"><div class="k">${escapeHtml(label)}</div><div class="v${cls}">${value}</div></div>`;
+    }
+
+    function movementTone(value, epsilon = .000001) {
+      if (!Number.isFinite(Number(value))) return "flat";
+      if (Number(value) > epsilon) return "up";
+      if (Number(value) < -epsilon) return "down";
+      return "flat";
     }
 
     function resolveInputCode(value) {
@@ -526,17 +539,308 @@
         </div>`).join("");
     }
 
-    function renderPlainFundamentals(data) {
-      const nearHigh = data.close > data.high52 * .88;
+    function compactMoney(value) {
+      if (!Number.isFinite(value)) return "資料不足";
+      const abs = Math.abs(value);
+      if (abs >= 1e12) return `${fmt(value / 1e12, 2)} 兆元`;
+      if (abs >= 1e8) return `${fmt(value / 1e8, 2)} 億元`;
+      if (abs >= 1e4) return `${fmt(value / 1e4, 2)} 萬元`;
+      return `${fmt(value, 0)} 元`;
+    }
+
+    function signedNumber(value, suffix = "") {
+      if (!Number.isFinite(value)) return "資料不足";
+      return `${value > 0 ? "+" : ""}${fmt(value, 2)}${suffix}`;
+    }
+
+    function signedShares(value) {
+      if (!Number.isFinite(value)) return "資料不足";
+      return `${value > 0 ? "+" : ""}${fmt(value / 1000, 0)} 張`;
+    }
+
+    function fundamentalRow(title, description, label, cls) {
+      return `<div class="sr"><div class="sl"><b>${escapeHtml(title)}</b><br>${escapeHtml(description)}</div>${badge(label, cls)}</div>`;
+    }
+
+    function renderEtfFundamentals(data, payload, newsPayload) {
+      const fundamental = payload?.data || {};
+      const etf = fundamental.etf || {};
+      const components = etf.componentSummary;
+      const holdings = Array.isArray(etf.holdings) ? etf.holdings.slice(0, 5) : [];
+      const institutional = fundamental.institutional;
+      const foreign = fundamental.foreignShareholding;
+      const margin = fundamental.margin;
+      const lending = fundamental.securitiesLending;
+      const nav = etf.nav || {};
+      const rows = [];
+      const holdingsText = holdings.length
+        ? holdings.map(item => `${item.code} ${item.name} ${fmt(item.weight, 2)}%`).join("、")
+        : "主要成分股資料暫時無法取得";
+
+      if (components && components.availableComponents) {
+        rows.push(fundamentalRow(
+          "主要成分股有沒有賺錢",
+          `以前五大成分股加權觀察，涵蓋 ETF 約 ${fmt(components.coverageWeight, 2)}%。其中有獲利的成分股權重約 ${fmt(components.profitableWeight, 2)}%。主要持股：${holdingsText}。`,
+          components.profitableWeight >= components.coverageWeight * .8 ? "多數有獲利" : "獲利需確認",
+          components.profitableWeight >= components.coverageWeight * .8 ? "bull" : "warn"
+        ));
+        const growthWeak = Number.isFinite(components.weightedRevenueYoY) && components.weightedRevenueYoY < 0;
+        rows.push(fundamentalRow(
+          "成分股成長有沒有變慢",
+          `主要成分股加權營收年增 ${signedNumber(components.weightedRevenueYoY, "%")}，加權 EPS 年增 ${signedNumber(components.weightedEpsYoY, "%")}；EPS 正成長的成分股權重約 ${fmt(components.positiveEpsGrowthWeight, 2)}%。`,
+          growthWeak ? "成長轉弱" : "持續觀察",
+          growthWeak ? "bear" : "bull"
+        ));
+      } else {
+        rows.push(fundamentalRow(
+          "主要成分股有沒有賺錢",
+          "ETF 本身沒有公司損益表。目前成分股資料來源暫時無法取得，不能用 ETF 代碼直接判斷 EPS。",
+          "成分股待更新",
+          "warn"
+        ));
+        rows.push(fundamentalRow(
+          "成分股成長有沒有變慢",
+          "ETF 本身沒有月營收。應以主要成分股的營收與 EPS 趨勢判斷，目前聚合資料暫時不足。",
+          "成分股待更新",
+          "warn"
+        ));
+      }
+
+      if (components || Number.isFinite(nav.value)) {
+        const premium = nav.premiumDiscount;
+        const premiumText = Number.isFinite(premium)
+          ? `${premium >= 0 ? "溢價" : "折價"} ${fmt(Math.abs(premium), 2)}%`
+          : "折溢價資料不足";
+        const hot = Number.isFinite(premium) && premium > 1;
+        rows.push(fundamentalRow(
+          "ETF 估值與折溢價",
+          `主要成分股加權本益比 ${fmt(components?.weightedPer, 2)} 倍、股價淨值比 ${fmt(components?.weightedPbr, 2)} 倍、殖利率 ${fmt(components?.weightedDividendYield, 2)}%。${nav.date || "日期不足"} 淨值 ${fmt(nav.value, 2)} 元，市場價格 ${fmt(nav.marketPrice, 2)} 元，${premiumText}。`,
+          hot ? "溢價偏高" : "估值已取得",
+          hot ? "warn" : "neut"
+        ));
+      } else {
+        rows.push(fundamentalRow("ETF 估值與折溢價", "目前沒有可用的成分股加權估值或基金淨值資料。", "資料不足", "warn"));
+      }
+
+      rows.push(fundamentalRow(
+        "現金流是否健康",
+        "ETF 是投資組合，不適用單一公司的營業現金流與自由現金流判斷。應改看成分股獲利、基金淨值及資金流。",
+        "ETF 不適用",
+        "neut"
+      ));
+      rows.push(fundamentalRow(
+        "負債是否過高",
+        "ETF 不適用上市公司的負債比與流動比率判斷。此處不把成分股負債率混成單一公司負債。",
+        "ETF 不適用",
+        "neut"
+      ));
+
+      if (institutional || foreign) {
+        const net = institutional?.totalNet;
+        rows.push(fundamentalRow(
+          "法人及資金是否支持",
+          `近 ${institutional?.days || 0} 個交易日三大法人合計 ${signedShares(net)}，外資 ${signedShares(institutional?.foreignNet)}；外資持有比率 ${fmt(foreign?.foreignRatio, 2)}%（${foreign?.date || institutional?.date || "日期不足"}）。`,
+          net > 0 ? "法人買超" : net < 0 ? "法人賣超" : "買賣平衡",
+          net > 0 ? "bull" : net < 0 ? "bear" : "neut"
+        ));
+      } else {
+        rows.push(fundamentalRow("法人及資金是否支持", "FinMind 法人與外資持有資料目前無法使用。", "資料不足", "warn"));
+      }
+
+      if (margin || lending) {
+        const marginHot = Number.isFinite(margin?.marginTwentyDayChange) && margin.marginTwentyDayChange >= 15;
+        const lendingHot = Number.isFinite(lending?.volumeRatio) && lending.volumeRatio >= 1.5;
+        rows.push(fundamentalRow(
+          "籌碼是否過熱",
+          `融資餘額 ${fmt(margin?.marginBalance, 0)} 張，20 日變化 ${signedNumber(margin?.marginTwentyDayChange, "%")}；最新借券成交量 ${fmt(lending?.volume, 0)} 股，約為 20 日均量 ${fmt(lending?.volumeRatio, 2)} 倍。`,
+          marginHot && lendingHot ? "籌碼偏熱" : marginHot || lendingHot ? "籌碼升溫" : "未見同步過熱",
+          marginHot && lendingHot ? "bear" : marginHot || lendingHot ? "warn" : "bull"
+        ));
+      } else {
+        rows.push(fundamentalRow("籌碼是否過熱", "FinMind 融資融券與借券資料目前無法使用。", "資料不足", "warn"));
+      }
+
       const trendOk = data.close > maNow(data, "ma120") && maNow(data, "ma20") >= maNow(data, "ma60");
-      const rows = [
-        ["公司有沒有賺錢", "尚未接入 EPS 與損益表，不能直接判斷，只能先看價格是否反映市場期待。", "warn"],
-        ["成長有沒有變慢", "需接月營收與季報；目前用量價判斷市場是否開始降溫。", data.volumeRatio > 1.8 && data.pullback > 60 ? "bear" : "warn"],
-        ["股價是不是太貴", nearHigh ? "接近 52 週高檔，不能只因題材就追價。" : "未貼近 52 週高檔，但仍要看營收與估值。", nearHigh ? "bear" : "neut"],
-        ["現金流穩不穩", "尚未接入現金流量表，應先標成資料不足，避免假裝知道。", "warn"],
-        ["是不是只靠題材在漲", trendOk ? "趨勢支持度較高，但仍要用新聞與營收驗證。" : "趨勢支持不足，若新聞很熱更要防題材退燒。", trendOk ? "bull" : "warn"]
-      ];
-      $("plainFundamentals").innerHTML = rows.map(([text, desc, cls]) => `<div class="sr"><div class="sl"><b>${text}</b><br>${desc}</div>${badge(cls === "bull" ? "較佳" : cls === "bear" ? "警戒" : "待補", cls)}</div>`).join("");
+      const componentOk = Number.isFinite(components?.weightedRevenueYoY) && components.weightedRevenueYoY > 0;
+      const institutionOk = institutional?.totalNet > 0;
+      const premiumOk = !Number.isFinite(nav.premiumDiscount) || nav.premiumDiscount <= 1;
+      const directNews = Array.isArray(newsPayload?.items)
+        ? newsPayload.items.filter(item => item.relation === "直接相關").length
+        : 0;
+      const evidence = [
+        componentOk ? "主要成分股營收仍成長" : "",
+        institutionOk ? "法人近五日買超" : "",
+        premiumOk ? "折溢價未明顯偏高" : "",
+        trendOk ? "量價趨勢仍有支撐" : "",
+        directNews ? `有 ${directNews} 則直接相關新聞` : "",
+      ].filter(Boolean);
+      rows.push(fundamentalRow(
+        "是否只靠題材",
+        evidence.length
+          ? `目前可核對的支撐包括：${evidence.join("、")}。ETF 應持續核對成分股基本面、資金流、折溢價與量價。`
+          : "目前未同時看到成分股基本面、資金流、折溢價與量價支撐，需防題材退燒。",
+        evidence.length >= 3 ? "有資料支撐" : evidence.length ? "需交叉驗證" : "題材風險",
+        evidence.length >= 3 ? "bull" : evidence.length ? "warn" : "bear"
+      ));
+
+      const sourceLinks = [
+        payload?.sourceUrl ? `<a href="${escapeHtml(payload.sourceUrl)}" target="_blank" rel="noreferrer">FinMind</a>` : "",
+        etf.holdingsSourceUrl ? `<a href="${escapeHtml(etf.holdingsSourceUrl)}" target="_blank" rel="noreferrer">成分股權重</a>` : "",
+        nav.sourceUrl ? `<a href="${escapeHtml(nav.sourceUrl)}" target="_blank" rel="noreferrer">基金淨值</a>` : "",
+      ].filter(Boolean).join("、");
+      $("plainFundamentals").innerHTML = rows.join("") + `
+        <div class="fund-meta">
+          ETF 專用判斷。資料來源：${sourceLinks || "來源暫時不可用"}。
+          成分股日期：${escapeHtml(etf.holdingsDate || "無可用日期")}。
+          更新時間：${escapeHtml(payload?.fetchedAt ? new Date(payload.fetchedAt).toLocaleString("zh-TW") : "無可用時間")}。
+          ${etf.warnings?.length ? escapeHtml(etf.warnings.join(" ")) : ""}
+        </div>`;
+    }
+
+    function renderPlainFundamentals(data, payload, newsPayload) {
+      if (payload?.assetType === "etf") {
+        renderEtfFundamentals(data, payload, newsPayload);
+        return;
+      }
+      const fundamental = payload?.data || {};
+      const profit = fundamental.profitability;
+      const revenue = fundamental.revenue;
+      const valuation = fundamental.valuation;
+      const cashFlow = fundamental.cashFlow;
+      const balance = fundamental.balanceSheet;
+      const institutional = fundamental.institutional;
+      const foreign = fundamental.foreignShareholding;
+      const margin = fundamental.margin;
+      const lending = fundamental.securitiesLending;
+      const rows = [];
+
+      if (profit && Number.isFinite(profit.eps) && Number.isFinite(profit.netIncome)) {
+        const profitable = profit.eps > 0 && profit.netIncome > 0;
+        rows.push(fundamentalRow(
+          "公司有沒有賺錢",
+          `${profit.date} EPS ${fmt(profit.eps, 2)} 元，歸屬本期淨利 ${compactMoney(profit.netIncome)}；EPS 年增 ${signedNumber(profit.epsYoY, "%")}。`,
+          profitable ? "有獲利" : "虧損",
+          profitable ? "bull" : "bear"
+        ));
+      } else {
+        rows.push(fundamentalRow("公司有沒有賺錢", "FinMind 損益表目前沒有足夠的 EPS 與淨利欄位。", "資料不足", "warn"));
+      }
+
+      if (revenue || profit) {
+        const monthlyYoY = revenue?.yoy;
+        const quarterYoY = profit?.revenueYoY;
+        const epsYoY = profit?.epsYoY;
+        const availableGrowth = [monthlyYoY, quarterYoY, epsYoY].filter(Number.isFinite);
+        const slowing = Number.isFinite(revenue?.growthMomentum) && revenue.growthMomentum < 0;
+        const negative = availableGrowth.length && availableGrowth.filter(value => value < 0).length >= Math.ceil(availableGrowth.length / 2);
+        const label = negative ? "成長轉弱" : slowing ? "成長放緩" : "持續觀察";
+        const cls = negative ? "bear" : slowing ? "warn" : "bull";
+        rows.push(fundamentalRow(
+          "成長有沒有變慢",
+          `月營收年增 ${signedNumber(monthlyYoY, "%")}（${revenue?.date || "日期不足"}），季度營收年增 ${signedNumber(quarterYoY, "%")}，EPS 年增 ${signedNumber(epsYoY, "%")}。近三個月年增動能變化 ${signedNumber(revenue?.growthMomentum, " 個百分點")}。`,
+          label,
+          cls
+        ));
+      } else {
+        rows.push(fundamentalRow("成長有沒有變慢", "FinMind 月營收與季度損益資料目前無法使用。", "資料不足", "warn"));
+      }
+
+      if (valuation) {
+        rows.push(fundamentalRow(
+          "股價是否太貴",
+          `${valuation.date} 本益比 ${fmt(valuation.per, 2)} 倍、股價淨值比 ${fmt(valuation.pbr, 2)} 倍、殖利率 ${fmt(valuation.dividendYield, 2)}%。是否昂貴仍需和公司歷史區間及同業比較，暫不給綜合分數。`,
+          "估值已取得",
+          "neut"
+        ));
+      } else {
+        rows.push(fundamentalRow("股價是否太貴", "FinMind TaiwanStockPER 目前沒有回傳可用資料。", "資料不足", "warn"));
+      }
+
+      if (cashFlow) {
+        const healthy = cashFlow.operatingCashFlow > 0 && cashFlow.freeCashFlow > 0;
+        const weak = cashFlow.operatingCashFlow < 0;
+        rows.push(fundamentalRow(
+          "現金流是否健康",
+          `${cashFlow.date} 營業現金流 ${compactMoney(cashFlow.operatingCashFlow)}，資本支出 ${compactMoney(cashFlow.capitalExpenditure)}，自由現金流 ${compactMoney(cashFlow.freeCashFlow)}。`,
+          weak ? "現金流出" : healthy ? "現金流為正" : "投資支出較高",
+          weak ? "bear" : healthy ? "bull" : "warn"
+        ));
+      } else {
+        rows.push(fundamentalRow("現金流是否健康", "FinMind 現金流量表目前沒有足夠資料。", "資料不足", "warn"));
+      }
+
+      if (balance) {
+        rows.push(fundamentalRow(
+          "負債是否過高",
+          `${balance.date} 負債比 ${fmt(balance.liabilityRatio, 2)}%，流動比率 ${fmt(balance.currentRatio, 2)} 倍，現金及約當現金 ${compactMoney(balance.cashAndEquivalents)}。是否偏高需依產業與公司歷史比較。`,
+          "結構已取得",
+          "neut"
+        ));
+      } else {
+        rows.push(fundamentalRow("負債是否過高", "FinMind 資產負債表目前沒有足夠資料。", "資料不足", "warn"));
+      }
+
+      if (institutional || foreign) {
+        const net = institutional?.totalNet;
+        const cls = net > 0 ? "bull" : net < 0 ? "bear" : "neut";
+        rows.push(fundamentalRow(
+          "法人是否支持",
+          `近 ${institutional?.days || 0} 個交易日三大法人合計 ${signedShares(net)}，外資 ${signedShares(institutional?.foreignNet)}；外資持股比 ${fmt(foreign?.foreignRatio, 2)}%（${foreign?.date || institutional?.date || "日期不足"}）。`,
+          net > 0 ? "法人買超" : net < 0 ? "法人賣超" : "買賣平衡",
+          cls
+        ));
+      } else {
+        rows.push(fundamentalRow("法人是否支持", "FinMind 三大法人與外資持股資料目前無法使用。", "資料不足", "warn"));
+      }
+
+      if (margin || lending) {
+        const marginHot = Number.isFinite(margin?.marginTwentyDayChange) && margin.marginTwentyDayChange >= 15;
+        const lendingHot = Number.isFinite(lending?.volumeRatio) && lending.volumeRatio >= 1.5;
+        rows.push(fundamentalRow(
+          "籌碼是否過熱",
+          `融資餘額 ${fmt(margin?.marginBalance, 0)} 張，20 日變化 ${signedNumber(margin?.marginTwentyDayChange, "%")}；最新借券成交量 ${fmt(lending?.volume, 0)} 股，約為 20 日均量 ${fmt(lending?.volumeRatio, 2)} 倍。`,
+          marginHot && lendingHot ? "籌碼偏熱" : marginHot || lendingHot ? "籌碼升溫" : "未見同步過熱",
+          marginHot && lendingHot ? "bear" : marginHot || lendingHot ? "warn" : "bull"
+        ));
+      } else {
+        rows.push(fundamentalRow("籌碼是否過熱", "FinMind 融資融券與借券資料目前無法使用。", "資料不足", "warn"));
+      }
+
+      const trendOk = data.close > maNow(data, "ma120") && maNow(data, "ma20") >= maNow(data, "ma60");
+      const profitOk = profit?.netIncome > 0;
+      const revenueOk = revenue?.yoy > 0 || profit?.revenueYoY > 0;
+      const institutionOk = institutional?.totalNet > 0;
+      const directNews = Array.isArray(newsPayload?.items)
+        ? newsPayload.items.filter(item => item.relation === "直接相關").length
+        : 0;
+      const evidence = [
+        profitOk ? "公司有獲利" : "",
+        revenueOk ? "營收仍成長" : "",
+        institutionOk ? "法人近五日買超" : "",
+        trendOk ? "中長期趨勢仍有支撐" : "",
+        directNews ? `有 ${directNews} 則直接相關新聞` : "",
+      ].filter(Boolean);
+      rows.push(fundamentalRow(
+        "是否只靠題材",
+        evidence.length
+          ? `目前可核對的支撐包括：${evidence.join("、")}。仍需持續確認新聞事件能否反映到後續營收與獲利。`
+          : "目前未同時看到獲利、營收、法人、新聞與量價的明確支撐，題材退燒風險較高。",
+        evidence.length >= 3 ? "有資料支撐" : evidence.length ? "需交叉驗證" : "題材風險",
+        evidence.length >= 3 ? "bull" : evidence.length ? "warn" : "bear"
+      ));
+
+      const cacheText = payload?.cache?.staleDatasets?.length
+        ? `部分資料使用舊快取：${payload.cache.staleDatasets.join("、")}。`
+        : payload?.cache?.cachedDatasets?.length
+          ? "部分資料由後端快取提供，仍在各資料集有效期限內。"
+          : "本次資料由後端向 FinMind 取得。";
+      $("plainFundamentals").innerHTML = rows.join("") + `
+        <div class="fund-meta">
+          資料來源：<a href="${escapeHtml(payload?.sourceUrl || "https://finmind.github.io/")}" target="_blank" rel="noreferrer">FinMind</a>。
+          更新時間：${escapeHtml(payload?.fetchedAt ? new Date(payload.fetchedAt).toLocaleString("zh-TW") : "無可用時間")}。
+          ${escapeHtml(cacheText)}
+          ${payload?.partial ? "部分資料來源暫時不可用，畫面已逐項標示。" : ""}
+        </div>`;
     }
 
     async function getNews(code, name) {
@@ -549,7 +853,12 @@
       const items = Array.isArray(payload?.items) ? payload.items : [];
       $("newsNote").textContent = payload?.note || "新聞資料暫時無法載入。";
       if (!items.length) {
-        $("newsRows").innerHTML = `<div class="news-item"><b>沒有可判讀新聞</b><p>${escapeHtml(payload?.note || "外部來源沒有回傳資料。")}</p></div>`;
+        const title = payload?.unavailableReason === "timeout"
+          ? "新聞來源逾時"
+          : payload?.ok
+            ? "查無符合條件新聞"
+            : "新聞來源暫時不可用";
+        $("newsRows").innerHTML = `<div class="news-item"><b>${escapeHtml(title)}</b><p>${escapeHtml(payload?.note || "外部來源沒有回傳資料。")}</p></div>`;
         return;
       }
       $("newsRows").innerHTML = items.slice(0, 6).map((item) => `
@@ -576,6 +885,39 @@
       }
     }
 
+    async function getFundamentals(code) {
+      const api = await waitForAppApi();
+      const { data } = await api.get(`/api/fundamentals?code=${encodeURIComponent(code)}`);
+      return data;
+    }
+
+    async function loadSupplementalData(data) {
+      const requestCode = data.code;
+      $("plainFundamentals").innerHTML = `<div class="sr"><div class="sl"><b>正在載入 FinMind</b><br>同步損益表、月營收、估值、現金流、負債、法人與籌碼資料。</div>${badge("載入中", "neut")}</div>`;
+      $("newsRows").innerHTML = `<div class="news-item"><b>正在搜尋新聞</b><p>會判讀直接相關、間接相關、雜訊、利多利空與影響週期。</p></div>`;
+      $("newsNote").textContent = "新聞由外部來源即時搜尋，結果會隨時間變動。";
+      const [fundamentalsResult, newsResult] = await Promise.allSettled([
+        getFundamentals(requestCode),
+        getNews(requestCode, data.quote?.name || fallbackNames[requestCode] || ""),
+      ]);
+      if (activeData?.code !== requestCode) return;
+      const fundamentals = fundamentalsResult.status === "fulfilled" ? fundamentalsResult.value : null;
+      const news = newsResult.status === "fulfilled"
+        ? newsResult.value
+        : { ok:false, items:[], note:"新聞來源暫時不可用，主分析仍可使用。" };
+      renderNews(news);
+      if (fundamentals?.ok) {
+        renderPlainFundamentals(data, fundamentals, news);
+      } else {
+        $("plainFundamentals").innerHTML = fundamentalRow(
+          "FinMind 資料暫時無法載入",
+          fundamentals?.message || "後端未取得可用的基本面與籌碼資料，技術分析及新聞功能仍可使用。",
+          "稍後重試",
+          "warn"
+        );
+      }
+    }
+
     function renderHeroFacts(data, name) {
       const [trendText, trendCls] = trendTone(data);
       const [riskText, riskCls] = pullbackLabel(data.pullback);
@@ -598,7 +940,7 @@
         ["量能面", prob.volume, "放量後是否縮量或失速"],
         ["纏論與波浪", prob.wave, "高檔中樞、第五浪或 ABC 修正"],
         ["急漲後動能衰退", Math.max(15, Math.min(95, Math.round((data.rsiNow > 65 ? 30 : 12) + data.volumeRatio * 16 + (data.close > data.resistance * .98 ? 25 : 8)))), "大陽線後隔日續航"],
-        ["基本面支撐", prob.fund, "現階段用趨勢代理，資料不足時保守處理"],
+        ["基本面支撐（舊版代理）", prob.fund, "此列仍是技術趨勢代理；FinMind 評分標準後續另行確認"],
         ["中長期趨勢逆轉", prob.longTerm, "MA120 與長線低點防線"]
       ];
       const [riskText, riskCls, riskDesc] = pullbackLabel(data.pullback);
@@ -626,7 +968,7 @@
         ["波浪理論", `若目前接近短線高點，可視為推進浪後段或 B 浪反彈；若回測 MA20 不破，修正較健康；若跌破 MA60，C 浪或深度修正機率升高。`, data.pullback >= 60 ? badge("末端疑慮", "bear") : badge("推進觀察", "bull")],
         ["葛蘭威爾八大", `股價相對 MA20 與 MA60 的位置是核心。站上均線且均線上彎偏向買進法則，遠離均線急漲則偏向賣出或等待回測法則。`, data.close > maNow(data, "ma20") ? badge("偏多法則", "bull") : badge("修復法則", "warn")],
         ["道氏理論", `短期看 MA5 與近期高低點，中期看 MA20 對 MA60，長期看 MA120 與 52 週區間。三者同向時趨勢可信度最高。`, data.close > maNow(data, "ma120") ? badge("長線未壞", "bull") : badge("長線修復", "warn")],
-        ["基本面與籌碼", `目前頁面未直接接入 EPS、法人買賣超與財報明細，相關判斷採保守標註。新聞與價格只代表市場反應，不能替代財報驗證。`, badge("資料保守", "warn")]
+        ["基本面與籌碼", `FinMind 資料會在上方「基本面白話化」非同步載入，包括 EPS、月營收、財報、估值、法人、融資融券與借券。評分標準尚未併入回檔機率。`, badge("資料已串接", "bull")]
       ];
       $("signalRows").innerHTML = rows.map(([title, text, b]) => `
         <div class="sr">
@@ -866,11 +1208,21 @@
       $("headline").textContent = `${data.code} ${name}`;
       $("subtitle").textContent = `${q.market || "台股"} | ${new Date().toLocaleDateString("zh-TW")} | 收盤 ${fmt(data.close)} | 回檔機率 ${data.pullback}%`;
       renderHeroFacts(data, name);
+      const previousClose = data.closes[data.closes.length - 2];
+      const priceChange = Number.isFinite(q.change)
+        ? Number(q.change)
+        : Number.isFinite(previousClose)
+          ? data.close - previousClose
+          : 0;
+      const latestVolume = Number.isFinite(q.volume) ? Number(q.volume) : Number(last(data.vols));
+      const previousVolume = Number(data.vols[data.vols.length - 2]);
+      const priceTone = movementTone(priceChange);
+      const volumeTone = movementTone(latestVolume - previousVolume);
       $("metrics").innerHTML = [
-        metric("今日收盤", fmt(data.close)),
-        metric("漲跌", Number.isFinite(q.change) ? `${q.change >= 0 ? "+" : ""}${fmt(q.change)}` : pct((data.close / data.closes[data.closes.length - 2] - 1) * 100)),
-        metric("今日區間", `${fmt(q.low || last(data.lows))} - ${fmt(q.high || last(data.highs))}`),
-        metric("成交量", Number.isFinite(q.volume) ? fmt(q.volume, 0) : fmt(last(data.vols), 0)),
+        metric("今日收盤", fmt(data.close), priceTone),
+        metric("漲跌", Number.isFinite(q.change) ? `${q.change >= 0 ? "+" : ""}${fmt(q.change)}` : pct((data.close / previousClose - 1) * 100), priceTone),
+        metric("今日區間", `${fmt(q.low || last(data.lows))} - ${fmt(q.high || last(data.highs))}`, priceTone),
+        metric("成交量", fmt(latestVolume, 0), volumeTone),
         metric("MA5", fmt(last(data.ma5))),
         metric("MA10", fmt(last(data.ma10))),
         metric("MA20（月線）", fmt(last(data.ma20))),
@@ -887,8 +1239,6 @@
       renderRetailDecision(data);
       renderEntryQuality(data);
       renderHorizons(data);
-      renderPlainFundamentals(data);
-      loadAndRenderNews(data);
       renderWaveStructure(data);
       renderGranville(data);
       renderDowTheory(data);
@@ -897,6 +1247,7 @@
       renderStrategy(data);
       const levelRows = renderLevels(data);
       resetAgentPanel(data);
+      loadSupplementalData(data);
       if (!window.Chart) {
         $("status").textContent += " Chart.js 未載入，文字資料仍可使用。";
         return;

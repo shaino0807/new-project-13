@@ -8,7 +8,7 @@ Steps:
 1. Navigate to the app.
 2. Wait for the page to fully load.
 
-Expected: The page shows the title "台股技術分析 Agent" or a loaded stock heading, plus metric cards, 小資決策卡, 買點好壞判斷, 短中長線分層, 基本面白話化, 新聞關聯分析, 葛蘭威爾八大法則當前位置, 道氏理論三期趨勢, and the status text mentioning a data source or latest data request.
+Expected: The page shows the title "台股技術分析 Agent" or a loaded stock heading, plus metric cards, 小資決策卡, 買點好壞判斷, 短中長線分層, 基本面白話化, 新聞關聯分析, 葛蘭威爾八大法則當前位置, 道氏理論三期趨勢, and the status text mentioning a data source or latest data request. 基本面白話化 eventually shows FinMind as its source or a clear temporary-unavailable message.
 
 ## Test 2 - Visitor can analyze 2344
 Viewport: desktop
@@ -20,7 +20,7 @@ Steps:
 3. Click the analysis button.
 4. Wait for the heading and metrics to update.
 
-Expected: The page shows "2344" with stock metrics, 小資決策卡, 回檔機率 with 核心判斷 and 關鍵觀察指標, 支撐 / 壓力, 十二維訊號判讀, 葛蘭威爾八大法則當前位置, 道氏理論三期趨勢, and source links or source status text.
+Expected: The page shows "2344" with stock metrics, 小資決策卡, 回檔機率 with 核心判斷 and 關鍵觀察指標, 支撐 / 壓力, 十二維訊號判讀, 葛蘭威爾八大法則當前位置, 道氏理論三期趨勢, and source links or source status text. 今日收盤, 漲跌, and 今日區間 use red text when the daily change is positive, green text when negative, and amber text when unchanged. 成交量 uses red when volume increased from the previous trading day, green when it decreased, and amber when unchanged.
 
 ## Test 2A - Visitor can change monthly budget
 Viewport: desktop
@@ -77,4 +77,40 @@ Steps:
 2. Wait for the default stock analysis to load.
 3. Observe 新聞關聯分析.
 
-Expected: The section either lists news cards tagged as 直接相關 / 間接相關 / 無關雜訊 with 利多 / 利空 / 中性, impact horizon, confidence, and possible impact, or shows a clear unavailable-source message while the rest of the page remains usable.
+Expected: The section either lists news cards tagged as 直接相關 / 間接相關 / 無關雜訊 with 利多 / 利空 / 中性, impact horizon, confidence, and possible impact, or clearly distinguishes 新聞來源逾時, 新聞來源暫時不可用, and 查無符合條件新聞 while the rest of the page remains usable.
+
+## Test 7 - FinMind fundamentals load for a new stock
+Viewport: desktop
+Description: Verifies each stock search requests the aggregated FinMind backend route and replaces the former placeholder fundamentals.
+
+Steps:
+1. Navigate to the app.
+2. Type "2330" in the stock code field.
+3. Click the analysis button.
+4. Wait for 基本面白話化 to finish loading.
+5. Type "2344" and run analysis again.
+6. Wait for 基本面白話化 to update to the new stock.
+
+Expected: For each stock, 基本面白話化 shows eight rows: 公司有沒有賺錢, 成長有沒有變慢, 股價是否太貴, 現金流是否健康, 負債是否過高, 法人是否支持, 籌碼是否過熱, and 是否只靠題材. Available rows include numeric values and source dates. The section identifies FinMind as the source and never shows the old 尚未接入 or 待補 placeholder copy.
+
+## Test 8 - FinMind failure does not break technical analysis
+Viewport: desktop
+Description: Verifies quota, authorization, maintenance, or upstream failures remain isolated from existing features.
+
+Steps:
+1. Navigate to the app.
+2. Run any valid stock analysis.
+3. Observe the page after the quote and supplemental requests finish.
+
+Expected: If FinMind is available, the eight fundamental rows render. If FinMind is unavailable or only partially available, the section shows a clear per-item or section-level message. Quote metrics, charts, news, strategy, and Agent remain usable without overlapping sections or horizontal scrolling.
+
+## Test 9 - 0050 uses ETF-specific fundamentals and news
+Viewport: desktop
+Description: Verifies an ETF is not evaluated as if it were a single listed company.
+
+Steps:
+1. Navigate to the app.
+2. Type "0050" and run analysis.
+3. Wait for 基本面白話化 and 新聞關聯分析 to finish loading.
+
+Expected: 基本面白話化 identifies ETF 專用判斷 and shows 主要成分股有沒有賺錢, 成分股成長有沒有變慢, ETF 估值與折溢價, 現金流是否健康 marked ETF 不適用, 負債是否過高 marked ETF 不適用, 法人及資金是否支持, 籌碼是否過熱, and 是否只靠題材. It includes 0050 component weights, NAV or a clear official-source unavailable message, and does not show the old FinMind company financial statement 資料不足 copy. 新聞關聯分析 either lists ETF-related news or explicitly says the source timed out or is unavailable; it must not label a timeout as no news.
