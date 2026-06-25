@@ -88,3 +88,6 @@ If project initialization is requested later:
 - Generated inline JS should avoid literal non-ASCII text under Windows PowerShell; use Unicode escapes so GitHub Pages artifacts do not inherit mojibake.
 - Remote AppDeploy patches can mangle literal Chinese or escaped newlines; verify with rendered DOM checks after deployment.
 - Treat invalid `gh` tokens as a hard blocker for repo creation, push, GitHub Pages activation, and Actions verification.
+- When fixing user-visible language or mojibake, scan both active renderer functions and legacy fallback code; unused fallback strings can still appear in GitHub Pages source checks.
+- GitHub Pages can briefly serve the updated artifact while the Actions deploy job still reports `in_progress`; verify both the public URL and final workflow conclusion before closeout.
+- After a commit has already been pushed to `main`, use a follow-up cleanup commit instead of force-pushing amended public history unless the user explicitly asks for history rewriting.
