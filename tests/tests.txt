@@ -19,19 +19,9 @@ Steps:
 2. Type "華邦電" in the stock code or name field.
 3. Click the analysis button.
 4. Wait for the heading and metrics to update.
+5. Change 每月可投入 to "5000".
 
-Expected: The page shows "2344" with stock metrics, 小資決策卡, 回檔機率 with 核心判斷 and 關鍵觀察指標, 支撐 / 壓力, 十二維訊號判讀, 葛蘭威爾八大法則當前位置, 道氏理論三期趨勢, and source links or source status text. 今日收盤, 漲跌, and 今日區間 use red text when the daily change is positive, green text when negative, and amber text when unchanged. 成交量 uses red when volume increased from the previous trading day, green when it decreased, and amber when unchanged.
-
-## Test 2A - Visitor can change monthly budget
-Viewport: desktop
-Description: Verifies the small-budget card uses a visitor-provided monthly amount.
-
-Steps:
-1. Navigate to the app.
-2. Wait for the default stock analysis to load.
-3. Change 每月可投入 to "5000".
-
-Expected: 小資決策卡 updates the 分批方式 and 停損承受 values without reloading the page.
+Expected: The page shows "2344" with stock metrics, 小資決策卡, 回檔機率 with 核心判斷 and 關鍵觀察指標, 支撐 / 壓力, 十二維訊號判讀, 葛蘭威爾八大法則當前位置, 道氏理論三期趨勢, and source links or source status text. 今日收盤, 漲跌, and 今日區間 use red text when the daily change is positive, green text when negative, and amber text when unchanged. 成交量 uses red when volume increased from the previous trading day, green when it decreased, and amber when unchanged. 小資決策卡 updates the 分批方式 and 停損承受 values without reloading the page.
 
 ## Test 3 - Agent answers a follow-up question
 Viewport: desktop
@@ -114,3 +104,18 @@ Steps:
 3. Wait for 基本面白話化 and 新聞關聯分析 to finish loading.
 
 Expected: 基本面白話化 identifies ETF 專用判斷 and shows 主要成分股有沒有賺錢, 成分股成長有沒有變慢, ETF 估值與折溢價, 現金流是否健康 marked ETF 不適用, 負債是否過高 marked ETF 不適用, 法人及資金是否支持, 籌碼是否過熱, and 是否只靠題材. It includes 0050 component weights, NAV or a clear official-source unavailable message, and does not show the old FinMind company financial statement 資料不足 copy. 新聞關聯分析 either lists ETF-related news or explicitly says the source timed out or is unavailable; it must not label a timeout as no news.
+
+## Test 10 - Value radar and ranking features load
+Viewport: desktop
+Description: Verifies the Investing.com-inspired value radar is integrated into the existing page, not a separate site.
+
+Steps:
+1. Navigate to the app.
+2. Wait for the default stock analysis and supplemental data to finish loading.
+3. Observe 小資價值雷達.
+4. Click 最被高估, 觀察池最活躍, 現金流最佳, 增長最佳, and 小資友善.
+5. Change 每月可投入 to "5000" and switch 風險偏好 between 保守 and 積極.
+6. Enter "0050 40%, 2330 40%, 現金 20%" in 持股健康檢查 and click 檢查配置.
+7. Repeat on mobile width or narrow the viewport and scroll through the new sections.
+
+Expected: The same page shows 小資友善分數, 低估分數, 高估分數, 公允價值, 現金流評分, 增長評分, 市場信心, 分析師評級 status, and 追高風險警示. The ranking table updates without leaving the page. The note clearly says the default ranking is an observation universe, not the full Taiwan stock market. 配置助手 recalculates allocation rows in dollars and percentages. 持股健康檢查 reports concentration, cash, and available score-based risk messages without inventing data for unknown tickers. If value score or screener data is unavailable, 小資價值雷達 shows a clear unavailable or partial-data message while existing metrics, charts, 小資決策卡, 基本面白話化, 新聞關聯分析, Agent, 回檔機率, and 交易策略 remain readable without horizontal scrolling, overlap, or replacement-character mojibake.

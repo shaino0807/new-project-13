@@ -204,32 +204,50 @@ async function requestFinMindDataset(dataset: string, code: string): Promise<Fin
       end_date: new Date().toISOString().slice(0, 10),
     });
     const token = await getFinMindToken();
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12000);
-    try {
-      const res = await fetch(`${FINMIND_API_URL}?${params.toString()}`, {
-        signal: controller.signal,
-        headers: {
-          Accept: "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-      const text = await res.text();
-      let payload: any = null;
+    const requestUrl = `${FINMIND_API_URL}?${params.toString()}`;
+    const fetchDataset = async (useToken: boolean) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 12000);
       try {
-        payload = JSON.parse(text);
-      } catch {
-        throw new FinMindError("FinMind returned non-JSON content", res.status || 502, "invalid_response");
+        const res = await fetch(requestUrl, {
+          signal: controller.signal,
+          headers: {
+            Accept: "application/json",
+            ...(useToken && token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        const text = await res.text();
+        let payload: any = null;
+        try {
+          payload = JSON.parse(text);
+        } catch {
+          throw new FinMindError("FinMind returned non-JSON content", res.status || 502, "invalid_response");
+        }
+        const status = Number(payload?.status || res.status);
+        if (!res.ok || status !== 200 || !Array.isArray(payload?.data)) {
+          throw new FinMindError(
+            String(payload?.msg || `${res.status} ${res.statusText}`),
+            status || res.status || 502,
+            finMindErrorCode(status || res.status || 502),
+          );
+        }
+        return payload.data as FinMindRow[];
+      } finally {
+        clearTimeout(timer);
       }
-      const status = Number(payload?.status || res.status);
-      if (!res.ok || status !== 200 || !Array.isArray(payload?.data)) {
-        throw new FinMindError(
-          String(payload?.msg || `${res.status} ${res.statusText}`),
-          status || res.status || 502,
-          finMindErrorCode(status || res.status || 502),
-        );
+    };
+    try {
+      let data: FinMindRow[];
+      try {
+        data = await fetchDataset(false);
+      } catch (err) {
+        const canRetryWithToken = Boolean(token)
+          && err instanceof FinMindError
+          && (err.code === "quota_exceeded" || err.code === "auth_error");
+        if (!canRetryWithToken) throw err;
+        data = await fetchDataset(true);
       }
-      const entry = { data: payload.data as FinMindRow[], fetchedAt: Date.now() };
+      const entry = { data, fetchedAt: Date.now() };
       finMindCache.set(cacheKey, entry);
       return {
         dataset,
@@ -255,8 +273,6 @@ async function requestFinMindDataset(dataset: string, code: string): Promise<Fin
         502,
         "upstream_error",
       );
-    } finally {
-      clearTimeout(timer);
     }
   })();
 
@@ -334,6 +350,7 @@ function buildFinancialSummary(rows: FinMindRow[]) {
     revenue,
     revenueYoY: percentChange(revenue, previousRevenue),
     previousYearRevenue: previousRevenue,
+    pretaxIncome: statementValue(latest.rows, ["IncomeBeforeTax", "PreTaxIncome", "ProfitBeforeTax"]),
     netIncome,
     operatingIncome: statementValue(latest.rows, ["OperatingIncome"]),
     grossProfit: statementValue(latest.rows, ["GrossProfit"]),
@@ -804,6 +821,509 @@ async function loadFundamentals(code: string) {
       securitiesLending: buildLendingSummary(rows("TaiwanStockSecuritiesLending")),
       etf,
     },
+    errors,
+  };
+}
+
+type ScoreComponent = {
+  score: number | null;
+  label: string;
+  weight: number;
+  evidence: string[];
+  missing: string[];
+};
+
+type ValueScore = {
+  ok: boolean;
+  code: string;
+  name: string;
+  market: string;
+  close: number;
+  change: number | null;
+  volume: number;
+  source: {
+    quote: string;
+    fundamentals: string;
+    valuationModel: string;
+  };
+  generatedAt: string;
+  fairValue: {
+    value: number | null;
+    upsidePct: number | null;
+    methods: Array<{ name: string; value: number | null; weight: number; note: string }>;
+    note: string;
+  };
+  scores: {
+    undervalued: number | null;
+    overvalued: number | null;
+    smallInvestor: number | null;
+    valuation: ScoreComponent;
+    cashFlow: ScoreComponent;
+    growth: ScoreComponent;
+    profitability: ScoreComponent;
+    financialStability: ScoreComponent;
+    marketConfidence: ScoreComponent;
+    chaseRisk: ScoreComponent;
+  };
+  rating: {
+    smallInvestorLabel: string;
+    valuationLabel: string;
+    marketConfidenceLabel: string;
+    analystConsensus: {
+      available: false;
+      label: string;
+      note: string;
+    };
+  };
+  allocationGuide: {
+    action: string;
+    firstBuyPct: number;
+    cashReservePct: number;
+    notes: string[];
+  };
+  warnings: string[];
+  fundamentals: Awaited<ReturnType<typeof loadFundamentals>>;
+};
+
+const DEFAULT_SCREENER_UNIVERSE = [
+  "0050", "2330", "2317", "2454", "2308", "2382", "2344", "2303",
+];
+
+const SCORE_SOURCE_NOTE = "Transparent model: Yahoo/TWSE quotes plus FinMind financial data; no InvestingPro data or third-party analyst consensus is used.";
+
+function scoreLabel(score: number | null, high = "strong", mid = "neutral", low = "weak") {
+  if (score === null) return "insufficient data";
+  if (score >= 80) return high;
+  if (score >= 60) return mid;
+  if (score >= 40) return "watch";
+  return low;
+}
+
+function weightedScore(parts: Array<{ score: number | null; weight: number }>) {
+  const usable = parts.filter(part => part.score !== null && Number.isFinite(part.score) && part.weight > 0);
+  const totalWeight = usable.reduce((sum, part) => sum + part.weight, 0);
+  if (!totalWeight) return null;
+  return Math.round(usable.reduce((sum, part) => sum + (part.score as number) * part.weight, 0) / totalWeight);
+}
+
+function scoreFromThresholds(value: number | null | undefined, thresholds: Array<[number, number]>, missing: string) {
+  if (!Number.isFinite(value)) {
+    return { score: null, missing: [missing] };
+  }
+  for (const [limit, score] of thresholds) {
+    if ((value as number) <= limit) return { score, missing: [] };
+  }
+  return { score: thresholds[thresholds.length - 1][1], missing: [] };
+}
+
+function positiveGrowthScore(value: number | null | undefined) {
+  if (!Number.isFinite(value)) return null;
+  const n = value as number;
+  if (n >= 40) return 95;
+  if (n >= 20) return 85;
+  if (n >= 10) return 75;
+  if (n >= 0) return 62;
+  if (n >= -10) return 42;
+  if (n >= -25) return 25;
+  return 10;
+}
+
+function valueFromYield(close: number, dividendYield: number | null | undefined) {
+  if (!Number.isFinite(close) || !Number.isFinite(dividendYield) || (dividendYield as number) <= 0) return null;
+  const targetYield = 4;
+  return round(close * ((dividendYield as number) / targetYield));
+}
+
+function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typeof loadFundamentals>>): ValueScore {
+  const data = fundamentals.data;
+  const profit = data.profitability;
+  const revenue = data.revenue;
+  const valuation = data.valuation;
+  const cashFlow = data.cashFlow;
+  const balance = data.balanceSheet;
+  const institutional = data.institutional;
+  const foreign = data.foreignShareholding;
+  const margin = data.margin;
+  const lending = data.securitiesLending;
+  const latest = quote.analysis.latest;
+  const close = quote.close;
+  const warnings: string[] = [];
+
+  if (fundamentals.assetType === "etf") {
+    warnings.push("ETF has no single-company income statement, cash flow statement, or balance sheet; this model only uses available ETF NAV, holdings summary, and market data.");
+  }
+  fundamentals.errors.forEach(item => warnings.push(`${item.dataset}: ${item.message}`));
+
+  const perScore = Number.isFinite(valuation?.per) && (valuation?.per || 0) > 0
+    ? scoreFromThresholds(valuation?.per, [[10, 95], [15, 85], [22, 68], [30, 50], [45, 30], [999, 15]], "PER").score
+    : null;
+  const pbrScore = Number.isFinite(valuation?.pbr) && (valuation?.pbr || 0) > 0
+    ? scoreFromThresholds(valuation?.pbr, [[1, 90], [1.8, 76], [3, 55], [5, 34], [999, 18]], "PBR").score
+    : null;
+  const yieldScore = Number.isFinite(valuation?.dividendYield) && (valuation?.dividendYield || 0) >= 0
+    ? Math.max(15, Math.min(95, Math.round((valuation?.dividendYield || 0) * 16)))
+    : null;
+  const rangeScore = Number.isFinite(latest.week52High) && Number.isFinite(latest.week52Low) && latest.week52High > latest.week52Low
+    ? Math.max(15, Math.min(95, Math.round(95 - (((close - latest.week52Low) / (latest.week52High - latest.week52Low)) * 70))))
+    : null;
+  const valuationComponent: ScoreComponent = {
+    score: weightedScore([
+      { score: perScore, weight: 35 },
+      { score: pbrScore, weight: 25 },
+      { score: yieldScore, weight: 15 },
+      { score: rangeScore, weight: 25 },
+    ]),
+    label: "",
+    weight: 35,
+    evidence: [
+      Number.isFinite(valuation?.per) ? `PER ${fmt(valuation?.per || NaN, 2)}` : "",
+      Number.isFinite(valuation?.pbr) ? `PBR ${fmt(valuation?.pbr || NaN, 2)}` : "",
+      Number.isFinite(valuation?.dividendYield) ? `dividend yield ${fmt(valuation?.dividendYield || NaN, 2)}%` : "",
+      Number.isFinite(rangeScore) ? `52-week range score ${rangeScore}` : "",
+    ].filter(Boolean),
+    missing: [
+      perScore === null ? "PER" : "",
+      pbrScore === null ? "PBR" : "",
+      yieldScore === null ? "dividend yield" : "",
+      rangeScore === null ? "52-week range" : "",
+    ].filter(Boolean),
+  };
+  valuationComponent.label = scoreLabel(valuationComponent.score, "valuation inexpensive", "valuation fair", "valuation expensive");
+
+  const ocfScore = Number.isFinite(cashFlow?.operatingCashFlow) ? ((cashFlow?.operatingCashFlow || 0) > 0 ? 82 : 20) : null;
+  const fcfScore = Number.isFinite(cashFlow?.freeCashFlow) ? ((cashFlow?.freeCashFlow || 0) > 0 ? 86 : 18) : null;
+  const cashChangeScore = Number.isFinite(cashFlow?.cashChange) ? ((cashFlow?.cashChange || 0) >= 0 ? 70 : 42) : null;
+  const endingCashScore = Number.isFinite(cashFlow?.endingCash) ? ((cashFlow?.endingCash || 0) > 0 ? 68 : 35) : null;
+  const cashFlowComponent: ScoreComponent = {
+    score: weightedScore([
+      { score: ocfScore, weight: 35 },
+      { score: fcfScore, weight: 35 },
+      { score: cashChangeScore, weight: 15 },
+      { score: endingCashScore, weight: 15 },
+    ]),
+    label: "",
+    weight: 20,
+    evidence: [
+      Number.isFinite(cashFlow?.operatingCashFlow) ? `operating cash flow ${fmt(cashFlow?.operatingCashFlow || NaN, 0)}` : "",
+      Number.isFinite(cashFlow?.freeCashFlow) ? `free cash flow ${fmt(cashFlow?.freeCashFlow || NaN, 0)}` : "",
+      Number.isFinite(cashFlow?.cashChange) ? `cash change ${fmt(cashFlow?.cashChange || NaN, 0)}` : "",
+    ].filter(Boolean),
+    missing: [
+      ocfScore === null ? "operating cash flow" : "",
+      fcfScore === null ? "free cash flow" : "",
+      cashChangeScore === null ? "cash change" : "",
+    ].filter(Boolean),
+  };
+  cashFlowComponent.label = scoreLabel(cashFlowComponent.score, "cash flow strong", "cash flow neutral", "cash flow weak");
+
+  const monthlyRevenueScore = positiveGrowthScore(revenue?.yoy);
+  const revenueMomentumScore = Number.isFinite(revenue?.growthMomentum)
+    ? positiveGrowthScore(revenue?.growthMomentum)
+    : null;
+  const epsGrowthScore = positiveGrowthScore(profit?.epsYoY);
+  const quarterRevenueScore = positiveGrowthScore(profit?.revenueYoY);
+  const growthComponent: ScoreComponent = {
+    score: weightedScore([
+      { score: monthlyRevenueScore, weight: 35 },
+      { score: revenueMomentumScore, weight: 20 },
+      { score: epsGrowthScore, weight: 25 },
+      { score: quarterRevenueScore, weight: 20 },
+    ]),
+    label: "",
+    weight: 20,
+    evidence: [
+      Number.isFinite(revenue?.yoy) ? `monthly revenue YoY ${fmt(revenue?.yoy || NaN, 2)}%` : "",
+      Number.isFinite(revenue?.growthMomentum) ? `3-month revenue momentum ${fmt(revenue?.growthMomentum || NaN, 2)} pts` : "",
+      Number.isFinite(profit?.epsYoY) ? `EPS YoY ${fmt(profit?.epsYoY || NaN, 2)}%` : "",
+      Number.isFinite(profit?.revenueYoY) ? `quarterly revenue YoY ${fmt(profit?.revenueYoY || NaN, 2)}%` : "",
+    ].filter(Boolean),
+    missing: [
+      monthlyRevenueScore === null ? "monthly revenue YoY" : "",
+      revenueMomentumScore === null ? "revenue momentum" : "",
+      epsGrowthScore === null ? "EPS YoY" : "",
+      quarterRevenueScore === null ? "quarterly revenue YoY" : "",
+    ].filter(Boolean),
+  };
+  growthComponent.label = scoreLabel(growthComponent.score, "growth strong", "growth stable", "growth weak");
+
+  const epsScore = Number.isFinite(profit?.eps) ? ((profit?.eps || 0) > 0 ? 78 : 22) : null;
+  const netIncomeScore = Number.isFinite(profit?.netIncome) ? ((profit?.netIncome || 0) > 0 ? 82 : 20) : null;
+  const opIncomeScore = Number.isFinite(profit?.operatingIncome) ? ((profit?.operatingIncome || 0) > 0 ? 76 : 26) : null;
+  const grossProfitScore = Number.isFinite(profit?.grossProfit) ? ((profit?.grossProfit || 0) > 0 ? 68 : 32) : null;
+  const profitabilityComponent: ScoreComponent = {
+    score: weightedScore([
+      { score: epsScore, weight: 30 },
+      { score: netIncomeScore, weight: 35 },
+      { score: opIncomeScore, weight: 20 },
+      { score: grossProfitScore, weight: 15 },
+    ]),
+    label: "",
+    weight: 15,
+    evidence: [
+      Number.isFinite(profit?.eps) ? `EPS ${fmt(profit?.eps || NaN, 2)}` : "",
+      Number.isFinite(profit?.netIncome) ? `net income ${fmt(profit?.netIncome || NaN, 0)}` : "",
+      Number.isFinite(profit?.operatingIncome) ? `operating income ${fmt(profit?.operatingIncome || NaN, 0)}` : "",
+    ].filter(Boolean),
+    missing: [
+      epsScore === null ? "EPS" : "",
+      netIncomeScore === null ? "net income" : "",
+      opIncomeScore === null ? "operating income" : "",
+    ].filter(Boolean),
+  };
+  profitabilityComponent.label = scoreLabel(profitabilityComponent.score, "profitability strong", "profitability stable", "profitability weak");
+
+  const debtScore = Number.isFinite(balance?.liabilityRatio)
+    ? (balance!.liabilityRatio! <= 35 ? 88 : balance!.liabilityRatio! <= 55 ? 68 : balance!.liabilityRatio! <= 70 ? 44 : 20)
+    : null;
+  const currentRatioScore = Number.isFinite(balance?.currentRatio)
+    ? (balance!.currentRatio! >= 2 ? 88 : balance!.currentRatio! >= 1.2 ? 68 : balance!.currentRatio! >= 1 ? 48 : 22)
+    : null;
+  const cashScore = Number.isFinite(balance?.cashAndEquivalents) ? ((balance?.cashAndEquivalents || 0) > 0 ? 68 : 35) : null;
+  const equityScore = Number.isFinite(balance?.equity) ? ((balance?.equity || 0) > 0 ? 72 : 20) : null;
+  const financialStabilityComponent: ScoreComponent = {
+    score: weightedScore([
+      { score: debtScore, weight: 35 },
+      { score: currentRatioScore, weight: 30 },
+      { score: cashScore, weight: 20 },
+      { score: equityScore, weight: 15 },
+    ]),
+    label: "",
+    weight: 10,
+    evidence: [
+      Number.isFinite(balance?.liabilityRatio) ? `liability ratio ${fmt(balance?.liabilityRatio || NaN, 2)}%` : "",
+      Number.isFinite(balance?.currentRatio) ? `current ratio ${fmt(balance?.currentRatio || NaN, 2)}` : "",
+      Number.isFinite(balance?.cashAndEquivalents) ? `cash ${fmt(balance?.cashAndEquivalents || NaN, 0)}` : "",
+    ].filter(Boolean),
+    missing: [
+      debtScore === null ? "liability ratio" : "",
+      currentRatioScore === null ? "current ratio" : "",
+      cashScore === null ? "cash" : "",
+    ].filter(Boolean),
+  };
+  financialStabilityComponent.label = scoreLabel(financialStabilityComponent.score, "financial stability strong", "financial stability neutral", "financial stability weak");
+
+  const institutionalScore = Number.isFinite(institutional?.totalNet) ? ((institutional?.totalNet || 0) > 0 ? 72 : 38) : null;
+  const foreignScore = Number.isFinite(foreign?.fiveDayRatioChange) ? ((foreign?.fiveDayRatioChange || 0) > 0 ? 70 : 42) : null;
+  const technicalScore = close > latest.ma20 && latest.ma20 >= latest.ma60 ? 72 : close < latest.ma60 ? 35 : 55;
+  const marginRiskScore = Number.isFinite(margin?.marginTwentyDayChange)
+    ? ((margin?.marginTwentyDayChange || 0) >= 20 ? 28 : (margin?.marginTwentyDayChange || 0) >= 8 ? 48 : 66)
+    : null;
+  const marketConfidenceComponent: ScoreComponent = {
+    score: weightedScore([
+      { score: institutionalScore, weight: 30 },
+      { score: foreignScore, weight: 20 },
+      { score: technicalScore, weight: 35 },
+      { score: marginRiskScore, weight: 15 },
+    ]),
+    label: "",
+    weight: 10,
+    evidence: [
+      Number.isFinite(institutional?.totalNet) ? `${institutional?.days || 0}-day institutional net ${fmt(institutional?.totalNet || NaN, 0)}` : "",
+      Number.isFinite(foreign?.fiveDayRatioChange) ? `foreign ownership change ${fmt(foreign?.fiveDayRatioChange || NaN, 2)} pts` : "",
+      `technical trend ${technicalScore}`,
+      Number.isFinite(margin?.marginTwentyDayChange) ? `20-day margin change ${fmt(margin?.marginTwentyDayChange || NaN, 2)}%` : "",
+    ].filter(Boolean),
+    missing: [
+      institutionalScore === null ? "institutional net buy/sell" : "",
+      foreignScore === null ? "foreign ownership change" : "",
+      marginRiskScore === null ? "margin balance change" : "",
+    ].filter(Boolean),
+  };
+  marketConfidenceComponent.label = scoreLabel(marketConfidenceComponent.score, "market confidence strong", "market confidence neutral", "market confidence weak");
+
+  const distanceFromSupport = Number.isFinite(quote.analysis.levels.supportShort) && quote.analysis.levels.supportShort > 0
+    ? ((close / quote.analysis.levels.supportShort) - 1) * 100
+    : null;
+  const chaseRiskComponent: ScoreComponent = {
+    score: weightedScore([
+      { score: latest.pullback, weight: 35 },
+      { score: Number.isFinite(latest.rsi14) ? Math.max(10, Math.min(95, Math.round((latest.rsi14 - 35) * 1.45))) : null, weight: 25 },
+      { score: Number.isFinite(latest.pctB) ? Math.max(10, Math.min(95, Math.round(latest.pctB * 95))) : null, weight: 20 },
+      { score: Number.isFinite(distanceFromSupport) ? Math.max(15, Math.min(95, Math.round((distanceFromSupport as number) * 4))) : null, weight: 20 },
+    ]),
+    label: "",
+    weight: 15,
+    evidence: [
+      `pullback probability ${latest.pullback}%`,
+      Number.isFinite(latest.rsi14) ? `RSI ${fmt(latest.rsi14, 1)}` : "",
+      Number.isFinite(latest.pctB) ? `Bollinger %B ${fmt(latest.pctB, 2)}` : "",
+      Number.isFinite(distanceFromSupport) ? `distance from short-term support ${fmt(distanceFromSupport || NaN, 2)}%` : "",
+    ].filter(Boolean),
+    missing: [],
+  };
+  chaseRiskComponent.label = scoreLabel(chaseRiskComponent.score, "chase risk high", "chase risk medium", "chase risk low");
+
+  const fairPer = Math.max(10, Math.min(24, 14 + ((growthComponent.score || 50) - 50) / 5));
+  const earningsValue = Number.isFinite(profit?.eps) && (profit?.eps || 0) > 0
+    ? round((profit?.eps || 0) * 4 * fairPer)
+    : null;
+  const bookValue = Number.isFinite(valuation?.pbr) && (valuation?.pbr || 0) > 0
+    ? round((close / (valuation?.pbr || 1)) * 1.8)
+    : null;
+  const dividendValue = valueFromYield(close, valuation?.dividendYield);
+  const technicalMean = weightedScore([
+    { score: latest.ma60, weight: 45 },
+    { score: latest.ma120, weight: 35 },
+    { score: (latest.week52High + latest.week52Low) / 2, weight: 20 },
+  ]);
+  const fairMethods = [
+    { name: "annualized EPS fair PER", value: earningsValue, weight: 40, note: `Annualized latest EPS with fair PER ${fmt(fairPer, 1)}x.` },
+    { name: "book value fair PBR", value: bookValue, weight: 25, note: "Backs into book value per share from current PBR, then applies 1.8x PBR." },
+    { name: "dividend yield implied value", value: dividendValue, weight: 15, note: "Uses a 4% target yield; excluded when dividend yield data is unavailable." },
+    { name: "technical mean", value: technicalMean, weight: 20, note: "Mean-reversion reference from MA60, MA120, and the 52-week mid price." },
+  ];
+  const fairValue = weightedScore(fairMethods.map(method => ({ score: method.value, weight: method.weight })));
+  const upsidePct = fairValue && close > 0 ? round(((fairValue / close) - 1) * 100, 2) : null;
+  const upsideScore = Number.isFinite(upsidePct)
+    ? Math.max(5, Math.min(95, Math.round(50 + (upsidePct as number))))
+    : null;
+  const downsideScore = Number.isFinite(upsidePct)
+    ? Math.max(5, Math.min(95, Math.round(50 - (upsidePct as number))))
+    : null;
+  const qualityScore = weightedScore([
+    { score: cashFlowComponent.score, weight: 28 },
+    { score: growthComponent.score, weight: 26 },
+    { score: profitabilityComponent.score, weight: 24 },
+    { score: financialStabilityComponent.score, weight: 22 },
+  ]);
+  const undervalued = weightedScore([
+    { score: valuationComponent.score, weight: 30 },
+    { score: upsideScore, weight: 25 },
+    { score: cashFlowComponent.score, weight: 15 },
+    { score: growthComponent.score, weight: 15 },
+    { score: profitabilityComponent.score, weight: 10 },
+    { score: marketConfidenceComponent.score, weight: 5 },
+    { score: chaseRiskComponent.score === null ? null : 100 - chaseRiskComponent.score, weight: 10 },
+  ]);
+  const weakGrowthScore = growthComponent.score === null ? null : 100 - growthComponent.score;
+  const weakCashFlowScore = cashFlowComponent.score === null ? null : 100 - cashFlowComponent.score;
+  const weakProfitScore = profitabilityComponent.score === null ? null : 100 - profitabilityComponent.score;
+  const overvalued = weightedScore([
+    { score: valuationComponent.score === null ? null : 100 - valuationComponent.score, weight: 25 },
+    { score: downsideScore, weight: 25 },
+    { score: weakGrowthScore, weight: 20 },
+    { score: weakCashFlowScore, weight: 15 },
+    { score: weakProfitScore, weight: 10 },
+    { score: chaseRiskComponent.score, weight: 15 },
+  ]);
+  const smallInvestor = weightedScore([
+    { score: financialStabilityComponent.score, weight: 25 },
+    { score: cashFlowComponent.score, weight: 20 },
+    { score: valuationComponent.score, weight: 20 },
+    { score: chaseRiskComponent.score === null ? null : 100 - chaseRiskComponent.score, weight: 15 },
+    { score: qualityScore, weight: 10 },
+    { score: Number.isFinite(quote.volume) && quote.volume > 0 ? 75 : null, weight: 10 },
+  ]);
+  const action = chaseRiskComponent.score !== null && chaseRiskComponent.score >= 72
+    ? "wait for pullback"
+    : smallInvestor !== null && smallInvestor >= 70 && undervalued !== null && undervalued >= 62
+      ? "stage entries"
+      : smallInvestor !== null && smallInvestor >= 55
+        ? "small watch position"
+        : "do not chase";
+  const firstBuyPct = action === "stage entries" ? 35 : action === "small watch position" ? 20 : action === "wait for pullback" ? 10 : 0;
+  const cashReservePct = action === "stage entries" ? 25 : action === "small watch position" ? 40 : 60;
+
+  return {
+    ok: true,
+    code: quote.code,
+    name: quote.name,
+    market: quote.market,
+    close,
+    change: quote.change,
+    volume: quote.volume,
+    source: {
+      quote: quote.source,
+      fundamentals: fundamentals.source,
+      valuationModel: SCORE_SOURCE_NOTE,
+    },
+    generatedAt: new Date().toISOString(),
+    fairValue: {
+      value: fairValue,
+      upsidePct,
+      methods: fairMethods,
+      note: "This is the site's transparent valuation model, not an analyst target price; missing EPS, PBR, dividend yield, or technical mean data automatically reduces that method's weight.",
+    },
+    scores: {
+      undervalued,
+      overvalued,
+      smallInvestor,
+      valuation: valuationComponent,
+      cashFlow: cashFlowComponent,
+      growth: growthComponent,
+      profitability: profitabilityComponent,
+      financialStability: financialStabilityComponent,
+      marketConfidence: marketConfidenceComponent,
+      chaseRisk: chaseRiskComponent,
+    },
+    rating: {
+      smallInvestorLabel: scoreLabel(smallInvestor, "small-investor friendly", "small-investor watchlist", "not small-investor friendly"),
+      valuationLabel: scoreLabel(undervalued, "possibly undervalued", "fair", "not inexpensive"),
+      marketConfidenceLabel: marketConfidenceComponent.label,
+      analystConsensus: {
+        available: false,
+        label: "third-party analyst consensus unavailable",
+        note: "Market-confidence scoring is used instead; buy/hold/sell consensus will only be shown after a licensed analyst-data source is connected.",
+      },
+    },
+    allocationGuide: {
+      action,
+      firstBuyPct,
+      cashReservePct,
+      notes: [
+        chaseRiskComponent.score !== null && chaseRiskComponent.score >= 72 ? "Chase risk is elevated, so the first entry should be conservative." : "Chase risk is not elevated; staged entries can reduce timing risk.",
+        undervalued !== null && undervalued >= 70 ? "The undervaluation score is high, but financial updates and major news still need review." : "The undervaluation signal is not strong enough to buy only because of rank.",
+        "A single stock should not replace an ETF core position; small-budget allocation should keep cash and industry diversification.",
+      ],
+    },
+    warnings,
+    fundamentals,
+  };
+}
+
+async function loadValueScore(code: string) {
+  const [quote, fundamentals] = await Promise.all([
+    loadQuote(code),
+    loadFundamentals(code),
+  ]);
+  return buildValueScores(quote, fundamentals);
+}
+
+function screenerSortValue(mode: string, item: ValueScore) {
+  if (mode === "overvalued") return item.scores.overvalued ?? -1;
+  if (mode === "cashflow") return item.scores.cashFlow.score ?? -1;
+  if (mode === "growth") return item.scores.growth.score ?? -1;
+  if (mode === "active") return item.volume ?? -1;
+  if (mode === "small-investor") return item.scores.smallInvestor ?? -1;
+  return item.scores.undervalued ?? -1;
+}
+
+function parseScreenerUniverse(value: unknown) {
+  const raw = String(value || "").trim();
+  if (!raw) return DEFAULT_SCREENER_UNIVERSE;
+  const codes = raw.split(/[,\s]+/)
+    .map(cleanCode)
+    .filter(code => /^\d{4,6}$/.test(code));
+  return [...new Set(codes)].slice(0, 16);
+}
+
+async function loadScreener(mode: string, universeValue: unknown) {
+  const universe = parseScreenerUniverse(universeValue);
+  const results = await Promise.allSettled(universe.map(code => loadValueScore(code)));
+  const items: ValueScore[] = [];
+  const errors: Array<{ code: string; message: string }> = [];
+  results.forEach((result, index) => {
+    if (result.status === "fulfilled") items.push(result.value);
+    else errors.push({ code: universe[index], message: result.reason instanceof Error ? result.reason.message : String(result.reason) });
+  });
+  const sorted = items.sort((a, b) => screenerSortValue(mode, b) - screenerSortValue(mode, a));
+  return {
+    ok: sorted.length > 0,
+    mode,
+    universe,
+    source: SCORE_SOURCE_NOTE,
+    generatedAt: new Date().toISOString(),
+    items: sorted,
     errors,
   };
 }
@@ -1551,6 +2071,32 @@ export const handler = router({
         message: finMindPublicMessage(err),
         generatedAt: new Date().toISOString(),
       }, 503);
+    }
+  }],
+
+  "GET /api/value-score": [async ({ query }: any) => {
+    const code = cleanCode(query.code);
+    if (!code || !/^\d{4,6}$/.test(code)) return error("Missing or invalid stock code", 400);
+    try {
+      return json({ ok: true, score: await loadValueScore(code), generatedAt: new Date().toISOString() });
+    } catch (err) {
+      return json({
+        ok: false,
+        message: `Unable to build value score for ${code}: ${err instanceof Error ? err.message : String(err)}`,
+      }, 502);
+    }
+  }],
+
+  "GET /api/screener": [async ({ query }: any) => {
+    const mode = String(query.mode || "undervalued").replace(/[^a-z-]/g, "").slice(0, 32) || "undervalued";
+    try {
+      return json(await loadScreener(mode, query.universe), 200);
+    } catch (err) {
+      return json({
+        ok: false,
+        mode,
+        message: `Unable to build screener: ${err instanceof Error ? err.message : String(err)}`,
+      }, 502);
     }
   }],
 });

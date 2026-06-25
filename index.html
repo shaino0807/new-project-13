@@ -102,16 +102,37 @@
     .news-item a { color:var(--blue); text-decoration:none; border-bottom:1px solid #c6cee8; }
     .fund-meta { margin-top:.7rem; padding-top:.55rem; border-top:.5px solid #e7e5e1; color:var(--muted); font-size:11px; line-height:1.65; }
     .fund-meta a { color:var(--blue); }
+    .value-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.6rem; margin:.65rem 0; }
+    .value-card { border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.7rem; min-width:0; }
+    .value-card b { display:block; color:var(--muted); font-size:11px; margin-bottom:.18rem; }
+    .value-card strong { display:block; font-size:1.28rem; line-height:1.25; overflow-wrap:anywhere; }
+    .value-card p { font-size:12px; line-height:1.55; margin:.24rem 0 0; }
+    .rank-tabs { display:flex; flex-wrap:wrap; gap:.45rem; margin:.65rem 0; }
+    .rank-tabs button { background:#fff; color:var(--ink); border:1px solid var(--line); min-height:32px; border-radius:999px; font-size:12px; padding:0 .72rem; }
+    .rank-tabs button.active { background:var(--ink); color:#fff; }
+    .table-wrap { width:100%; overflow-x:auto; }
+    .mini-form { display:grid; gap:.55rem; }
+    .mini-form label { display:grid; gap:.25rem; color:var(--muted); font-size:12px; }
+    select, textarea { border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); font:inherit; }
+    select { min-height:38px; padding:0 .65rem; }
+    textarea { min-height:92px; resize:vertical; padding:.6rem .7rem; line-height:1.5; }
+    .allocation-list { display:grid; gap:.45rem; margin-top:.65rem; }
+    .allocation-row { display:grid; grid-template-columns:110px 72px 1fr; gap:.55rem; align-items:start; padding:.55rem .65rem; border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; font-size:12px; }
+    .allocation-row strong { font-size:13px; }
+    .health-list { margin:.6rem 0 0; padding-left:1.05rem; font-size:12px; line-height:1.65; color:var(--muted); }
+    .warning-box { border:1px solid #f2c8b5; background:#fff7f2; color:#51311c; border-radius:8px; padding:.7rem .85rem; margin:.7rem 0; }
+    .warning-box b { color:#8c1818; }
     @media (max-width:820px) {
       .hero-top,.two { grid-template-columns:1fr; }
       .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .decision-grid,.horizon-grid,.dow-grid,.strategy-grid,.wave-legend { grid-template-columns:1fr; }
+      .decision-grid,.horizon-grid,.dow-grid,.strategy-grid,.wave-legend,.value-grid { grid-template-columns:1fr; }
       .form { align-items:stretch; flex-wrap:wrap; }
       .form input { flex:1 1 100%; width:auto; }
       .form button { flex:1 1 0; min-width:0; }
       button.chip { flex:1 1 calc(50% - .45rem); white-space:normal; line-height:1.25; }
       .mc .v { font-size:1rem; line-height:1.3; }
       .pb { grid-template-columns:1fr; gap:.25rem; }
+      .allocation-row { grid-template-columns:1fr; }
       table { table-layout:fixed; font-size:11px; }
       th,td { padding:.44rem .35rem; }
       h1 { font-size:1.45rem; }
@@ -162,6 +183,71 @@
       </div>
       <div class="decision-grid" id="retailDecision"></div>
       <p class="note">金額只用來估算分批與停損承受度，不會送出或儲存。</p>
+    </section>
+
+    <section class="panel">
+      <h2>&#x5c0f;&#x8cc7;&#x50f9;&#x503c;&#x96f7;&#x9054;</h2>
+      <p class="note">&#x8a55;&#x5206;&#x53ea;&#x4f7f;&#x7528;&#x516c;&#x958b;&#x5831;&#x50f9;&#x8207; FinMind &#x53ef;&#x53d6;&#x5f97;&#x8cc7;&#x6599;&#x3002;&#x7f3a;&#x8cc7;&#x6599;&#x6642;&#x6703;&#x6a19;&#x793a;&#x8cc7;&#x6599;&#x4e0d;&#x8db3;&#xff0c;&#x4e0d;&#x7528;&#x5047;&#x6578;&#x5b57;&#x88dc;&#x5206;&#x3002;</p>
+      <div class="value-grid" id="valueScoreCards"></div>
+      <div id="chaseRiskPanel"></div>
+      <div class="rank-tabs" id="screenerTabs" aria-label="&#x50f9;&#x503c;&#x6392;&#x884c;&#x699c;&#x5207;&#x63db;">
+        <button type="button" class="active" data-mode="undervalued">&#x6700;&#x88ab;&#x4f4e;&#x4f30;</button>
+        <button type="button" data-mode="overvalued">&#x6700;&#x88ab;&#x9ad8;&#x4f30;</button>
+        <button type="button" data-mode="active">&#x89c0;&#x5bdf;&#x6c60;&#x6700;&#x6d3b;&#x8e8d;</button>
+        <button type="button" data-mode="cashflow">&#x73fe;&#x91d1;&#x6d41;&#x6700;&#x4f73;</button>
+        <button type="button" data-mode="growth">&#x589e;&#x9577;&#x6700;&#x4f73;</button>
+        <button type="button" data-mode="small-investor">&#x5c0f;&#x8cc7;&#x53cb;&#x5584;</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>&#x80a1;&#x7968;</th>
+              <th>&#x73fe;&#x50f9;</th>
+              <th>&#x4f4e;&#x4f30;</th>
+              <th>&#x9ad8;&#x4f30;</th>
+              <th>&#x5c0f;&#x8cc7;</th>
+              <th>&#x516c;&#x5141;&#x50f9;</th>
+              <th>&#x4e0a;&#x6f32;&#x7a7a;&#x9593;</th>
+              <th>&#x73fe;&#x91d1;&#x6d41;</th>
+              <th>&#x589e;&#x9577;</th>
+              <th>&#x5e02;&#x5834;&#x4fe1;&#x5fc3;</th>
+            </tr>
+          </thead>
+          <tbody id="screenerRows">
+            <tr><td colspan="10">&#x8f09;&#x5165;&#x89c0;&#x5bdf;&#x6c60;&#x6392;&#x884c;&#x699c;...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note" id="screenerNote">&#x89c0;&#x5bdf;&#x6c60;&#x9810;&#x8a2d;&#x4f7f;&#x7528;&#x53f0;&#x80a1;&#x5e38;&#x898b;&#x5927;&#x578b;&#x80a1;&#x8207;&#x71b1;&#x9580;&#x67e5;&#x8a62;&#x80a1;&#xff1b;&#x9019;&#x4e0d;&#x662f;&#x5168;&#x5e02;&#x5834;&#x6392;&#x540d;&#x3002;</p>
+    </section>
+
+    <section class="grid two">
+      <section class="panel">
+        <h2>&#x914d;&#x7f6e;&#x52a9;&#x624b;</h2>
+        <div class="mini-form">
+          <label>&#x98a8;&#x96aa;&#x504f;&#x597d;
+            <select id="riskProfile" aria-label="&#x98a8;&#x96aa;&#x504f;&#x597d;">
+              <option value="balanced">&#x7a69;&#x5065;</option>
+              <option value="conservative">&#x4fdd;&#x5b88;</option>
+              <option value="active">&#x7a4d;&#x6975;</option>
+            </select>
+          </label>
+        </div>
+        <div id="allocationGuide"></div>
+        <p class="note">&#x914d;&#x7f6e;&#x52a9;&#x624b;&#x7528;&#x76ee;&#x524d;&#x55ae;&#x80a1;&#x5206;&#x6578;&#x8207;&#x6bcf;&#x6708;&#x53ef;&#x6295;&#x5165;&#x91d1;&#x984d;&#x505a;&#x60c5;&#x5883;&#x62c6;&#x5206;&#xff0c;&#x4e0d;&#x69cb;&#x6210;&#x8cb7;&#x8ce3;&#x5efa;&#x8b70;&#x3002;</p>
+      </section>
+      <section class="panel">
+        <h2>&#x6301;&#x80a1;&#x5065;&#x5eb7;&#x6aa2;&#x67e5;</h2>
+        <div class="mini-form">
+          <label>&#x76ee;&#x524d;&#x914d;&#x7f6e;
+            <textarea id="portfolioInput" aria-label="&#x76ee;&#x524d;&#x914d;&#x7f6e;" placeholder="&#x4f8b;&#xff1a;0050 40%, 2330 30%, 2454 10%, &#x73fe;&#x91d1; 20%"></textarea>
+          </label>
+          <button type="button" id="portfolioCheckBtn">&#x6aa2;&#x67e5;&#x914d;&#x7f6e;</button>
+        </div>
+        <div id="portfolioHealth"></div>
+        <p class="note">&#x53ef;&#x8f38;&#x5165;&#x767e;&#x5206;&#x6bd4;&#x6216;&#x91d1;&#x984d;&#x3002;&#x672a;&#x77e5;&#x80a1;&#x7968;&#x53ea;&#x505a;&#x96c6;&#x4e2d;&#x5ea6;&#x6aa2;&#x67e5;&#xff0c;&#x4e0d;&#x6703;&#x63a8;&#x6e2c;&#x4e0d;&#x5b58;&#x5728;&#x7684;&#x8cc7;&#x6599;&#x3002;</p>
+      </section>
     </section>
 
     <section class="grid two">
@@ -276,6 +362,10 @@
     };
     let activeCode = "";
     let activeData = null;
+    let activeValueScore = null;
+    let currentScreenerMode = "undervalued";
+    let latestScreenerItems = [];
+    let valueFeatureRequestKey = "";
 
     const fmt = (n, d=2) => Number.isFinite(Number(n)) ? Number(n).toLocaleString("zh-TW", { maximumFractionDigits:d, minimumFractionDigits:d }) : "--";
     const pct = (n) => Number.isFinite(Number(n)) ? `${n >= 0 ? "+" : ""}${fmt(n, 2)}%` : "--";
@@ -843,6 +933,171 @@
         </div>`;
     }
 
+    function entityText(html) {
+      const box = document.createElement("textarea");
+      box.innerHTML = html;
+      return box.value;
+    }
+
+    function numberText(value, digits = 2) {
+      return Number.isFinite(Number(value)) ? fmt(value, digits) : "\u8cc7\u6599\u4e0d\u8db3";
+    }
+
+    function signedText(value, suffix = "") {
+      if (!Number.isFinite(Number(value))) return "\u8cc7\u6599\u4e0d\u8db3";
+      return `${Number(value) > 0 ? "+" : ""}${fmt(value, 2)}${suffix}`;
+    }
+
+    function sharesText(value) {
+      if (!Number.isFinite(Number(value))) return "\u8cc7\u6599\u4e0d\u8db3";
+      return `${Number(value) > 0 ? "+" : ""}${fmt(Number(value) / 1000, 0)} \u5f35`;
+    }
+
+    function stableFundamentalRow(titleHtml, description, labelHtml, cls) {
+      return fundamentalRow(entityText(titleHtml), description, entityText(labelHtml), cls);
+    }
+
+    function renderPlainFundamentalsStable(data, payload, newsPayload) {
+      if (payload?.assetType === "etf") {
+        renderEtfFundamentals(data, payload, newsPayload);
+        return;
+      }
+      const fundamental = payload?.data || {};
+      const profit = fundamental.profitability;
+      const revenue = fundamental.revenue;
+      const valuation = fundamental.valuation;
+      const cashFlow = fundamental.cashFlow;
+      const balance = fundamental.balanceSheet;
+      const institutional = fundamental.institutional;
+      const foreign = fundamental.foreignShareholding;
+      const margin = fundamental.margin;
+      const lending = fundamental.securitiesLending;
+      const rows = [];
+
+      const profitOk = Number.isFinite(profit?.eps) && Number.isFinite(profit?.netIncome) && profit.eps > 0 && profit.netIncome > 0;
+      rows.push(stableFundamentalRow(
+        "&#x516c;&#x53f8;&#x6709;&#x6c92;&#x6709;&#x8cfa;&#x9322;",
+        profit
+          ? `${profit.date || "\u65e5\u671f\u4e0d\u8db3"} \u6bcf\u80a1\u76c8\u9918 ${numberText(profit.eps)} \u5143\uff0c\u7a05\u5f8c\u6de8\u5229 ${compactMoney(profit.netIncome)}\uff0c\u6bcf\u80a1\u76c8\u9918\u5e74\u589e ${signedText(profit.epsYoY, "%")}\u3002`
+          : "FinMind \u640d\u76ca\u8868\u6b04\u4f4d\u66ab\u6642\u7121\u6cd5\u53d6\u5f97\u3002",
+        profit ? (profitOk ? "&#x6709;&#x8cfa;&#x9322;" : "&#x8667;&#x640d;") : "&#x8cc7;&#x6599;&#x4e0d;&#x8db3;",
+        profit ? (profitOk ? "bull" : "bear") : "warn"
+      ));
+
+      const growthValues = [revenue?.yoy, profit?.revenueYoY, profit?.epsYoY].filter(value => Number.isFinite(Number(value)));
+      const growthNegative = growthValues.length && growthValues.filter(value => Number(value) < 0).length >= Math.ceil(growthValues.length / 2);
+      const growthSlowing = Number.isFinite(Number(revenue?.growthMomentum)) && Number(revenue.growthMomentum) < 0;
+      rows.push(stableFundamentalRow(
+        "&#x6210;&#x9577;&#x6709;&#x6c92;&#x6709;&#x8b8a;&#x6162;",
+        (revenue || profit)
+          ? `\u6708\u71df\u6536\u5e74\u589e ${signedText(revenue?.yoy, "%")}\uff08${revenue?.date || "\u65e5\u671f\u4e0d\u8db3"}\uff09\uff0c\u5b63\u5ea6\u71df\u6536\u5e74\u589e ${signedText(profit?.revenueYoY, "%")}\uff0c\u6bcf\u80a1\u76c8\u9918\u5e74\u589e ${signedText(profit?.epsYoY, "%")}\uff0c\u8fd1\u6708\u71df\u6536\u52d5\u80fd ${signedText(revenue?.growthMomentum, " \u9ede")}\u3002`
+          : "FinMind \u6708\u71df\u6536\u8207\u640d\u76ca\u6210\u9577\u6b04\u4f4d\u66ab\u6642\u7121\u6cd5\u53d6\u5f97\u3002",
+        growthNegative ? "&#x8f49;&#x5f31;" : growthSlowing ? "&#x6210;&#x9577;&#x653e;&#x6162;" : "&#x6210;&#x9577;&#x4e2d;",
+        growthNegative ? "bear" : growthSlowing ? "warn" : "bull"
+      ));
+
+      const expensive = Number.isFinite(Number(valuation?.per)) && Number(valuation.per) >= 35;
+      rows.push(stableFundamentalRow(
+        "&#x80a1;&#x50f9;&#x662f;&#x5426;&#x592a;&#x8cb4;",
+        valuation
+          ? `${valuation.date || "\u65e5\u671f\u4e0d\u8db3"} \u672c\u76ca\u6bd4 ${numberText(valuation.per)} \u500d\uff0c\u80a1\u50f9\u6de8\u503c\u6bd4 ${numberText(valuation.pbr)} \u500d\uff0c\u6b96\u5229\u7387 ${numberText(valuation.dividendYield)}%\u3002`
+          : "FinMind \u4f30\u503c\u8cc7\u6599\u66ab\u6642\u7121\u6cd5\u53d6\u5f97\u3002",
+        valuation ? (expensive ? "&#x4f30;&#x503c;&#x504f;&#x9ad8;" : "&#x4f30;&#x503c;&#x5408;&#x7406;") : "&#x8cc7;&#x6599;&#x4e0d;&#x8db3;",
+        valuation ? (expensive ? "warn" : "neut") : "warn"
+      ));
+
+      const cashHealthy = Number(cashFlow?.operatingCashFlow) > 0 && Number(cashFlow?.freeCashFlow) > 0;
+      rows.push(stableFundamentalRow(
+        "&#x73fe;&#x91d1;&#x6d41;&#x662f;&#x5426;&#x5065;&#x5eb7;",
+        cashFlow
+          ? `${cashFlow.date || "\u65e5\u671f\u4e0d\u8db3"} \u71df\u696d\u73fe\u91d1\u6d41 ${compactMoney(cashFlow.operatingCashFlow)}\uff0c\u8cc7\u672c\u652f\u51fa ${compactMoney(cashFlow.capitalExpenditure)}\uff0c\u81ea\u7531\u73fe\u91d1\u6d41 ${compactMoney(cashFlow.freeCashFlow)}\u3002`
+          : "FinMind \u73fe\u91d1\u6d41\u91cf\u8868\u6b04\u4f4d\u66ab\u6642\u7121\u6cd5\u53d6\u5f97\u3002",
+        cashFlow ? (cashHealthy ? "&#x73fe;&#x91d1;&#x6d41;&#x5065;&#x5eb7;" : "&#x73fe;&#x91d1;&#x6d41;&#x8f49;&#x5f31;") : "&#x8cc7;&#x6599;&#x4e0d;&#x8db3;",
+        cashFlow ? (cashHealthy ? "bull" : "warn") : "warn"
+      ));
+
+      const debtHigh = Number.isFinite(Number(balance?.liabilityRatio)) && Number(balance.liabilityRatio) >= 60;
+      rows.push(stableFundamentalRow(
+        "&#x8ca0;&#x50b5;&#x662f;&#x5426;&#x904e;&#x9ad8;",
+        balance
+          ? `${balance.date || "\u65e5\u671f\u4e0d\u8db3"} \u8ca0\u50b5\u6bd4 ${numberText(balance.liabilityRatio)}%\uff0c\u6d41\u52d5\u6bd4 ${numberText(balance.currentRatio)} \u500d\uff0c\u73fe\u91d1\u53ca\u7d04\u7576\u73fe\u91d1 ${compactMoney(balance.cashAndEquivalents)}\u3002`
+          : "FinMind \u8cc7\u7522\u8ca0\u50b5\u8868\u6b04\u4f4d\u66ab\u6642\u7121\u6cd5\u53d6\u5f97\u3002",
+        balance ? (debtHigh ? "&#x8ca0;&#x50b5;&#x504f;&#x9ad8;" : "&#x8ca1;&#x52d9;&#x7d50;&#x69cb;&#x7a69;&#x5b9a;") : "&#x8cc7;&#x6599;&#x4e0d;&#x8db3;",
+        balance ? (debtHigh ? "warn" : "neut") : "warn"
+      ));
+
+      const institutionNet = Number(institutional?.totalNet);
+      rows.push(stableFundamentalRow(
+        "&#x6cd5;&#x4eba;&#x662f;&#x5426;&#x652f;&#x6301;",
+        (institutional || foreign)
+          ? `\u8fd1 ${institutional?.days || 0} \u500b\u4ea4\u6613\u65e5\u6cd5\u4eba\u5408\u8a08 ${sharesText(institutional?.totalNet)}\uff0c\u5916\u8cc7\u6de8\u8cb7\u8ce3 ${sharesText(institutional?.foreignNet)}\uff0c\u5916\u8cc7\u6301\u80a1\u6bd4 ${numberText(foreign?.foreignRatio)}%\uff08${foreign?.date || institutional?.date || "\u65e5\u671f\u4e0d\u8db3"}\uff09\u3002`
+          : "FinMind \u6cd5\u4eba\u8cb7\u8ce3\u8207\u5916\u8cc7\u6301\u80a1\u6b04\u4f4d\u66ab\u6642\u7121\u6cd5\u53d6\u5f97\u3002",
+        (institutional || foreign) ? (institutionNet > 0 ? "&#x6cd5;&#x4eba;&#x8cb7;&#x8d85;" : institutionNet < 0 ? "&#x6cd5;&#x4eba;&#x8ce3;&#x8d85;" : "&#x6cd5;&#x4eba;&#x4e2d;&#x6027;") : "&#x8cc7;&#x6599;&#x4e0d;&#x8db3;",
+        (institutional || foreign) ? (institutionNet > 0 ? "bull" : institutionNet < 0 ? "bear" : "neut") : "warn"
+      ));
+
+      const marginHot = Number.isFinite(Number(margin?.marginTwentyDayChange)) && Number(margin.marginTwentyDayChange) >= 15;
+      const lendingHot = Number.isFinite(Number(lending?.volumeRatio)) && Number(lending.volumeRatio) >= 1.5;
+      rows.push(stableFundamentalRow(
+        "&#x7c4c;&#x78bc;&#x662f;&#x5426;&#x904e;&#x71b1;",
+        (margin || lending)
+          ? `\u878d\u8cc7\u9918\u984d ${numberText(margin?.marginBalance, 0)} \u5f35\uff0c20 \u65e5\u878d\u8cc7\u8b8a\u5316 ${signedText(margin?.marginTwentyDayChange, "%")}\uff0c\u501f\u5238\u8ce3\u51fa\u9918\u984d ${numberText(lending?.volume, 0)} \u5f35\uff0c\u501f\u5238\u91cf\u6bd4 ${numberText(lending?.volumeRatio)} \u500d\u3002`
+          : "FinMind \u878d\u8cc7\u878d\u5238\u8207\u501f\u5238\u6b04\u4f4d\u66ab\u6642\u7121\u6cd5\u53d6\u5f97\u3002",
+        (margin || lending) ? ((marginHot || lendingHot) ? "&#x7c4c;&#x78bc;&#x504f;&#x71b1;" : "&#x7c4c;&#x78bc;&#x7a69;&#x5b9a;") : "&#x8cc7;&#x6599;&#x4e0d;&#x8db3;",
+        (margin || lending) ? ((marginHot || lendingHot) ? "warn" : "bull") : "warn"
+      ));
+
+      const trendOk = data.close > maNow(data, "ma120") && maNow(data, "ma20") >= maNow(data, "ma60");
+      const evidence = [
+        profitOk ? "\u6709\u7372\u5229" : "",
+        Number(revenue?.yoy) > 0 || Number(profit?.revenueYoY) > 0 ? "\u71df\u6536\u6210\u9577" : "",
+        institutionNet > 0 ? "\u6cd5\u4eba\u8cb7\u8d85" : "",
+        trendOk ? "\u8da8\u52e2\u652f\u6490" : "",
+        Array.isArray(newsPayload?.items) && newsPayload.items.length ? "\u5df2\u6aa2\u67e5\u65b0\u805e" : "",
+      ].filter(Boolean);
+      rows.push(stableFundamentalRow(
+        "&#x662f;&#x5426;&#x53ea;&#x9760;&#x984c;&#x6750;",
+        evidence.length
+          ? `\u4ea4\u53c9\u6aa2\u67e5\u652f\u6490\uff1a${evidence.join("\u3001")}\u3002`
+          : "\u672c\u6b21\u6c92\u6709\u540c\u6642\u78ba\u8a8d\u7372\u5229\u3001\u6210\u9577\u3001\u6cd5\u4eba\u3001\u8da8\u52e2\u6216\u65b0\u805e\u652f\u6490\u3002",
+        evidence.length >= 3 ? "&#x652f;&#x6490;&#x8f03;&#x5b8c;&#x6574;" : evidence.length ? "&#x9700;&#x8981;&#x4ea4;&#x53c9;&#x78ba;&#x8a8d;" : "&#x984c;&#x6750;&#x98a8;&#x96aa;&#x8f03;&#x9ad8;",
+        evidence.length >= 3 ? "bull" : evidence.length ? "warn" : "bear"
+      ));
+
+      const cacheText = payload?.cache?.staleDatasets?.length
+        ? `\u90e8\u5206\u8cc7\u6599\u4f7f\u7528\u820a\u5feb\u53d6\uff1a${payload.cache.staleDatasets.join("\u3001")}\u3002`
+        : payload?.cache?.cachedDatasets?.length
+          ? "\u5f8c\u7aef\u4f7f\u7528\u5feb\u53d6\u8cc7\u6599\u4ee5\u964d\u4f4e\u91cd\u8907\u8acb\u6c42\u3002"
+          : "\u5f8c\u7aef\u5df2\u5b8c\u6210\u6700\u65b0 FinMind \u8cc7\u6599\u8acb\u6c42\u3002";
+      const financialRows = [
+        [entityText("&#x71df;&#x696d;&#x6536;&#x5165;"), compactMoney(profit?.revenue), profit?.date || "date unavailable"],
+        [entityText("&#x71df;&#x696d;&#x5229;&#x76ca;"), compactMoney(profit?.operatingIncome), profit?.date || "date unavailable"],
+        [entityText("&#x7a05;&#x524d;&#x6de8;&#x5229;"), compactMoney(profit?.pretaxIncome), profit?.date || "date unavailable"],
+        [entityText("&#x7a05;&#x5f8c;&#x6de8;&#x5229;"), compactMoney(profit?.netIncome), profit?.date || "date unavailable"],
+        [entityText("&#x6bcf;&#x80a1;&#x76c8;&#x9918;"), `${numberText(profit?.eps)} \u5143`, profit?.date || "\u65e5\u671f\u4e0d\u8db3"],
+        [entityText("&#x8cc7;&#x7522;&#x7e3d;&#x984d;"), compactMoney(balance?.totalAssets), balance?.date || "date unavailable"],
+        [entityText("&#x8ca0;&#x50b5;&#x7e3d;&#x984d;"), compactMoney(balance?.liabilities), balance?.date || "date unavailable"],
+        [entityText("&#x6b0a;&#x76ca;&#x7e3d;&#x984d;"), compactMoney(balance?.equity), balance?.date || "date unavailable"],
+      ];
+      const financialSummaryHtml = `
+        <div class="table-wrap" style="margin-bottom:.75rem">
+          <table>
+            <caption style="text-align:left;font-weight:800;margin-bottom:.35rem">${entityText("&#x46;&#x69;&#x6e;&#x4d;&#x69;&#x6e;&#x64;&#x20;&#x8ca1;&#x5831;&#x516b;&#x5217;&#x6458;&#x8981;")}</caption>
+            <thead><tr><th>${entityText("&#x9805;&#x76ee;")}</th><th>${entityText("&#x6578;&#x503c;")}</th><th>${entityText("&#x65e5;&#x671f;")}</th></tr></thead>
+            <tbody>
+              ${financialRows.map(([label, value, date]) => `<tr><td>${escapeHtml(label)}</td><td>${escapeHtml(value)}</td><td>${escapeHtml(date)}</td></tr>`).join("")}
+            </tbody>
+          </table>
+        </div>`;
+      $("plainFundamentals").innerHTML = financialSummaryHtml + rows.join("") + `
+        <div class="fund-meta">
+          \u8cc7\u6599\u4f86\u6e90\uff1a<a href="${escapeHtml(payload?.sourceUrl || "https://finmind.github.io/")}" target="_blank" rel="noreferrer">FinMind</a>\u3002
+          \u66f4\u65b0\u6642\u9593\uff1a${escapeHtml(payload?.fetchedAt ? new Date(payload.fetchedAt).toLocaleString("zh-TW") : "\u6642\u9593\u4e0d\u8db3")}\u3002
+          ${escapeHtml(cacheText)}
+          ${payload?.partial ? "\u90e8\u5206\u4f86\u6e90\u8cc7\u6599\u66ab\u6642\u4e0d\u53ef\u7528\uff0c\u5df2\u986f\u793a\u76ee\u524d\u53ef\u53d6\u5f97\u6b04\u4f4d\u3002" : ""}
+        </div>`;
+    }
+
     async function getNews(code, name) {
       const api = await waitForAppApi();
       const { data } = await api.get(`/api/news?code=${encodeURIComponent(code)}&name=${encodeURIComponent(name || "")}`);
@@ -891,6 +1146,244 @@
       return data;
     }
 
+    async function getValueScore(code) {
+      const api = await waitForAppApi();
+      const { data } = await api.get(`/api/value-score?code=${encodeURIComponent(code)}`);
+      if (!data || !data.ok || !data.score) throw new Error(data?.message || "價值評分資料不可用。");
+      return data.score;
+    }
+
+    async function getScreener(mode) {
+      const api = await waitForAppApi();
+      const { data } = await api.get(`/api/screener?mode=${encodeURIComponent(mode)}`);
+      if (!data || !data.ok) throw new Error(data?.message || "排行榜資料不可用。");
+      return data;
+    }
+
+    function scoreText(value) {
+      return Number.isFinite(Number(value)) ? `${Math.round(Number(value))}` : "--";
+    }
+
+    function scoreTone(value, highIsRisk = false) {
+      if (!Number.isFinite(Number(value))) return "neut";
+      const score = Number(value);
+      if (highIsRisk) {
+        if (score >= 72) return "bear";
+        if (score >= 50) return "warn";
+        return "bull";
+      }
+      if (score >= 72) return "bull";
+      if (score >= 50) return "warn";
+      return "bear";
+    }
+
+    function valueCard(label, value, detail, tone = "neut") {
+      return `
+        <div class="value-card">
+          <b>${escapeHtml(label)}</b>
+          <strong>${escapeHtml(value)}</strong>
+          <p>${escapeHtml(detail || "")}</p>
+          ${badge(tone === "bull" ? "\u826f\u597d" : tone === "bear" ? "\u6ce8\u610f" : tone === "warn" ? "\u89c0\u5bdf" : "\u8cc7\u6599", tone)}
+        </div>`;
+    }
+
+    function renderValueScore(score) {
+      activeValueScore = score;
+      const s = score?.scores || {};
+      const fair = score?.fairValue || {};
+      $("valueScoreCards").innerHTML = [
+        valueCard("\u5c0f\u8cc7\u53cb\u5584\u5206\u6578", scoreText(s.smallInvestor), score?.rating?.smallInvestorLabel || "\u8cc7\u6599\u4e0d\u8db3", scoreTone(s.smallInvestor)),
+        valueCard("\u4f4e\u4f30\u5206\u6578", scoreText(s.undervalued), `${fair.upsidePct !== null && fair.upsidePct !== undefined ? `\u4f30\u8a08\u7a7a\u9593 ${pct(fair.upsidePct)}` : "\u516c\u5141\u50f9\u8cc7\u6599\u4e0d\u8db3"}`, scoreTone(s.undervalued)),
+        valueCard("\u9ad8\u4f30\u5206\u6578", scoreText(s.overvalued), score?.rating?.valuationLabel || "\u8cc7\u6599\u4e0d\u8db3", scoreTone(s.overvalued, true)),
+        valueCard("\u516c\u5141\u50f9\u503c", fair.value ? `${fmt(fair.value)} \u5143` : "--", fair.note || "\u900f\u660e\u6a21\u578b\u4f30\u7b97\uff0c\u4e0d\u662f\u76ee\u6a19\u50f9\u3002", fair.upsidePct >= 0 ? "bull" : fair.upsidePct < 0 ? "bear" : "neut"),
+        valueCard("\u73fe\u91d1\u6d41\u8a55\u5206", scoreText(s.cashFlow?.score), s.cashFlow?.label || "\u8cc7\u6599\u4e0d\u8db3", scoreTone(s.cashFlow?.score)),
+        valueCard("\u589e\u9577\u8a55\u5206", scoreText(s.growth?.score), s.growth?.label || "\u8cc7\u6599\u4e0d\u8db3", scoreTone(s.growth?.score)),
+        valueCard("\u5e02\u5834\u4fe1\u5fc3", scoreText(s.marketConfidence?.score), score?.rating?.marketConfidenceLabel || "\u4ee5\u6cd5\u4eba\u8207\u6280\u8853\u66ff\u4ee3", scoreTone(s.marketConfidence?.score)),
+        valueCard("\u5206\u6790\u5e2b\u8a55\u7d1a", "\u672a\u63a5\u5165", score?.rating?.analystConsensus?.note || "\u76ee\u524d\u6c92\u6709\u7b2c\u4e09\u65b9\u5206\u6790\u5e2b\u5171\u8b58\u8cc7\u6599\u3002", "warn")
+      ].join("");
+      const chase = s.chaseRisk || {};
+      const chaseCls = scoreTone(chase.score, true);
+      $("chaseRiskPanel").innerHTML = `
+        <div class="warning-box">
+          <b>\u8ffd\u9ad8\u98a8\u96aa\u8b66\u793a\uff1a${escapeHtml(chase.label || "\u8cc7\u6599\u4e0d\u8db3")} ${scoreText(chase.score)}</b>
+          <p>${escapeHtml((chase.evidence || []).join("\uff1b") || "\u6280\u8853\u8cc7\u6599\u4e0d\u8db3\uff0c\u66ab\u4e0d\u7522\u751f\u8ffd\u9ad8\u5224\u65b7\u3002")}</p>
+          <p>${badge(score?.allocationGuide?.action || "\u89c0\u5bdf", chaseCls)} ${escapeHtml((score?.allocationGuide?.notes || []).join(" "))}</p>
+        </div>`;
+      renderAllocationGuide();
+      renderPortfolioHealth();
+    }
+
+    function renderScreener(payload, mode) {
+      latestScreenerItems = Array.isArray(payload?.items) ? payload.items : [];
+      const modeLabel = {
+        undervalued:"\u6700\u88ab\u4f4e\u4f30",
+        overvalued:"\u6700\u88ab\u9ad8\u4f30",
+        active:"\u89c0\u5bdf\u6c60\u6700\u6d3b\u8e8d",
+        cashflow:"\u73fe\u91d1\u6d41\u6700\u4f73",
+        growth:"\u589e\u9577\u6700\u4f73",
+        "small-investor":"\u5c0f\u8cc7\u53cb\u5584"
+      }[mode] || "\u50f9\u503c\u6392\u884c";
+      if (!latestScreenerItems.length) {
+        $("screenerRows").innerHTML = `<tr><td colspan="10">${escapeHtml(payload?.message || "\u76ee\u524d\u6c92\u6709\u53ef\u6392\u5e8f\u8cc7\u6599\u3002")}</td></tr>`;
+      } else {
+        $("screenerRows").innerHTML = latestScreenerItems.map((item) => `
+          <tr>
+            <td><button class="chip" type="button" data-rank-code="${escapeHtml(item.code)}">${escapeHtml(item.code)} ${escapeHtml(item.name || "")}</button></td>
+            <td>${fmt(item.close)}</td>
+            <td>${badge(scoreText(item.scores?.undervalued), scoreTone(item.scores?.undervalued))}</td>
+            <td>${badge(scoreText(item.scores?.overvalued), scoreTone(item.scores?.overvalued, true))}</td>
+            <td>${badge(scoreText(item.scores?.smallInvestor), scoreTone(item.scores?.smallInvestor))}</td>
+            <td>${item.fairValue?.value ? fmt(item.fairValue.value) : "--"}</td>
+            <td>${item.fairValue?.upsidePct !== null && item.fairValue?.upsidePct !== undefined ? pct(item.fairValue.upsidePct) : "--"}</td>
+            <td>${scoreText(item.scores?.cashFlow?.score)}</td>
+            <td>${scoreText(item.scores?.growth?.score)}</td>
+            <td>${scoreText(item.scores?.marketConfidence?.score)}</td>
+          </tr>`).join("");
+      }
+      const errorText = payload?.errors?.length ? `\uff1b${payload.errors.length} \u6a94\u8cc7\u6599\u66ab\u6642\u4e0d\u53ef\u7528` : "";
+      $("screenerNote").textContent = `${modeLabel}\uff1a\u89c0\u5bdf\u6c60 ${payload?.universe?.length || 0} \u6a94\uff0c\u8cc7\u6599\u4f86\u6e90\u70ba\u516c\u958b\u5831\u50f9\u8207 FinMind\uff1b\u9019\u4e0d\u662f\u5168\u5e02\u5834\u6392\u540d${errorText}\u3002`;
+    }
+
+    async function loadScreenerMode(mode = currentScreenerMode) {
+      currentScreenerMode = mode;
+      $("screenerRows").innerHTML = `<tr><td colspan="10">\u6b63\u5728\u8f09\u5165${escapeHtml(mode)}\u6392\u884c\u699c...</td></tr>`;
+      await loadValueFeatures(activeData);
+    }
+
+    function portfolioEntries() {
+      const raw = $("portfolioInput").value.trim();
+      if (!raw) return [];
+      return raw.split(/[\n,]+/).map((part) => {
+        const text = part.trim();
+        const codeMatch = text.match(/(\u73fe\u91d1|cash|\d{4,6})/i);
+        const valueText = codeMatch ? text.replace(codeMatch[0], " ") : text;
+        const numMatch = valueText.match(/(-?\d+(?:\.\d+)?)\s*%?/);
+        if (!codeMatch || !numMatch) return null;
+        const code = codeMatch[1].toLowerCase() === "cash" || codeMatch[1] === "\u73fe\u91d1" ? "cash" : codeMatch[1];
+        return { code, value: Math.max(0, Number(numMatch[1])), isPct: /%/.test(text) };
+      }).filter(Boolean);
+    }
+
+    function knownSector(code) {
+      const sectors = {
+        "2330":"\u534a\u5c0e\u9ad4","2303":"\u534a\u5c0e\u9ad4","2344":"\u534a\u5c0e\u9ad4","2454":"\u534a\u5c0e\u9ad4",
+        "2317":"\u96fb\u5b50\u88fd\u9020","2382":"\u96fb\u5b50\u88fd\u9020","3231":"\u96fb\u5b50\u88fd\u9020","2356":"\u96fb\u5b50\u88fd\u9020",
+        "2308":"\u96fb\u6e90/\u5de5\u696d","2882":"\u91d1\u878d","2891":"\u91d1\u878d","0050":"ETF"
+      };
+      return sectors[code] || "\u672a\u77e5";
+    }
+
+    function renderPortfolioHealth() {
+      const entries = portfolioEntries();
+      if (!$("portfolioHealth")) return;
+      if (!entries.length) {
+        $("portfolioHealth").innerHTML = `<p class="note">\u8f38\u5165\u76ee\u524d\u6301\u80a1\u5f8c\uff0c\u9019\u88e1\u6703\u6aa2\u67e5\u96c6\u4e2d\u5ea6\u3001\u73fe\u91d1\u6bd4\u4f8b\u8207\u662f\u5426\u8ffd\u9ad8\u3002</p>`;
+        return;
+      }
+      const total = entries.reduce((sum, item) => sum + item.value, 0) || 1;
+      const normalized = entries.map(item => ({ ...item, weight: item.isPct ? item.value : (item.value / total) * 100 }));
+      const issues = [];
+      const cash = normalized.find(item => item.code === "cash")?.weight || 0;
+      const largest = normalized.filter(item => item.code !== "cash").sort((a, b) => b.weight - a.weight)[0];
+      const sectorWeights = normalized.filter(item => item.code !== "cash").reduce((acc, item) => {
+        const sector = knownSector(item.code);
+        acc[sector] = (acc[sector] || 0) + item.weight;
+        return acc;
+      }, {});
+      const biggestSector = Object.entries(sectorWeights).sort((a, b) => b[1] - a[1])[0];
+      if (largest && largest.weight >= 45) issues.push(`${largest.code} \u4f54\u6bd4 ${fmt(largest.weight, 1)}%\uff0c\u55ae\u4e00\u500b\u80a1\u96c6\u4e2d\u5ea6\u504f\u9ad8\u3002`);
+      if (cash < 10) issues.push(`\u73fe\u91d1\u7d04 ${fmt(cash, 1)}%\uff0c\u9047\u5230\u56de\u6a94\u6642\u52a0\u78bc\u7a7a\u9593\u4e0d\u8db3\u3002`);
+      if (biggestSector && biggestSector[1] >= 55 && biggestSector[0] !== "ETF") issues.push(`${biggestSector[0]} \u985e\u80a1\u5408\u8a08 ${fmt(biggestSector[1], 1)}%\uff0c\u7522\u696d\u96c6\u4e2d\u5ea6\u504f\u9ad8\u3002`);
+      normalized.forEach(item => {
+        if (item.code === "cash") return;
+        const score = [activeValueScore, ...latestScreenerItems].find(row => row?.code === item.code);
+        if (score?.scores?.chaseRisk?.score >= 72) issues.push(`${item.code} \u8ffd\u9ad8\u98a8\u96aa ${score.scores.chaseRisk.score}\uff0c\u65b0\u589e\u8cc7\u91d1\u4e0d\u5b9c\u518d\u63d0\u9ad8\u6bd4\u91cd\u3002`);
+        if (!score) issues.push(`${item.code} \u5c1a\u672a\u8f09\u5165\u8a55\u5206\uff0c\u53ea\u505a\u914d\u7f6e\u96c6\u4e2d\u5ea6\u6aa2\u67e5\u3002`);
+      });
+      $("portfolioHealth").innerHTML = `
+        <ul class="health-list">
+          ${(issues.length ? issues : ["\u914d\u7f6e\u6c92\u6709\u89f8\u767c\u4e3b\u8981\u96c6\u4e2d\u5ea6\u8b66\u793a\uff1b\u4ecd\u9700\u6301\u7e8c\u6aa2\u67e5\u7522\u696d\u3001\u8ca1\u5831\u8207\u8cb7\u9ede\u3002"]).map(item => `<li>${escapeHtml(item)}</li>`).join("")}
+        </ul>`;
+    }
+
+    function renderAllocationGuide() {
+      if (!$("allocationGuide")) return;
+      const budget = Math.max(0, Number($("monthlyBudget").value || 0));
+      const risk = $("riskProfile").value;
+      const guide = activeValueScore?.allocationGuide;
+      const stockPct = guide?.firstBuyPct ?? 0;
+      const cashFloor = guide?.cashReservePct ?? 40;
+      const riskCore = risk === "conservative" ? 55 : risk === "active" ? 30 : 45;
+      const riskCash = risk === "conservative" ? 35 : risk === "active" ? 15 : 25;
+      const cashPct = Math.max(cashFloor, riskCash);
+      const candidatePct = Math.min(stockPct, Math.max(0, 100 - riskCore - cashPct));
+      const satellitePct = Math.max(0, 100 - riskCore - cashPct - candidatePct);
+      const rows = [
+        ["\u6838\u5fc3 ETF", riskCore, "\u4f5c\u70ba\u9577\u671f\u5206\u6563\u5e95\u5ea7\uff0c\u907f\u514d\u53ea\u62bc\u55ae\u4e00\u500b\u80a1\u3002"],
+        [activeValueScore ? `${activeValueScore.code} \u5206\u6279` : "\u76ee\u524d\u500b\u80a1", candidatePct, guide?.action ? `${guide.action}\uff0c\u7b2c\u4e00\u7b46\u6bd4\u4f8b\u7531\u8ffd\u9ad8\u98a8\u96aa\u6c7a\u5b9a\u3002` : "\u7b49\u5f85\u55ae\u80a1\u8a55\u5206\u8f09\u5165\u3002"],
+        ["\u89c0\u5bdf\u6c60", satellitePct, "\u5f9e\u4f4e\u4f30\u3001\u73fe\u91d1\u6d41\u6216\u589e\u9577\u699c\u6311\u9078\uff0c\u55ae\u6a94\u5148\u5c0f\u984d\u3002"],
+        ["\u4fdd\u7559\u73fe\u91d1", cashPct, "\u4fdd\u7559\u56de\u6a94\u8207\u932f\u8aa4\u4fee\u6b63\u7a7a\u9593\u3002"]
+      ].filter(([, pctValue]) => pctValue > 0);
+      $("allocationGuide").innerHTML = `
+        <div class="allocation-list">
+          ${rows.map(([label, pctValue, note]) => `
+            <div class="allocation-row">
+              <strong>${escapeHtml(label)}</strong>
+              <span>${fmt(pctValue, 0)}%</span>
+              <span>${fmt(budget * pctValue / 100, 0)} \u5143\uff5c${escapeHtml(note)}</span>
+            </div>`).join("")}
+        </div>`;
+    }
+
+    function prepareValueFeatures(data) {
+      valueFeatureRequestKey = "";
+      activeValueScore = null;
+      latestScreenerItems = [];
+      const pending = entityText("&#x5f85;&#x8f09;&#x5165;");
+      const pendingDetail = entityText("&#x9ede;&#x9078;&#x6392;&#x884c;&#x699c;&#x5f8c;&#x8f09;&#x5165;&#x516c;&#x958b;&#x8cc7;&#x6599;&#x8a55;&#x5206;&#x3002;");
+      $("valueScoreCards").innerHTML = [
+        valueCard(entityText("&#x5c0f;&#x8cc7;&#x53cb;&#x5584;&#x5206;&#x6578;"), pending, pendingDetail, "neut"),
+        valueCard(entityText("&#x4f4e;&#x4f30;&#x5206;&#x6578;"), pending, pendingDetail, "neut"),
+        valueCard(entityText("&#x9ad8;&#x4f30;&#x5206;&#x6578;"), pending, pendingDetail, "neut"),
+        valueCard(entityText("&#x516c;&#x5141;&#x50f9;&#x503c;"), pending, pendingDetail, "neut"),
+        valueCard(entityText("&#x73fe;&#x91d1;&#x6d41;&#x8a55;&#x5206;"), pending, pendingDetail, "neut"),
+        valueCard(entityText("&#x589e;&#x9577;&#x8a55;&#x5206;"), pending, pendingDetail, "neut"),
+        valueCard(entityText("&#x5e02;&#x5834;&#x4fe1;&#x5fc3;"), pending, pendingDetail, "neut"),
+        valueCard(entityText("&#x5206;&#x6790;&#x5e2b;&#x8a55;&#x7d1a;"), pending, pendingDetail, "warn"),
+      ].join("");
+      $("chaseRiskPanel").innerHTML = `<div class="warning-box"><b>Ranking loads on demand</b><p>This protects FinMind quota so the main fundamentals section remains reliable.</p></div>`;
+      $("screenerRows").innerHTML = `<tr><td colspan="10">Click a ranking tab to load public-data scores.</td></tr>`;
+      renderAllocationGuide();
+      renderPortfolioHealth();
+    }
+
+    async function loadValueFeatures(data) {
+      if (!data) return;
+      const requestCode = data.code;
+      const requestKey = `${requestCode}:${currentScreenerMode}`;
+      if (valueFeatureRequestKey === requestKey) return;
+      valueFeatureRequestKey = requestKey;
+      $("valueScoreCards").innerHTML = `<div class="value-card"><b>Value score</b><strong>Loading</strong><p>Fetching valuation, cash flow, growth, and small-investor scores.</p></div>`;
+      $("chaseRiskPanel").innerHTML = "";
+      activeValueScore = null;
+      renderAllocationGuide();
+      const [scoreResult, screenerResult] = await Promise.allSettled([
+        getValueScore(requestCode),
+        getScreener(currentScreenerMode),
+      ]);
+      if (activeData?.code !== requestCode) return;
+      if (scoreResult.status === "fulfilled") {
+        renderValueScore(scoreResult.value);
+      } else {
+        $("valueScoreCards").innerHTML = `<div class="value-card"><b>Value score</b><strong>Unavailable</strong><p>${escapeHtml(scoreResult.reason?.message || "Data source failed temporarily.")}</p></div>`;
+      }
+      if (screenerResult.status === "fulfilled") {
+        renderScreener(screenerResult.value, currentScreenerMode);
+      } else {
+        $("screenerRows").innerHTML = `<tr><td colspan="10">${escapeHtml(screenerResult.reason?.message || "Ranking failed to load.")}</td></tr>`;
+      }
+    }
+
     async function loadSupplementalData(data) {
       const requestCode = data.code;
       $("plainFundamentals").innerHTML = `<div class="sr"><div class="sl"><b>正在載入 FinMind</b><br>同步損益表、月營收、估值、現金流、負債、法人與籌碼資料。</div>${badge("載入中", "neut")}</div>`;
@@ -907,7 +1400,7 @@
         : { ok:false, items:[], note:"新聞來源暫時不可用，主分析仍可使用。" };
       renderNews(news);
       if (fundamentals?.ok) {
-        renderPlainFundamentals(data, fundamentals, news);
+        renderPlainFundamentalsStable(data, fundamentals, news);
       } else {
         $("plainFundamentals").innerHTML = fundamentalRow(
           "FinMind 資料暫時無法載入",
@@ -1248,6 +1741,7 @@
       const levelRows = renderLevels(data);
       resetAgentPanel(data);
       loadSupplementalData(data);
+      prepareValueFeatures(data);
       if (!window.Chart) {
         $("status").textContent += " Chart.js 未載入，文字資料仍可使用。";
         return;
@@ -1301,6 +1795,12 @@
       $("strategy").innerHTML = "";
       $("rrCompare").innerHTML = "";
       $("retailDecision").innerHTML = "";
+      $("valueScoreCards").innerHTML = "";
+      $("chaseRiskPanel").innerHTML = "";
+      $("allocationGuide").innerHTML = "";
+      $("portfolioHealth").innerHTML = "";
+      $("screenerRows").innerHTML = `<tr><td colspan="10">資料載入失敗，排行榜暫停更新。</td></tr>`;
+      activeValueScore = null;
       $("entryQuality").innerHTML = "";
       $("horizonRows").innerHTML = "";
       $("plainFundamentals").innerHTML = "";
@@ -1347,7 +1847,22 @@
     });
     $("monthlyBudget").addEventListener("input", () => {
       if (activeData) renderRetailDecision(activeData);
+      renderAllocationGuide();
     });
+    $("riskProfile").addEventListener("change", renderAllocationGuide);
+    $("portfolioCheckBtn").addEventListener("click", renderPortfolioHealth);
+    $("portfolioInput").addEventListener("input", renderPortfolioHealth);
+    $("screenerTabs").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-mode]");
+      if (!btn) return;
+      $("screenerTabs").querySelectorAll("button").forEach((item) => item.classList.toggle("active", item === btn));
+      loadScreenerMode(btn.dataset.mode);
+    });
+    $("screenerRows").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-rank-code]");
+      if (btn) run(btn.dataset.rankCode);
+    });
+    renderPortfolioHealth();
     run(new URLSearchParams(location.search).get("code") || "2330");
   </script>
 </body>
