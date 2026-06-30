@@ -22,6 +22,10 @@
     .hero p { opacity:.9; font-size:.92rem; }
     .hero-facts { display:flex; flex-wrap:wrap; gap:.45rem; margin-top:.7rem; }
     .hero-fact { display:inline-flex; align-items:center; gap:.28rem; border-radius:999px; padding:.22rem .6rem; font-size:11px; font-weight:720; background:#ffffff24; border:1px solid #ffffff30; color:#fff; }
+    .view-tabs { display:flex; flex-wrap:wrap; gap:.45rem; margin:.85rem 0 0; }
+    .view-tab { background:#ffffff22; border:1px solid #ffffff55; color:#fff; min-height:34px; border-radius:999px; font-size:12px; }
+    .view-tab.active { background:#fff; color:var(--ink); }
+    .page-view[hidden] { display:none !important; }
     .form { display:flex; gap:.45rem; align-items:center; }
     input { min-height:40px; border:1px solid var(--line); border-radius:8px; padding:0 .75rem; color:var(--ink); outline:none; }
     .form input { width:130px; }
@@ -107,6 +111,15 @@
     .value-card b { display:block; color:var(--muted); font-size:11px; margin-bottom:.18rem; }
     .value-card strong { display:block; font-size:1.28rem; line-height:1.25; overflow-wrap:anywhere; }
     .value-card p { font-size:12px; line-height:1.55; margin:.24rem 0 0; }
+    .data-status { border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.72rem; margin:.65rem 0; }
+    .data-status h3 { margin:0 0 .45rem; font-size:.9rem; }
+    .data-status-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.5rem; }
+    .data-status-card { border:.5px solid #ece9e4; border-radius:8px; background:#fff; padding:.52rem; min-width:0; }
+    .data-status-card b { display:block; font-size:11px; color:var(--muted); margin-bottom:.18rem; }
+    .data-status-card strong { display:block; font-size:.95rem; line-height:1.35; overflow-wrap:anywhere; }
+    .data-status-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.35rem .7rem; margin-top:.55rem; font-size:12px; }
+    .data-status-list div { display:flex; justify-content:space-between; gap:.6rem; border-bottom:.5px solid #eee; padding:.25rem 0; }
+    .data-status-list span { color:var(--muted); }
     .rank-tabs { display:flex; flex-wrap:wrap; gap:.45rem; margin:.65rem 0; }
     .rank-tabs button { background:#fff; color:var(--ink); border:1px solid var(--line); min-height:32px; border-radius:999px; font-size:12px; padding:0 .72rem; }
     .rank-tabs button.active { background:var(--ink); color:#fff; }
@@ -122,10 +135,35 @@
     .health-list { margin:.6rem 0 0; padding-left:1.05rem; font-size:12px; line-height:1.65; color:var(--muted); }
     .warning-box { border:1px solid #f2c8b5; background:#fff7f2; color:#51311c; border-radius:8px; padding:.7rem .85rem; margin:.7rem 0; }
     .warning-box b { color:#8c1818; }
+    .client-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.75rem; }
+    .client-grid.two-col { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .client-card { border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.75rem; min-width:0; }
+    .client-card b { display:block; font-size:12px; color:var(--muted); margin-bottom:.25rem; }
+    .client-card strong { display:block; font-size:1.15rem; line-height:1.25; overflow-wrap:anywhere; }
+    .client-form { display:grid; grid-template-columns:1fr auto; gap:.6rem; align-items:end; }
+    .client-form label { display:grid; gap:.25rem; color:var(--muted); font-size:12px; }
+    .client-form textarea { min-height:82px; }
+    .holding-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.6rem; margin-top:.65rem; }
+    .holding-row { display:grid; grid-template-columns:90px 68px 1fr; gap:.55rem; align-items:start; border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.58rem .65rem; font-size:12px; }
+    .holding-row strong,.holding-row span { overflow-wrap:anywhere; }
+    .scope-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.6rem; margin-top:.65rem; }
+    .scope-item { border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.7rem; min-width:0; }
+    .scope-item b { display:block; font-size:12px; margin-bottom:.25rem; }
+    .scope-item p { margin:.2rem 0 0; font-size:12px; line-height:1.6; color:var(--muted); }
+    .score-bars { display:grid; gap:.5rem; margin:.7rem 0; }
+    .score-row { display:grid; grid-template-columns:132px 1fr 42px; gap:.55rem; align-items:center; font-size:12px; }
+    .score-row span { color:var(--muted); }
+    .score-bar { height:9px; border-radius:6px; background:#eee; overflow:hidden; }
+    .score-bar i { display:block; height:100%; border-radius:6px; background:var(--teal); }
+    .workbench-list { display:grid; gap:.45rem; }
+    .workbench-item { display:grid; grid-template-columns:96px 1fr auto; gap:.6rem; align-items:center; border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.55rem .65rem; font-size:12px; }
+    .workbench-item button { min-height:30px; border-radius:999px; background:#fff; color:var(--ink); border:1px solid var(--line); padding:0 .65rem; font-size:12px; }
     @media (max-width:820px) {
       .hero-top,.two { grid-template-columns:1fr; }
       .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .decision-grid,.horizon-grid,.dow-grid,.strategy-grid,.wave-legend,.value-grid { grid-template-columns:1fr; }
+      .decision-grid,.horizon-grid,.dow-grid,.strategy-grid,.wave-legend,.value-grid,.client-grid,.client-grid.two-col { grid-template-columns:1fr; }
+      .score-row,.workbench-item { grid-template-columns:1fr; }
+      .client-form,.holding-grid,.holding-row,.scope-grid { grid-template-columns:1fr; }
       .form { align-items:stretch; flex-wrap:wrap; }
       .form input { flex:1 1 100%; width:auto; }
       .form button { flex:1 1 0; min-width:0; }
@@ -156,6 +194,7 @@
           <h1 id="headline">台股技術分析 Agent</h1>
           <p id="subtitle">輸入台股代碼後，頁面會產生互動式技術分析、回檔機率、Dow Theory、Chan/Wave 訊號與交易策略。</p>
           <div class="hero-facts" id="heroFacts"></div>
+          <div class="hero-facts" id="valueRadarHeroBadge"></div>
         </div>
         <form class="form" id="stockForm">
           <input id="stockInput" autocomplete="off" placeholder="例如 2330、台積電、華邦電" aria-label="股票代碼或名稱">
@@ -169,9 +208,14 @@
         <button class="chip" data-code="2454" type="button">2454 聯發科</button>
         <button class="chip" data-code="0050" type="button">0050 台灣50</button>
       </div>
+      <div class="view-tabs" id="viewTabs" aria-label="page switch">
+        <button class="view-tab active" type="button" data-view="stock">&#x80a1;&#x7968;&#x6df1;&#x5ea6;&#x9801;</button>
+        <button class="view-tab" type="button" data-view="client">&#x5ba2;&#x6236;&#x5de5;&#x4f5c;&#x53f0;</button>
+      </div>
       <div class="status" id="status">準備載入最新資料。</div>
     </section>
 
+    <div id="stockPage" class="page-view">
     <section class="grid metrics" id="metrics"></section>
 
     <section class="panel">
@@ -189,6 +233,7 @@
       <h2>&#x5c0f;&#x8cc7;&#x50f9;&#x503c;&#x96f7;&#x9054;</h2>
       <p class="note">&#x8a55;&#x5206;&#x53ea;&#x4f7f;&#x7528;&#x516c;&#x958b;&#x5831;&#x50f9;&#x8207; FinMind &#x53ef;&#x53d6;&#x5f97;&#x8cc7;&#x6599;&#x3002;&#x7f3a;&#x8cc7;&#x6599;&#x6642;&#x6703;&#x6a19;&#x793a;&#x8cc7;&#x6599;&#x4e0d;&#x8db3;&#xff0c;&#x4e0d;&#x7528;&#x5047;&#x6578;&#x5b57;&#x88dc;&#x5206;&#x3002;</p>
       <div class="value-grid" id="valueScoreCards"></div>
+      <div id="valueDataStatus"></div>
       <div id="chaseRiskPanel"></div>
       <div class="rank-tabs" id="screenerTabs" aria-label="&#x50f9;&#x503c;&#x6392;&#x884c;&#x699c;&#x5207;&#x63db;">
         <button type="button" class="active" data-mode="undervalued">&#x6700;&#x88ab;&#x4f4e;&#x4f30;</button>
@@ -350,6 +395,95 @@
       <div id="rrCompare"></div>
       <p class="note">本頁為技術分析與情境推估工具，不構成任何買賣建議。實際交易仍需搭配風險控管、成交量、籌碼與重大新聞驗證。</p>
     </section>
+    </div>
+
+    <div id="clientPage" class="page-view" hidden>
+      <section class="panel">
+        <div class="control-row">
+          <h2>&#x5ba2;&#x6236;&#x6295;&#x8cc7;&#x5de5;&#x4f5c;&#x53f0;</h2>
+          <button type="button" id="refreshWorkbenchBtn">&#x66f4;&#x65b0;&#x5de5;&#x4f5c;&#x53f0;</button>
+        </div>
+        <p class="note">&#x9019;&#x500b;&#x5206;&#x9801;&#x4fdd;&#x7559;&#x539f;&#x672c;&#x80a1;&#x7968;&#x6df1;&#x5ea6;&#x9801;&#xff0c;&#x53e6;&#x5916;&#x96c6;&#x4e2d;&#x986f;&#x793a;&#x6301;&#x80a1;&#x98a8;&#x96aa;&#x3001;&#x89c0;&#x5bdf;&#x6e05;&#x55ae;&#x3001;&#x6392;&#x884c;&#x699c;&#x3001;&#x56de;&#x6e2c;&#x5be6;&#x9a57;&#x5ba4;&#x8207; AI &#x7406;&#x8ca1;&#x8ca1;&#x52d9;&#x9577;&#x3002;</p>
+        <div class="client-grid" id="clientSummary"></div>
+      </section>
+      <section class="panel">
+        <h2>&#x8a55;&#x7d1a;&#x6a19;&#x6e96;&#x8207;&#x6392;&#x884c;&#x699c;&#x7bc4;&#x570d;</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>&#x500b;&#x80a1;&#x6a21;&#x7d44;</th><th>&#x6b0a;&#x91cd;</th><th>&#x4f7f;&#x7528;&#x8cc7;&#x6599;</th></tr></thead>
+            <tbody>
+              <tr><td>&#x4f30;&#x503c;&#x5b89;&#x5168;&#x908a;&#x969b;</td><td>30%</td><td>P/E&#x3001;P/B&#x3001;&#x80a1;&#x5229;&#x6b96;&#x5229;&#x7387;&#xff1b;EV/EBITDA&#x3001;&#x6b77;&#x53f2;&#x5340;&#x9593;&#x8207;&#x540c;&#x7522;&#x696d;&#x6bd4;&#x8f03;&#x53ef;&#x5f97;&#x6642;&#x624d;&#x5217;&#x5165;</td></tr>
+              <tr><td>&#x8ca1;&#x52d9;&#x7a69;&#x5065;</td><td>20%</td><td>&#x8ca0;&#x50b5;&#x6bd4;&#x3001;&#x6d41;&#x52d5;&#x6bd4;&#x3001;&#x73fe;&#x91d1;&#x8207;&#x6b0a;&#x76ca;&#x7d50;&#x69cb;&#xff1b;ROE&#x3001;&#x6bdb;&#x5229;&#x7387;&#x8207;&#x71df;&#x76ca;&#x7387;&#x53ef;&#x5f97;&#x6642;&#x624d;&#x5217;&#x5165;</td></tr>
+              <tr><td>&#x6210;&#x9577;&#x54c1;&#x8cea;</td><td>15%</td><td>EPS&#x3001;&#x6708;&#x71df;&#x6536;&#x3001;&#x71df;&#x6536; YoY&#x3001;&#x7372;&#x5229;&#x8d8b;&#x52e2;&#xff0c;&#x4e0d;&#x53ea;&#x770b;&#x55ae;&#x6708;&#x7206;&#x767c;</td></tr>
+              <tr><td>&#x73fe;&#x91d1;&#x6d41;&#x8207;&#x80a1;&#x5229;</td><td>15%</td><td>&#x71df;&#x696d;&#x73fe;&#x91d1;&#x6d41;&#x3001;&#x81ea;&#x7531;&#x73fe;&#x91d1;&#x6d41;&#x3001;&#x6b96;&#x5229;&#x7387;&#x8207;&#x8f49;&#x73fe;&#x91d1;&#x80fd;&#x529b;&#xff1b;&#x80a1;&#x5229;&#x7a69;&#x5b9a;&#x5ea6;&#x53ef;&#x5f97;&#x6642;&#x624d;&#x5217;&#x5165;</td></tr>
+              <tr><td>&#x6280;&#x8853;&#x4f4d;&#x7f6e;</td><td>10%</td><td>52 &#x9031;&#x5340;&#x9593;&#x3001;&#x5747;&#x7dda;&#x4f4d;&#x7f6e;&#x3001;RSI&#x3001;&#x652f;&#x6490;&#x58d3;&#x529b;&#x8207;&#x56de;&#x6a94;&#x7a7a;&#x9593;</td></tr>
+              <tr><td>&#x5c0f;&#x8cc7;&#x53cb;&#x5584;</td><td>10%</td><td>&#x4e00;&#x5f35;&#x8207;&#x96f6;&#x80a1;&#x6210;&#x672c;&#x3001;&#x6210;&#x4ea4;&#x91cf;&#x3001;&#x6ce2;&#x52d5;&#x8207;&#x5206;&#x6279;&#x9069;&#x5408;&#x5ea6;</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ETF &#x6a21;&#x7d44;</th><th>&#x6b0a;&#x91cd;</th><th>&#x4f7f;&#x7528;&#x8cc7;&#x6599;</th></tr></thead>
+            <tbody>
+              <tr><td>&#x6298;&#x6ea2;&#x50f9;&#x8207;&#x6de8;&#x503c;</td><td>25%</td><td>NAV&#x3001;&#x5e02;&#x50f9;&#x8207;&#x6298;&#x6ea2;&#x50f9;</td></tr>
+              <tr><td>&#x6210;&#x5206;&#x80a1;&#x54c1;&#x8cea;&#x8207;&#x96c6;&#x4e2d;&#x5ea6;</td><td>25%</td><td>&#x4e3b;&#x8981;&#x6210;&#x5206;&#x80a1;&#x6b0a;&#x91cd;&#x8207;&#x6210;&#x5206;&#x7372;&#x5229;&#x72c0;&#x614b;</td></tr>
+              <tr><td>&#x898f;&#x6a21;&#x8207;&#x6d41;&#x52d5;&#x6027;</td><td>15%</td><td>&#x6210;&#x4ea4;&#x91cf;&#x8207;&#x53ef;&#x4ea4;&#x6613;&#x6027;</td></tr>
+              <tr><td>&#x914d;&#x606f;&#x7a69;&#x5b9a;&#x5ea6;</td><td>15%</td><td>&#x53ef;&#x5f97;&#x7684;&#x914d;&#x606f;&#x8207;&#x6210;&#x5206;&#x80a1;&#x6b96;&#x5229;&#x7387;&#x8cc7;&#x6599;</td></tr>
+              <tr><td>&#x6280;&#x8853;&#x4f4d;&#x7f6e;</td><td>10%</td><td>&#x5747;&#x7dda;&#x3001;RSI&#x3001;&#x652f;&#x6490;&#x58d3;&#x529b;&#x8207;&#x56de;&#x6a94;&#x7a7a;&#x9593;</td></tr>
+              <tr><td>&#x55ae;&#x4e00;&#x7522;&#x696d;&#x6216;&#x6210;&#x5206;&#x98a8;&#x96aa;</td><td>10%</td><td>&#x524d;&#x5927;&#x6210;&#x5206;&#x80a1;&#x8986;&#x84cb;&#x7387;&#x8207;&#x96c6;&#x4e2d;&#x5ea6;</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="scope-grid">
+          <div class="scope-item"><b>&#x89c0;&#x5bdf;&#x6c60;&#x6392;&#x884c;</b><p>&#x76ee;&#x524d;&#x53ef;&#x7528;&#x7684;&#x53f0;&#x80a1; universe&#xff0c;&#x7528;&#x65bc;&#x4eca;&#x65e5;&#x89c0;&#x5bdf;&#x8207;&#x6392;&#x884c;&#x699c;&#xff0c;&#x4e0d;&#x5ba3;&#x7a31;&#x5168;&#x5e02;&#x5834;&#x3002;</p></div>
+          <div class="scope-item"><b>&#x53ef;&#x8a55;&#x7d1a;&#x53f0;&#x80a1;&#x6c60;</b><p>&#x4e0b;&#x4e00;&#x6b65;&#x624d;&#x64f4;&#x5927;&#x5230;&#x4e0a;&#x5e02;&#x6ac3;&#x666e;&#x901a;&#x80a1;&#xff0c;&#x9700;&#x5148;&#x6392;&#x9664;&#x8cc7;&#x6599;&#x4e0d;&#x8db3;&#x3001;&#x6d41;&#x52d5;&#x6027;&#x904e;&#x4f4e;&#x8207;&#x7279;&#x6b8a;&#x80a1;&#x3002;</p></div>
+          <div class="scope-item"><b>ETF &#x7368;&#x7acb;&#x699c;</b><p>ETF &#x4f7f;&#x7528;&#x7368;&#x7acb;&#x6a21;&#x578b;&#xff0c;&#x4e0d;&#x8207;&#x500b;&#x80a1;&#x8ca1;&#x5831;&#x6a21;&#x578b;&#x6df7;&#x6392;&#x3002;</p></div>
+        </div>
+        <p class="note">&#x80fd;&#x7b97;&#x7684;&#x624d;&#x7d66;&#x5206;&#xff1b;&#x4e0d;&#x80fd;&#x7b97;&#x7684;&#x986f;&#x793a;&#x8cc7;&#x6599;&#x4e0d;&#x8db3;&#x3002;&#x7b2c;&#x4e09;&#x65b9;&#x7db2;&#x7ad9;&#x53ea;&#x7576;&#x4ecb;&#x9762;&#x8207;&#x6a19;&#x6e96;&#x53c3;&#x8003;&#xff0c;&#x4e0d;&#x5047;&#x88dd;&#x6211;&#x5011;&#x6709;&#x540c;&#x7b49;&#x5c08;&#x6709;&#x8cc7;&#x6599;&#x3002;</p>
+      </section>
+      <section class="grid two">
+        <section class="panel"><h2>&#x5e02;&#x5834;&#x72c0;&#x614b;</h2><div id="marketStatePanel"></div></section>
+        <section class="panel"><h2>AI &#x7406;&#x8ca1;&#x8ca1;&#x52d9;&#x9577;</h2><div id="clientCfoPanel"></div></section>
+      </section>
+      <section class="panel">
+        <h2>&#x6211;&#x7684;&#x6301;&#x80a1;&#x98a8;&#x96aa;</h2>
+        <div class="client-form">
+          <label>&#x6301;&#x80a1;&#x6e05;&#x55ae;
+            <textarea id="clientPortfolioInput" aria-label="客戶持股清單">0050 40%, 2330 30%, 2454 10%, cash 20%</textarea>
+          </label>
+          <button type="button" id="analyzeClientPortfolioBtn">&#x5206;&#x6790;&#x6301;&#x80a1;</button>
+        </div>
+        <div class="holding-grid" id="clientPortfolioSummary"></div>
+        <div class="workbench-list" id="clientHoldingScores"></div>
+        <p class="note" id="clientPortfolioNote">&#x53ea;&#x4f7f;&#x7528;&#x76ee;&#x524d; universe &#x5167;&#x5df2;&#x53d6;&#x5f97;&#x8a55;&#x5206;&#x7684;&#x8cc7;&#x6599;&#xff1b;&#x6c92;&#x6709;&#x8a55;&#x5206;&#x7684;&#x6301;&#x80a1;&#x6703;&#x6a19;&#x793a;&#x8cc7;&#x6599;&#x4e0d;&#x8db3;&#x3002;</p>
+      </section>
+      <section class="grid two">
+        <section class="panel"><h2>&#x4eca;&#x65e5;&#x503c;&#x5f97;&#x89c0;&#x5bdf;&#x6e05;&#x55ae;</h2><div class="workbench-list" id="todayWatchList"></div></section>
+        <section class="panel"><h2>&#x8ffd;&#x9ad8;&#x98a8;&#x96aa;&#x6e05;&#x55ae;</h2><div class="workbench-list" id="clientChaseList"></div></section>
+      </section>
+      <section class="panel">
+        <h2>&#x50f9;&#x503c;&#x8a55;&#x4f30;&#x6e05;&#x55ae;</h2>
+        <div class="rank-tabs" id="clientScopeTabs" aria-label="client ranking scope filters">
+          <button type="button" class="active" data-client-scope="all">&#x89c0;&#x5bdf;&#x6c60;</button>
+          <button type="button" data-client-scope="stock">&#x500b;&#x80a1;</button>
+          <button type="button" data-client-scope="etf">ETF</button>
+        </div>
+        <div class="rank-tabs" id="clientRankingTabs" aria-label="client ranking filters">
+          <button type="button" class="active" data-client-mode="undervalued">&#x4f4e;&#x4f30;</button>
+          <button type="button" data-client-mode="overvalued">&#x9ad8;&#x4f30;</button>
+          <button type="button" data-client-mode="cashflow">&#x73fe;&#x91d1;&#x6d41;</button>
+          <button type="button" data-client-mode="growth">&#x6210;&#x9577;</button>
+          <button type="button" data-client-mode="smallInvestor">&#x5c0f;&#x8cc7;</button>
+          <button type="button" data-client-mode="etf">ETF</button>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>&#x80a1;&#x7968;</th><th>&#x7b49;&#x7d1a;</th><th>&#x7e3d;&#x5206;</th><th>&#x4f4e;&#x4f30;</th><th>&#x9ad8;&#x4f30;</th><th>&#x8ffd;&#x9ad8;</th><th>&#x8cc7;&#x6599;&#x8986;&#x84cb;</th></tr></thead><tbody id="clientRankingRows"><tr><td colspan="7">&#x8f09;&#x5165;&#x5de5;&#x4f5c;&#x53f0;...</td></tr></tbody></table></div>
+        <p class="note" id="clientRankingNote"></p>
+      </section>
+      <section class="grid two">
+        <section class="panel"><h2>&#x503c;&#x5f97;&#x89c0;&#x5bdf;&#x6e05;&#x55ae;</h2><div class="workbench-list" id="clientWatchList"></div></section>
+        <section class="panel"><h2>&#x56de;&#x6e2c;&#x5be6;&#x9a57;&#x5ba4; v1</h2><div id="backtestLab"></div></section>
+      </section>
+    </div>
   </main>
 
   <script type="module" src="./src/main.ts"></script>
@@ -366,6 +500,9 @@
     let currentScreenerMode = "undervalued";
     let latestScreenerItems = [];
     let valueFeatureRequestKey = "";
+    let clientWorkbench = null;
+    let clientRankingMode = "undervalued";
+    let clientRankingScope = "all";
 
     const fmt = (n, d=2) => Number.isFinite(Number(n)) ? Number(n).toLocaleString("zh-TW", { maximumFractionDigits:d, minimumFractionDigits:d }) : "--";
     const pct = (n) => Number.isFinite(Number(n)) ? `${n >= 0 ? "+" : ""}${fmt(n, 2)}%` : "--";
@@ -373,6 +510,7 @@
     const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
     const badge = (text, cls) => `<span class="badge ${cls}">${escapeHtml(text)}</span>`;
     const lastFiniteLocal = (a) => Array.isArray(a) ? [...a].reverse().find((v) => Number.isFinite(v)) : NaN;
+    const appDeployApiBase = "https://api-v2.appdeploy.ai/app/932f5348aea14e86a7";
 
     function escapeHtml(value) {
       return String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "\"":"&quot;", "'":"&#39;" }[ch]));
@@ -447,10 +585,34 @@
       Object.keys(charts).forEach((key) => delete charts[key]);
     }
 
-    function waitForAppApi(timeoutMs = 4000) {
+    function directAppApi() {
+      if (window.directAppApi) return window.directAppApi;
+      window.directAppApi = {
+        async get(path) {
+          const normalizedPath = String(path).startsWith("/") ? String(path) : `/${path}`;
+          const response = await fetch(appDeployApiBase + normalizedPath, {
+            headers: { "Accept": "application/json" }
+          });
+          const text = await response.text();
+          let data = null;
+          try {
+            data = text ? JSON.parse(text) : null;
+          } catch (err) {
+            throw new Error(`API 回傳格式不是 JSON：${text.slice(0, 120)}`);
+          }
+          if (!response.ok) {
+            throw new Error(data?.message || `API HTTP ${response.status}`);
+          }
+          return { data, status: response.status };
+        }
+      };
+      return window.directAppApi;
+    }
+
+    function waitForAppApi(timeoutMs = 1000) {
       if (window.appApi) return Promise.resolve(window.appApi);
       return new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error("後端連線逾時，請稍後重整。")), timeoutMs);
+        const timer = setTimeout(() => resolve(directAppApi()), timeoutMs);
         window.addEventListener("app-api-ready", () => {
           clearTimeout(timer);
           resolve(window.appApi);
@@ -465,6 +627,134 @@
         throw new Error(data?.message || "資料來源沒有回傳可用報價。");
       }
       return data.quote;
+    }
+
+    async function getWorkbench() {
+      const api = await waitForAppApi();
+      try {
+        const { data } = await api.get("/api/workbench");
+        if (!data || !data.ok) throw new Error(data?.message || "\u5de5\u4f5c\u53f0\u8cc7\u6599\u8f09\u5165\u5931\u6557");
+        return data;
+      } catch (err) {
+        return buildWorkbenchFallback(api, err);
+      }
+    }
+
+    function fallbackGrade(score) {
+      if (!Number.isFinite(Number(score))) return "X";
+      if (score >= 80) return "A";
+      if (score >= 65) return "B";
+      if (score >= 50) return "C";
+      return "D";
+    }
+
+    function fallbackGradeLabel(grade) {
+      return ({ A:"high conviction", B:"watchlist candidate", C:"neutral watch", D:"weak signal", X:"data insufficient" })[grade] || "data insufficient";
+    }
+
+    function normalizeWorkbenchItem(item) {
+      if (!item) return item;
+      if (item.professionalRating && item.dataStatus && item.cfoGuide) return item;
+      const assetModel = item.fundamentals?.assetType === "etf" ? "etf" : "stock";
+      const technicalPosition = Number.isFinite(Number(item.scores?.chaseRisk?.score)) ? 100 - Number(item.scores.chaseRisk.score) : null;
+      const components = [
+        { key:"valuation", label:"Valuation safety margin", score:item.scores?.valuation?.score ?? null, weight:30, evidence:item.scores?.valuation?.evidence || [], missing:item.scores?.valuation?.missing || [], whyDeducted:[] },
+        { key:"stability", label:"Financial stability", score:item.scores?.financialStability?.score ?? null, weight:20, evidence:item.scores?.financialStability?.evidence || [], missing:item.scores?.financialStability?.missing || [], whyDeducted:[] },
+        { key:"growth", label:"Growth quality", score:item.scores?.growth?.score ?? null, weight:15, evidence:item.scores?.growth?.evidence || [], missing:item.scores?.growth?.missing || [], whyDeducted:[] },
+        { key:"cashflow", label:"Cash flow and dividend", score:item.scores?.cashFlow?.score ?? null, weight:15, evidence:item.scores?.cashFlow?.evidence || [], missing:item.scores?.cashFlow?.missing || [], whyDeducted:[] },
+        { key:"technical", label:"Technical position", score:technicalPosition, weight:10, evidence:item.scores?.chaseRisk?.evidence || [], missing:item.scores?.chaseRisk?.missing || [], whyDeducted:[] },
+        { key:"smallBudget", label:"Small-budget friendliness", score:item.scores?.smallInvestor ?? null, weight:10, evidence:[], missing:[], whyDeducted:[] },
+      ];
+      const available = components.filter(row => row.score !== null && row.score !== undefined).length;
+      const total = Number.isFinite(Number(item.scores?.smallInvestor))
+        ? Number(item.scores.smallInvestor)
+        : Number.isFinite(Number(item.scores?.undervalued))
+          ? Number(item.scores.undervalued)
+          : null;
+      const grade = fallbackGrade(total);
+      item.professionalRating = {
+        total,
+        grade,
+        gradeLabel: fallbackGradeLabel(grade),
+        modelVersion: "public-screener-fallback",
+        assetModel,
+        components,
+        stopTrackingAssumption: "\u516c\u958b\u5f8c\u7aef\u5c1a\u672a\u90e8\u7f72\u65b0\u7248 /api/workbench\uff1b\u82e5\u95dc\u9375\u8cc7\u6599\u7f3a\u6f0f\uff0c\u5148\u505c\u6b62\u63a8\u8ad6\u3002",
+        note: "\u9019\u662f\u4f7f\u7528\u65e2\u6709 screener \u8cc7\u6599\u7d44\u6210\u7684\u76f8\u5bb9\u6a21\u5f0f\uff0c\u4e0d\u88dc\u5047\u5206\u6578\u3002",
+      };
+      item.dataStatus = {
+        quoteDate: item.quoteDate || item.fundamentals?.data?.valuation?.date || null,
+        generatedAt: item.generatedAt || new Date().toISOString(),
+        assetType: assetModel,
+        requestMode: item.fundamentals?.requestMode || "public-screener-fallback",
+        coverage: { available, total: components.length, percent: Math.round((available / components.length) * 100), label: available >= 5 ? "partial" : "low" },
+        datasets: [],
+        missingItems: components.flatMap(row => (row.missing || []).map(missing => `${row.label}: ${missing}`)),
+        cachedDatasets: item.fundamentals?.cache?.cachedDatasets || [],
+        staleDatasets: item.fundamentals?.cache?.staleDatasets || [],
+        warnings: ["public /api/workbench unavailable; using screener fallback"],
+      };
+      const action = item.allocationGuide?.action || (Number(item.scores?.chaseRisk?.score) >= 72 ? "wait for pullback" : "stage entries");
+      item.cfoGuide = {
+        action,
+        actionLabel: action,
+        singleEntryLimitPct: item.allocationGuide?.firstBuyPct || 10,
+        maxHoldingPct: grade === "A" || grade === "B" ? 20 : 10,
+        worstCaseLossPct: item.fairValue?.upsidePct !== null && item.fairValue?.upsidePct < 0 ? item.fairValue.upsidePct : null,
+        stopTrackingAssumption: item.professionalRating.stopTrackingAssumption,
+        notes: item.allocationGuide?.notes || [],
+      };
+      return item;
+    }
+
+    async function buildWorkbenchFallback(api, reason) {
+      const modes = ["undervalued", "overvalued", "cashflow", "growth", "small-investor"];
+      const results = await Promise.allSettled(modes.map(mode => api.get(`/api/screener?mode=${encodeURIComponent(mode)}`)));
+      const payloads = results.map(result => result.status === "fulfilled" ? result.value.data : null).filter(Boolean);
+      if (!payloads.length) throw reason instanceof Error ? reason : new Error("\u5de5\u4f5c\u53f0\u8cc7\u6599\u8f09\u5165\u5931\u6557");
+      const first = payloads[0] || {};
+      const byCode = new Map();
+      payloads.flatMap(payload => payload.items || []).forEach(item => {
+        const normalized = normalizeWorkbenchItem(item);
+        if (normalized?.code && !byCode.has(normalized.code)) byCode.set(normalized.code, normalized);
+      });
+      const allItems = [...byCode.values()];
+      const sortBy = (items, fn) => [...items].filter(item => fn(item) !== null && fn(item) !== undefined).sort((a, b) => (fn(b) ?? -1) - (fn(a) ?? -1)).slice(0, 8);
+      const avgScore = allItems.length ? Math.round(allItems.reduce((sum, item) => sum + (item.professionalRating?.total || 0), 0) / allItems.length) : null;
+      return {
+        ok: true,
+        generatedAt: new Date().toISOString(),
+        source: "\u516c\u958b screener fallback",
+        universeMeta: first.universeMeta || { name:"\u53f0\u80a1 observation universe", version:"public-fallback", requestedCount:allItems.length, scoredCount:allItems.length },
+        finmind: { status:"checked", note:"\u5df2\u4f7f\u7528\u76ee\u524d\u516c\u958b screener API\uff1b\u65b0\u7248 /api/workbench \u9700\u90e8\u7f72\u5f8c\u624d\u6703\u555f\u7528\u3002" },
+        marketState: {
+          avgScore,
+          highChase: allItems.filter(item => (item.scores?.chaseRisk?.score || 0) >= 72).length,
+          goodCoverage: allItems.filter(item => (item.dataStatus?.coverage?.percent || 0) >= 85).length,
+          undervalued: allItems.filter(item => (item.scores?.undervalued || 0) >= 65).length,
+          total: allItems.length,
+          tone: "neutral",
+          note: "\u76ee\u524d\u4f7f\u7528 screener fallback\uff0c\u4e0d\u662f\u5373\u6642\u5168\u5e02\u5834\u8cc7\u6599\u5eab\u3002",
+        },
+        ranked: {
+          observationPool: sortBy(allItems, item => item.professionalRating?.total),
+          todayWatch: sortBy(allItems.filter(item => (item.scores?.chaseRisk?.score || 100) < 72), item => item.professionalRating?.total),
+          watchlist: sortBy(allItems, item => item.scores?.smallInvestor),
+          chaseRisk: sortBy(allItems.filter(item => (item.scores?.chaseRisk?.score || 0) >= 72), item => item.scores?.chaseRisk?.score),
+          undervalued: sortBy(allItems, item => item.scores?.undervalued),
+          overvalued: sortBy(allItems, item => item.scores?.overvalued),
+          cashflow: sortBy(allItems, item => item.scores?.cashFlow?.score),
+          growth: sortBy(allItems, item => item.scores?.growth?.score),
+          smallInvestor: sortBy(allItems, item => item.scores?.smallInvestor),
+          etf: sortBy(allItems.filter(item => item.professionalRating?.assetModel === "etf"), item => item.professionalRating?.total),
+        },
+        rankingModes: ["undervalued", "overvalued", "cashflow", "growth", "smallInvestor", "etf"],
+        cfo: { principles: ["No direct buy/sell instruction.", "Fallback mode uses only public screener fields."] },
+        backtest: {
+          modelVersion: "unavailable-until-workbench-deploy",
+          results: [{ ok:false, code:"workbench", message:"\u56de\u6e2c\u5be6\u9a57\u5ba4\u9700\u65b0\u7248 /api/workbench\uff1b\u76ee\u524d\u516c\u958b\u5f8c\u7aef\u5c1a\u672a\u90e8\u7f72\u3002" }],
+        },
+      };
     }
 
     function analyze(code, quote) {
@@ -1187,10 +1477,142 @@
         </div>`;
     }
 
+    function statusDate(value) {
+      return value ? String(value).slice(0, 10) : "\u65e5\u671f\u4e0d\u8db3";
+    }
+
+    function dataLabel(key, fallback) {
+      return ({
+        quote:"\u5831\u50f9",
+        valuation:"\u4f30\u503c",
+        cashFlow:"\u73fe\u91d1\u6d41",
+        growth:"\u6210\u9577",
+        profitability:"\u7372\u5229",
+        financialStability:"\u8ca1\u52d9\u7a69\u5065",
+        marketConfidence:"\u5e02\u5834\u4fe1\u5fc3"
+      })[key] || fallback || key;
+    }
+
+    function missingLabel(value) {
+      return String(value || "")
+        .replace("Quote", "\u5831\u50f9")
+        .replace("Valuation", "\u4f30\u503c")
+        .replace("Cash flow", "\u73fe\u91d1\u6d41")
+        .replace("Growth", "\u6210\u9577")
+        .replace("Profitability", "\u7372\u5229")
+        .replace("Financial stability", "\u8ca1\u52d9\u7a69\u5065")
+        .replace("Market confidence", "\u5e02\u5834\u4fe1\u5fc3")
+        .replace("quote date", "\u5831\u50f9\u65e5\u671f")
+        .replace("dividend yield", "\u6b96\u5229\u7387")
+        .replace("52-week range", "52 \u9031\u5340\u9593")
+        .replace("operating cash flow", "\u71df\u696d\u73fe\u91d1\u6d41")
+        .replace("free cash flow", "\u81ea\u7531\u73fe\u91d1\u6d41")
+        .replace("cash change", "\u73fe\u91d1\u8b8a\u52d5")
+        .replace("monthly revenue YoY", "\u6708\u71df\u6536\u5e74\u589e")
+        .replace("revenue momentum", "\u71df\u6536\u52d5\u80fd")
+        .replace("quarterly revenue YoY", "\u5b63\u71df\u6536\u5e74\u589e")
+        .replace("net income", "\u7a05\u5f8c\u6de8\u5229")
+        .replace("operating income", "\u71df\u696d\u5229\u76ca")
+        .replace("liability ratio", "\u8ca0\u50b5\u6bd4")
+        .replace("current ratio", "\u6d41\u52d5\u6bd4")
+        .replace("cash", "\u73fe\u91d1")
+        .replace("institutional net buy/sell", "\u6cd5\u4eba\u8cb7\u8ce3")
+        .replace("foreign ownership change", "\u5916\u8cc7\u6301\u80a1\u8b8a\u5316")
+        .replace("margin balance change", "\u878d\u8cc7\u9918\u984d\u8b8a\u5316");
+    }
+
+    function renderValueDataStatus(score) {
+      const status = score?.dataStatus;
+      if (!status) {
+        $("valueDataStatus").innerHTML = "";
+        return;
+      }
+      const coverage = status.coverage || {};
+      const coverageTone = coverage.percent >= 85 ? "bull" : coverage.percent >= 60 ? "warn" : "bear";
+      const datasets = Array.isArray(status.datasets) ? status.datasets : [];
+      const missing = Array.isArray(status.missingItems) ? status.missingItems : [];
+      const cacheText = [
+        status.cachedDatasets?.length ? `\u5feb\u53d6 ${status.cachedDatasets.length} \u9805` : "",
+        status.staleDatasets?.length ? `\u820a\u5feb\u53d6 ${status.staleDatasets.length} \u9805` : ""
+      ].filter(Boolean).join("\uff0c") || "\u672c\u6b21\u8acb\u6c42\u6c92\u6709\u820a\u5feb\u53d6\u8b66\u793a";
+      const datasetRows = datasets.map((item) => `
+        <div>
+          <span>${escapeHtml(dataLabel(item.key, item.label))}</span>
+          <strong>${escapeHtml(statusDate(item.date))} ${badge(item.available ? "\u53ef\u7528" : "\u7f3a\u8cc7\u6599", item.available ? "bull" : "warn")}</strong>
+        </div>`).join("");
+      const missingText = missing.length
+        ? missing.slice(0, 8).map(missingLabel).join("\uff1b")
+        : "\u76ee\u524d\u8a55\u5206\u6240\u9700\u95dc\u9375\u6b04\u4f4d\u90fd\u6709\u53ef\u7528\u8cc7\u6599";
+      $("valueDataStatus").innerHTML = `
+        <div class="data-status">
+          <h3>\u8cc7\u6599\u900f\u660e\u5ea6</h3>
+          <div class="data-status-grid">
+            <div class="data-status-card"><b>\u5831\u50f9\u65e5\u671f</b><strong>${escapeHtml(statusDate(status.quoteDate))}</strong></div>
+            <div class="data-status-card"><b>\u8cc7\u6599\u8986\u84cb\u7387</b><strong>${badge(`${coverage.available || 0}/${coverage.total || 0} \u9805 ${coverage.percent || 0}%`, coverageTone)}</strong></div>
+            <div class="data-status-card"><b>\u8cc7\u7522\u985e\u578b</b><strong>${escapeHtml(status.assetType || "\u672a\u77e5")}</strong></div>
+            <div class="data-status-card"><b>\u8cc7\u6599\u8acb\u6c42</b><strong>${escapeHtml(status.requestMode || "\u672a\u77e5")} / ${escapeHtml(cacheText)}</strong></div>
+          </div>
+          <div class="data-status-list">${datasetRows}</div>
+          <p class="note">\u7f3a\u8cc7\u6599\u9805\u76ee\uff1a${escapeHtml(missingText)}\u3002</p>
+          <p class="note">\u6392\u884c\u699c\u4f86\u81ea\u7dad\u8b77\u4e2d\u7684\u53f0\u80a1 universe\uff0c\u4e0d\u662f\u5373\u6642\u5168\u5e02\u5834\u8cc7\u6599\u5eab\u3002</p>
+        </div>`;
+    }
+
+    function componentLabel(key, fallback) {
+      return ({
+        valuation:"\u4f30\u503c\u5b89\u5168\u908a\u969b",
+        stability:"\u8ca1\u52d9\u7a69\u5065",
+        growth:"\u6210\u9577\u54c1\u8cea",
+        cashflow:"\u73fe\u91d1\u6d41\u8207\u80a1\u5229",
+        technical:"\u6280\u8853\u4f4d\u7f6e",
+        smallBudget:"\u5c0f\u8cc7\u53cb\u5584",
+        premiumNav:"ETF \u6298\u6ea2\u50f9",
+        holdingsQuality:"\u6210\u5206\u80a1\u54c1\u8cea",
+        liquidity:"\u898f\u6a21\u8207\u6d41\u52d5\u6027",
+        distribution:"\u914d\u606f\u7a69\u5b9a",
+        singleRisk:"\u96c6\u4e2d\u98a8\u96aa"
+      })[key] || fallback || key;
+    }
+
+    function renderProfessionalRating(score) {
+      const rating = score?.professionalRating;
+      if (!rating) return "";
+      const tone = rating.grade === "A" || rating.grade === "B" ? "bull" : rating.grade === "C" ? "warn" : "bear";
+      const rows = (rating.components || []).map((item) => {
+        const value = Number.isFinite(Number(item.score)) ? Math.round(Number(item.score)) : 0;
+        return `
+          <details class="data-status">
+            <summary class="score-row">
+              <span>${escapeHtml(componentLabel(item.key, item.label))} ${item.weight}%</span>
+              <div class="score-bar"><i style="width:${Math.max(0, Math.min(100, value))}%"></i></div>
+              <strong>${scoreText(item.score)}</strong>
+            </summary>
+            <p class="note">\u7528\u5230\u8cc7\u6599\uff1a${escapeHtml((item.evidence || []).join("\uff1b") || "\u8cc7\u6599\u4e0d\u8db3")}</p>
+            <p class="note">\u7f3a\u8cc7\u6599\uff1a${escapeHtml((item.missing || []).map(missingLabel).join("\uff1b") || "\u7121")}</p>
+            <p class="note">\u6263\u5206\u7406\u7531\uff1a${escapeHtml((item.whyDeducted || []).map(missingLabel).join("\uff1b"))}</p>
+          </details>`;
+      }).join("");
+      return `
+        <div class="data-status">
+          <h3>\u50f9\u503c\u96f7\u9054\u7e3d\u5206 ${badge(`${rating.grade} / ${scoreText(rating.total)}`, tone)}</h3>
+          <p class="note">${escapeHtml(rating.note || "")}</p>
+          <div class="score-bars">${rows}</div>
+          <p class="note">\u505c\u6b62\u8ffd\u8e64\u5047\u8a2d\uff1a${escapeHtml(rating.stopTrackingAssumption || "")}</p>
+        </div>`;
+    }
+
     function renderValueScore(score) {
+      score = normalizeWorkbenchItem(score);
       activeValueScore = score;
       const s = score?.scores || {};
       const fair = score?.fairValue || {};
+      const rating = score?.professionalRating || {};
+      const ratingTone = rating.grade === "A" || rating.grade === "B" ? "bull" : rating.grade === "C" ? "warn" : rating.grade ? "bear" : "neut";
+      $("valueRadarHeroBadge").innerHTML = [
+        heroFact(`\u50f9\u503c\u96f7\u9054 ${rating.grade || "X"}`, ratingTone),
+        heroFact(`\u7e3d\u5206 ${scoreText(rating.total)}`, scoreTone(rating.total)),
+        heroFact(`\u8cc7\u6599\u8986\u84cb ${score?.dataStatus?.coverage?.percent || 0}%`, (score?.dataStatus?.coverage?.percent || 0) >= 85 ? "bull" : "warn")
+      ].join("");
       $("valueScoreCards").innerHTML = [
         valueCard("\u5c0f\u8cc7\u53cb\u5584\u5206\u6578", scoreText(s.smallInvestor), score?.rating?.smallInvestorLabel || "\u8cc7\u6599\u4e0d\u8db3", scoreTone(s.smallInvestor)),
         valueCard("\u4f4e\u4f30\u5206\u6578", scoreText(s.undervalued), `${fair.upsidePct !== null && fair.upsidePct !== undefined ? `\u4f30\u8a08\u7a7a\u9593 ${pct(fair.upsidePct)}` : "\u516c\u5141\u50f9\u8cc7\u6599\u4e0d\u8db3"}`, scoreTone(s.undervalued)),
@@ -1201,6 +1623,8 @@
         valueCard("\u5e02\u5834\u4fe1\u5fc3", scoreText(s.marketConfidence?.score), score?.rating?.marketConfidenceLabel || "\u4ee5\u6cd5\u4eba\u8207\u6280\u8853\u66ff\u4ee3", scoreTone(s.marketConfidence?.score)),
         valueCard("\u5206\u6790\u5e2b\u8a55\u7d1a", "\u672a\u63a5\u5165", score?.rating?.analystConsensus?.note || "\u76ee\u524d\u6c92\u6709\u7b2c\u4e09\u65b9\u5206\u6790\u5e2b\u5171\u8b58\u8cc7\u6599\u3002", "warn")
       ].join("");
+      renderValueDataStatus(score);
+      $("valueDataStatus").innerHTML += renderProfessionalRating(score);
       const chase = s.chaseRisk || {};
       const chaseCls = scoreTone(chase.score, true);
       $("chaseRiskPanel").innerHTML = `
@@ -1241,13 +1665,196 @@
           </tr>`).join("");
       }
       const errorText = payload?.errors?.length ? `\uff1b${payload.errors.length} \u6a94\u8cc7\u6599\u66ab\u6642\u4e0d\u53ef\u7528` : "";
-      $("screenerNote").textContent = `${modeLabel}\uff1a\u89c0\u5bdf\u6c60 ${payload?.universe?.length || 0} \u6a94\uff0c\u8cc7\u6599\u4f86\u6e90\u70ba\u516c\u958b\u5831\u50f9\u8207 FinMind\uff1b\u9019\u4e0d\u662f\u5168\u5e02\u5834\u6392\u540d${errorText}\u3002`;
+      const meta = payload?.universeMeta || {};
+      const groups = Array.isArray(meta.groups) && meta.groups.length ? `\uff1b\u5206\u7d44 ${meta.groups.join(" / ")}` : "";
+      $("screenerNote").textContent = `${modeLabel}\uff1a${meta.name || "\u53f0\u80a1 universe"} ${meta.version || ""}\uff0c\u6e05\u55ae ${meta.defaultCount || payload?.universe?.length || 0} \u6a94\uff0c\u672c\u6b21\u8a55\u5206 ${meta.scoredCount || latestScreenerItems.length} / ${meta.requestedCount || payload?.universe?.length || 0} \u6a94${groups}\u3002\u8cc7\u6599\u4f86\u6e90\u70ba\u516c\u958b\u5831\u50f9\u8207 FinMind\uff1b\u9019\u662f\u53ef\u7dad\u8b77 universe\uff0c\u4e0d\u662f\u5373\u6642\u5168\u5e02\u5834\u8cc7\u6599\u5eab${errorText}\u3002`;
     }
 
     async function loadScreenerMode(mode = currentScreenerMode) {
       currentScreenerMode = mode;
       $("screenerRows").innerHTML = `<tr><td colspan="10">\u6b63\u5728\u8f09\u5165${escapeHtml(mode)}\u6392\u884c\u699c...</td></tr>`;
       await loadValueFeatures(activeData);
+    }
+
+    function workbenchItem(item, extra = "") {
+      if (!item) return "";
+      const rating = item.professionalRating || {};
+      const gradeTone = rating.grade === "A" || rating.grade === "B" ? "bull" : rating.grade === "C" ? "warn" : "bear";
+      return `
+        <div class="workbench-item">
+          <button type="button" data-rank-code="${escapeHtml(item.code)}">${escapeHtml(item.code)} ${escapeHtml(item.name || "")}</button>
+          <div>
+            <b>${badge(rating.grade || "X", gradeTone)} ${escapeHtml(rating.gradeLabel || "\u8cc7\u6599\u4e0d\u8db3")}</b>
+            <p class="note">\u7e3d\u5206 ${scoreText(rating.total)}\uff0c\u4f4e\u4f30 ${scoreText(item.scores?.undervalued)}\uff0c\u8ffd\u9ad8 ${scoreText(item.scores?.chaseRisk?.score)}${extra ? `\uff0c${escapeHtml(extra)}` : ""}</p>
+          </div>
+          <span>${badge(`${item.dataStatus?.coverage?.percent || 0}%`, (item.dataStatus?.coverage?.percent || 0) >= 85 ? "bull" : "warn")}</span>
+        </div>`;
+    }
+
+    function renderWorkbenchList(id, rows, emptyText) {
+      const target = $(id);
+      if (!target) return;
+      target.innerHTML = rows?.length ? rows.map(item => workbenchItem(item)).join("") : `<p class="note">${escapeHtml(emptyText)}</p>`;
+    }
+
+    function allWorkbenchItems() {
+      const seen = new Set();
+      const source = clientWorkbench?.ranked?.observationPool?.length
+        ? clientWorkbench.ranked.observationPool
+        : Object.values(clientWorkbench?.ranked || {}).flat();
+      return source.filter((item) => {
+        if (!item || seen.has(item.code)) return false;
+        seen.add(item.code);
+        return true;
+      });
+    }
+
+    function parseClientPortfolio() {
+      const raw = $("clientPortfolioInput")?.value.trim() || "";
+      if (!raw) return [];
+      return raw.split(/[\n,]+/).map((part) => {
+        const text = part.trim();
+        const codeMatch = text.match(/(\u73fe\u91d1|cash|\d{4,6})/i);
+        const valueText = codeMatch ? text.replace(codeMatch[0], " ") : text;
+        const numMatch = valueText.match(/(-?\d+(?:\.\d+)?)\s*%?/);
+        if (!codeMatch || !numMatch) return null;
+        const rawCode = codeMatch[1].toLowerCase();
+        const code = rawCode === "cash" || codeMatch[1] === "\u73fe\u91d1" ? "cash" : codeMatch[1];
+        return { code, weight: Math.max(0, Number(numMatch[1])), isPct: /%/.test(text) };
+      }).filter(Boolean);
+    }
+
+    function renderClientPortfolio() {
+      if (!$("clientPortfolioSummary") || !$("clientHoldingScores")) return;
+      const entries = parseClientPortfolio();
+      const scoreMap = new Map(allWorkbenchItems().map(item => [item.code, item]));
+      if (!entries.length) {
+        $("clientPortfolioSummary").innerHTML = valueCard("\u6301\u80a1\u8cc7\u6599", "\u672a\u8f38\u5165", "\u8f38\u5165\u6301\u80a1\u8207\u6bd4\u91cd\u5f8c\u624d\u6703\u6aa2\u67e5\u3002", "warn");
+        $("clientHoldingScores").innerHTML = "";
+        return;
+      }
+      const total = entries.reduce((sum, item) => sum + item.weight, 0) || 1;
+      const normalized = entries.map(item => ({ ...item, pct: item.isPct ? item.weight : (item.weight / total) * 100 }));
+      const holdings = normalized.filter(item => item.code !== "cash");
+      const cashPct = normalized.find(item => item.code === "cash")?.pct || 0;
+      const scored = holdings.map(item => ({ ...item, score: scoreMap.get(item.code) || null }));
+      const known = scored.filter(item => item.score);
+      const missing = scored.filter(item => !item.score);
+      const highChase = known.filter(item => (item.score.scores?.chaseRisk?.score || 0) >= 72);
+      const weightedScore = known.length
+        ? Math.round(known.reduce((sum, item) => sum + ((item.score.professionalRating?.total || 0) * item.pct), 0) / Math.max(1, known.reduce((sum, item) => sum + item.pct, 0)))
+        : null;
+      const largest = holdings.slice().sort((a, b) => b.pct - a.pct)[0];
+      const concentrationTone = largest && largest.pct >= 45 ? "bear" : largest && largest.pct >= 30 ? "warn" : "bull";
+      $("clientPortfolioSummary").innerHTML = [
+        valueCard("\u6301\u80a1\u52a0\u6b0a\u5206", scoreText(weightedScore), known.length ? `${known.length}/${holdings.length} \u6a94\u6709\u8a55\u5206` : "\u76ee\u524d\u8cc7\u6599\u4e0d\u8db3", scoreTone(weightedScore)),
+        valueCard("\u8ffd\u9ad8\u6301\u80a1", `${highChase.length} \u6a94`, highChase.length ? highChase.map(item => item.code).join(" / ") : "\u6c92\u6709\u5728\u5df2\u8a55\u5206\u6301\u80a1\u4e2d\u89f8\u767c", highChase.length ? "bear" : "bull"),
+        valueCard("\u6700\u5927\u6301\u80a1", largest ? `${largest.code} ${fmt(largest.pct, 1)}%` : "--", `\u73fe\u91d1 ${fmt(cashPct, 1)}%\uff1b\u7f3a\u8a55\u5206 ${missing.length} \u6a94`, concentrationTone),
+      ].join("");
+      $("clientHoldingScores").innerHTML = scored.map((item) => {
+        if (!item.score) {
+          return `
+            <div class="holding-row">
+              <strong>${escapeHtml(item.code)}</strong>
+              <span>${fmt(item.pct, 1)}%</span>
+              <span>${badge("X", "warn")} \u8cc7\u6599\u4e0d\u8db3\uff0c\u4e0d\u7d66\u5047\u5206\u6578\u3002</span>
+            </div>`;
+        }
+        const rating = item.score.professionalRating || {};
+        const tone = rating.grade === "A" || rating.grade === "B" ? "bull" : rating.grade === "C" ? "warn" : "bear";
+        return `
+          <div class="holding-row">
+            <strong><button class="chip" type="button" data-rank-code="${escapeHtml(item.code)}">${escapeHtml(item.code)}</button></strong>
+            <span>${fmt(item.pct, 1)}%</span>
+            <span>${badge(rating.grade || "X", tone)} \u7e3d\u5206 ${scoreText(rating.total)}\uff0c\u8ffd\u9ad8 ${scoreText(item.score.scores?.chaseRisk?.score)}\uff0c\u8cc7\u6599\u8986\u84cb ${item.score.dataStatus?.coverage?.percent || 0}%</span>
+          </div>`;
+      }).join("");
+      $("clientPortfolioNote").textContent = `\u6301\u80a1\u98a8\u96aa\u4f9d\u76ee\u524d\u5de5\u4f5c\u53f0 universe \u8a08\u7b97\uff1b${missing.length ? `${missing.length} \u6a94\u6c92\u6709\u53ef\u7528\u8a55\u5206\uff0c\u5df2\u6a19\u793a\u8cc7\u6599\u4e0d\u8db3\u3002` : "\u5df2\u8f09\u5165\u7684\u6301\u80a1\u90fd\u6709\u53ef\u7528\u8a55\u5206\u3002"}`;
+    }
+
+    function renderClientRanking(mode = clientRankingMode) {
+      clientRankingMode = mode;
+      const baseRows = mode === "all" ? allWorkbenchItems() : (clientWorkbench?.ranked?.[mode] || []);
+      const rows = baseRows.filter((item) => {
+        if (clientRankingScope === "stock") return item.professionalRating?.assetModel === "stock";
+        if (clientRankingScope === "etf") return item.professionalRating?.assetModel === "etf";
+        return true;
+      });
+      $("clientRankingRows").innerHTML = rows.length ? rows.map((item) => `
+        <tr>
+          <td><button class="chip" type="button" data-rank-code="${escapeHtml(item.code)}">${escapeHtml(item.code)} ${escapeHtml(item.name || "")}</button></td>
+          <td>${badge(item.professionalRating?.grade || "X", ["A","B"].includes(item.professionalRating?.grade) ? "bull" : item.professionalRating?.grade === "C" ? "warn" : "bear")}</td>
+          <td>${scoreText(item.professionalRating?.total)}</td>
+          <td>${scoreText(item.scores?.undervalued)}</td>
+          <td>${scoreText(item.scores?.overvalued)}</td>
+          <td>${scoreText(item.scores?.chaseRisk?.score)}</td>
+          <td>${item.dataStatus?.coverage?.percent || 0}%</td>
+        </tr>`).join("") : `<tr><td colspan="7">\u76ee\u524d\u6c92\u6709\u7b26\u5408\u689d\u4ef6\u7684\u6e05\u55ae\u3002</td></tr>`;
+      const meta = clientWorkbench?.universeMeta || {};
+      const scopeLabel = clientRankingScope === "stock" ? "\u500b\u80a1" : clientRankingScope === "etf" ? "ETF" : "\u89c0\u5bdf\u6c60";
+      $("clientRankingNote").textContent = `${scopeLabel}\uff1a${meta.name || "\u53f0\u80a1 universe"} ${meta.version || ""}\uff0c\u672c\u6b21\u8a55\u5206 ${meta.scoredCount || 0} / ${meta.requestedCount || 0} \u6a94\uff0c\u76ee\u524d\u986f\u793a ${rows.length} \u6a94\u3002\u9019\u662f\u53ef\u7dad\u8b77\u6e05\u55ae\uff0c\u4e0d\u662f\u5373\u6642\u5168\u5e02\u5834\u8cc7\u6599\u5eab\u3002`;
+    }
+
+    function renderBacktestLab(results) {
+      $("backtestLab").innerHTML = (results || []).map((item) => item.ok ? `
+        <div class="client-card">
+          <b>${escapeHtml(item.code)} ${escapeHtml(item.name || "")}</b>
+          <strong>${item.trades} \u7b46 / \u52dd\u7387 ${item.winRate ?? "--"}%</strong>
+          <p>\u5e73\u5747\u5831\u916c ${item.avgReturn ?? "--"}%\uff0c\u6700\u5dee\u55ae\u7b46 ${item.worstReturn ?? "--"}%\u3002</p>
+          <p class="note">${escapeHtml(item.rule || "")}</p>
+        </div>` : `
+        <div class="client-card"><b>${escapeHtml(item.code || "")}</b><strong>\u56de\u6e2c\u4e0d\u8db3</strong><p>${escapeHtml(item.message || "")}</p></div>`).join("");
+    }
+
+    function renderClientWorkbench(payload) {
+      clientWorkbench = payload;
+      const state = payload?.marketState || {};
+      $("clientSummary").innerHTML = [
+        valueCard("\u5de5\u4f5c\u53f0 universe", `${payload?.universeMeta?.scoredCount || 0}/${payload?.universeMeta?.requestedCount || 0}`, payload?.universeMeta?.version || "", "neut"),
+        valueCard("\u5e73\u5747\u5c08\u696d\u5206", scoreText(state.avgScore), state.note || "", state.tone === "opportunity" ? "bull" : state.tone === "risk" ? "bear" : "warn"),
+        valueCard("FinMind", payload?.finmind?.status || "\u672a\u6aa2\u67e5", payload?.finmind?.note || "", "bull"),
+      ].join("");
+      $("marketStatePanel").innerHTML = `
+        <div class="client-grid">
+          ${valueCard("\u9ad8\u8ffd\u9ad8\u98a8\u96aa", `${state.highChase || 0} \u6a94`, "\u9700\u7b49\u56de\u6a94\u6216\u964d\u4f4e\u55ae\u6b21\u6295\u5165", state.highChase > 4 ? "bear" : "warn")}
+          ${valueCard("\u8cc7\u6599\u8986\u84cb\u9ad8", `${state.goodCoverage || 0} \u6a94`, "\u8986\u84cb\u7387 85% \u4ee5\u4e0a", "bull")}
+          ${valueCard("\u4f4e\u4f30\u5019\u9078", `${state.undervalued || 0} \u6a94`, "\u4ecd\u9700\u770b\u73fe\u91d1\u6d41\u8207\u8ffd\u9ad8\u98a8\u96aa", state.undervalued ? "bull" : "warn")}
+        </div>`;
+      const first = payload?.ranked?.todayWatch?.[0];
+      $("clientCfoPanel").innerHTML = first?.cfoGuide ? `
+        <div class="client-card">
+          <b>${escapeHtml(first.code)} ${escapeHtml(first.name || "")}</b>
+          <strong>${escapeHtml(first.cfoGuide.actionLabel || "")}</strong>
+          <p>\u55ae\u6b21\u6295\u5165\u4e0a\u9650 ${first.cfoGuide.singleEntryLimitPct}%\uff0c\u6700\u5927\u6301\u80a1\u6bd4 ${first.cfoGuide.maxHoldingPct}%\uff0c\u6700\u58de\u60c5\u5883\u4f30\u8a08 ${first.cfoGuide.worstCaseLossPct ?? "--"}%\u3002</p>
+          <p class="note">\u505c\u6b62\u8ffd\u8e64\uff1a${escapeHtml(first.cfoGuide.stopTrackingAssumption || "")}</p>
+        </div>` : `<p class="note">\u5c1a\u7121\u8db3\u5920\u8cc7\u6599\u7522\u751f\u7406\u8ca1\u8ca1\u52d9\u9577\u5efa\u8b70\u3002</p>`;
+      renderWorkbenchList("todayWatchList", payload?.ranked?.todayWatch, "\u4eca\u65e5\u6c92\u6709\u9ad8\u4fe1\u5fc3\u89c0\u5bdf\u5019\u9078\u3002");
+      renderWorkbenchList("clientChaseList", payload?.ranked?.chaseRisk, "\u76ee\u524d\u6c92\u6709\u660e\u986f\u8ffd\u9ad8\u98a8\u96aa\u6e05\u55ae\u3002");
+      renderWorkbenchList("clientWatchList", payload?.ranked?.watchlist, "\u76ee\u524d\u6c92\u6709\u7b26\u5408\u689d\u4ef6\u7684\u89c0\u5bdf\u6e05\u55ae\u3002");
+      renderClientRanking(clientRankingMode);
+      renderClientPortfolio();
+      renderBacktestLab(payload?.backtest?.results);
+    }
+
+    async function loadClientWorkbench(force = false) {
+      if (clientWorkbench && !force) {
+        renderClientWorkbench(clientWorkbench);
+        return;
+      }
+      $("clientSummary").innerHTML = valueCard("\u5de5\u4f5c\u53f0", "\u8f09\u5165\u4e2d", "\u6b63\u5728\u8b80\u53d6 universe\u3001\u6392\u884c\u699c\u8207\u56de\u6e2c\u7d50\u679c\u3002", "warn");
+      try {
+        renderClientWorkbench(await getWorkbench());
+      } catch (err) {
+        $("clientSummary").innerHTML = valueCard("\u5de5\u4f5c\u53f0", "\u8f09\u5165\u5931\u6557", err.message || "\u8cc7\u6599\u4f86\u6e90\u66ab\u6642\u4e0d\u53ef\u7528", "bear");
+      }
+    }
+
+    function switchView(view) {
+      const client = view === "client";
+      $("stockPage").hidden = client;
+      $("clientPage").hidden = !client;
+      $("viewTabs").querySelectorAll("[data-view]").forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view));
+      if (client) loadClientWorkbench();
     }
 
     function portfolioEntries() {
@@ -1339,6 +1946,7 @@
       valueFeatureRequestKey = "";
       activeValueScore = null;
       latestScreenerItems = [];
+      $("valueRadarHeroBadge").innerHTML = [heroFact("\u50f9\u503c\u96f7\u9054 \u5f85\u8f09\u5165", "neut")].join("");
       const pending = entityText("&#x5f85;&#x8f09;&#x5165;");
       const pendingDetail = entityText("&#x9ede;&#x9078;&#x6392;&#x884c;&#x699c;&#x5f8c;&#x8f09;&#x5165;&#x516c;&#x958b;&#x8cc7;&#x6599;&#x8a55;&#x5206;&#x3002;");
       $("valueScoreCards").innerHTML = [
@@ -1363,6 +1971,7 @@
       const requestKey = `${requestCode}:${currentScreenerMode}`;
       if (valueFeatureRequestKey === requestKey) return;
       valueFeatureRequestKey = requestKey;
+      $("valueRadarHeroBadge").innerHTML = [heroFact("\u50f9\u503c\u96f7\u9054 \u8f09\u5165\u4e2d", "warn")].join("");
       $("valueScoreCards").innerHTML = `<div class="value-card"><b>Value score</b><strong>Loading</strong><p>Fetching valuation, cash flow, growth, and small-investor scores.</p></div>`;
       $("chaseRiskPanel").innerHTML = "";
       activeValueScore = null;
@@ -1375,6 +1984,7 @@
       if (scoreResult.status === "fulfilled") {
         renderValueScore(scoreResult.value);
       } else {
+        $("valueRadarHeroBadge").innerHTML = [heroFact("\u50f9\u503c\u96f7\u9054 \u4e0d\u53ef\u7528", "bear")].join("");
         $("valueScoreCards").innerHTML = `<div class="value-card"><b>Value score</b><strong>Unavailable</strong><p>${escapeHtml(scoreResult.reason?.message || "Data source failed temporarily.")}</p></div>`;
       }
       if (screenerResult.status === "fulfilled") {
@@ -1560,10 +2170,10 @@
       const s2 = data.support2;
       const ma20 = maNow(data, "ma20");
       const ma60 = maNow(data, "ma60");
-      const waveStage = data.pullback >= 65 || data.pctBNow > .85 ? "⑤?高檔推進" : data.close > ma20 ? "③推進中" : "A/B/C修正";
+      const waveStage = data.pullback >= 65 || data.pctBNow > .85 ? "\u7b2c\u4e94\u6d6a\u9ad8\u6a94\u63a8\u9032" : data.close > ma20 ? "\u7b2c\u4e09\u6d6a\u63a8\u9032\u4e2d" : "A/B/C \u4fee\u6b63";
       const waveCls = data.pullback >= 65 ? "bear" : data.close > ma20 ? "bull" : "warn";
       const heights = [36, 24, 66, 46, data.close > ma20 ? 88 : 58, 48, 62, data.close < ma60 ? 72 : 34];
-      $("wave").innerHTML = ["①","②","③","④","⑤?","A?","B?","C?"].map((x,i)=>`<span class="${i === 4 ? waveCls : ""}" style="height:${heights[i]}%">${x}</span>`).join("");
+      $("wave").innerHTML = ["1","2","3","4","5","A","B","C"].map((x,i)=>`<span class="${i === 4 ? waveCls : ""}" style="height:${heights[i]}%">${x}</span>`).join("");
       $("waveLegend").innerHTML = [
         `① ${fmt(s2)} 起漲`,
         `③ ${priceRange(s1, r1)}`,
@@ -1788,6 +2398,7 @@
       $("headline").textContent = "台股技術分析 Agent";
       $("subtitle").textContent = "資料暫時無法載入，但頁面本身正常。請稍後重跑，或改輸入其他股票代碼。";
       $("heroFacts").innerHTML = "";
+      $("valueRadarHeroBadge").innerHTML = "";
       $("metrics").innerHTML = "";
       $("signalRows").innerHTML = "";
       $("probRows").innerHTML = "";
@@ -1796,6 +2407,7 @@
       $("rrCompare").innerHTML = "";
       $("retailDecision").innerHTML = "";
       $("valueScoreCards").innerHTML = "";
+      $("valueDataStatus").innerHTML = "";
       $("chaseRiskPanel").innerHTML = "";
       $("allocationGuide").innerHTML = "";
       $("portfolioHealth").innerHTML = "";
@@ -1840,6 +2452,10 @@
       const btn = e.target.closest("[data-code]");
       if (btn) run(btn.dataset.code);
     });
+    $("viewTabs").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-view]");
+      if (btn) switchView(btn.dataset.view);
+    });
     $("agentForm").addEventListener("submit", (e) => { e.preventDefault(); askAgent($("agentInput").value); });
     $("agentPrompts").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-question]");
@@ -1861,6 +2477,33 @@
     $("screenerRows").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-rank-code]");
       if (btn) run(btn.dataset.rankCode);
+    });
+    $("refreshWorkbenchBtn").addEventListener("click", () => loadClientWorkbench(true));
+    $("analyzeClientPortfolioBtn").addEventListener("click", () => {
+      if (!clientWorkbench) loadClientWorkbench();
+      else renderClientPortfolio();
+    });
+    $("clientPortfolioInput").addEventListener("input", () => {
+      if (clientWorkbench) renderClientPortfolio();
+    });
+    $("clientScopeTabs").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-client-scope]");
+      if (!btn) return;
+      clientRankingScope = btn.dataset.clientScope;
+      $("clientScopeTabs").querySelectorAll("button").forEach((item) => item.classList.toggle("active", item === btn));
+      renderClientRanking(clientRankingMode);
+    });
+    $("clientRankingTabs").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-client-mode]");
+      if (!btn) return;
+      $("clientRankingTabs").querySelectorAll("button").forEach((item) => item.classList.toggle("active", item === btn));
+      renderClientRanking(btn.dataset.clientMode);
+    });
+    $("clientPage").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-rank-code]");
+      if (!btn) return;
+      switchView("stock");
+      run(btn.dataset.rankCode);
     });
     renderPortfolioHealth();
     run(new URLSearchParams(location.search).get("code") || "2330");

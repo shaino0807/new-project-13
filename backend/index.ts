@@ -19,6 +19,7 @@ type QuoteInfo = {
   open: number;
   high: number;
   low: number;
+  quoteDate: string | null;
   change: number | null;
   volume: number;
   source: string;
@@ -839,6 +840,7 @@ type ValueScore = {
   name: string;
   market: string;
   close: number;
+  quoteDate: string | null;
   change: number | null;
   volume: number;
   source: {
@@ -865,6 +867,33 @@ type ValueScore = {
     marketConfidence: ScoreComponent;
     chaseRisk: ScoreComponent;
   };
+  dataStatus: {
+    quoteDate: string | null;
+    generatedAt: string;
+    assetType: string;
+    requestMode: string;
+    coverage: {
+      available: number;
+      total: number;
+      percent: number;
+      label: string;
+    };
+    datasets: Array<{ key: string; label: string; date: string | null; available: boolean; missing: string[] }>;
+    missingItems: string[];
+    cachedDatasets: string[];
+    staleDatasets: string[];
+    warnings: string[];
+  };
+  professionalRating: {
+    total: number | null;
+    grade: "A" | "B" | "C" | "D" | "X";
+    gradeLabel: string;
+    modelVersion: string;
+    assetModel: "stock" | "etf";
+    components: Array<{ key: string; label: string; score: number | null; weight: number; evidence: string[]; missing: string[]; whyDeducted: string[] }>;
+    stopTrackingAssumption: string;
+    note: string;
+  };
   rating: {
     smallInvestorLabel: string;
     valuationLabel: string;
@@ -881,13 +910,67 @@ type ValueScore = {
     cashReservePct: number;
     notes: string[];
   };
+  cfoGuide: {
+    action: string;
+    actionLabel: string;
+    singleEntryLimitPct: number;
+    maxHoldingPct: number;
+    worstCaseLossPct: number | null;
+    stopTrackingAssumption: string;
+    notes: string[];
+  };
   warnings: string[];
   fundamentals: Awaited<ReturnType<typeof loadFundamentals>>;
 };
 
-const DEFAULT_SCREENER_UNIVERSE = [
-  "0050", "2330", "2317", "2454", "2308", "2382", "2344", "2303",
+const TAIWAN_UNIVERSE_VERSION = "tw-liquid-v1-2026-06";
+const TAIWAN_SCREENING_UNIVERSE = [
+  { code: "0050", name: "Yuanta Taiwan 50", group: "ETF core" },
+  { code: "006208", name: "Fubon Taiwan 50", group: "ETF core" },
+  { code: "00878", name: "Cathay Taiwan ESG Dividend", group: "ETF income" },
+  { code: "0056", name: "Yuanta High Dividend", group: "ETF income" },
+  { code: "1101", name: "Taiwan Cement", group: "materials" },
+  { code: "1102", name: "Asia Cement", group: "materials" },
+  { code: "1216", name: "Uni-President", group: "consumer" },
+  { code: "1301", name: "Formosa Plastics", group: "plastics" },
+  { code: "1303", name: "Nan Ya Plastics", group: "plastics" },
+  { code: "2002", name: "China Steel", group: "steel" },
+  { code: "2303", name: "UMC", group: "semiconductor" },
+  { code: "2308", name: "Delta Electronics", group: "electronics" },
+  { code: "2317", name: "Hon Hai", group: "electronics" },
+  { code: "2330", name: "TSMC", group: "semiconductor" },
+  { code: "2344", name: "Winbond", group: "semiconductor" },
+  { code: "2356", name: "Inventec", group: "electronics" },
+  { code: "2357", name: "ASUS", group: "electronics" },
+  { code: "2379", name: "Realtek", group: "semiconductor" },
+  { code: "2382", name: "Quanta", group: "electronics" },
+  { code: "2395", name: "Advantech", group: "industrial computer" },
+  { code: "2408", name: "Nanya Technology", group: "semiconductor" },
+  { code: "2412", name: "Chunghwa Telecom", group: "telecom" },
+  { code: "2454", name: "MediaTek", group: "semiconductor" },
+  { code: "2603", name: "Evergreen Marine", group: "shipping" },
+  { code: "2609", name: "Yang Ming", group: "shipping" },
+  { code: "2615", name: "Wan Hai", group: "shipping" },
+  { code: "2880", name: "Hua Nan Financial", group: "financial" },
+  { code: "2881", name: "Fubon Financial", group: "financial" },
+  { code: "2882", name: "Cathay Financial", group: "financial" },
+  { code: "2884", name: "E.SUN Financial", group: "financial" },
+  { code: "2885", name: "Yuanta Financial", group: "financial" },
+  { code: "2886", name: "Mega Financial", group: "financial" },
+  { code: "2887", name: "Taishin Financial", group: "financial" },
+  { code: "2891", name: "CTBC Financial", group: "financial" },
+  { code: "2892", name: "First Financial", group: "financial" },
+  { code: "3008", name: "Largan", group: "optics" },
+  { code: "3034", name: "Novatek", group: "semiconductor" },
+  { code: "3231", name: "Wistron", group: "electronics" },
+  { code: "3711", name: "ASE Technology", group: "semiconductor" },
+  { code: "4938", name: "Pegatron", group: "electronics" },
+  { code: "5880", name: "Taiwan Cooperative Financial", group: "financial" },
+  { code: "6505", name: "Formosa Petrochemical", group: "petrochemical" },
+  { code: "6669", name: "Wiwynn", group: "server" },
 ];
+const DEFAULT_SCREENER_UNIVERSE = TAIWAN_SCREENING_UNIVERSE.map(item => item.code);
+const CUSTOM_SCREENER_LIMIT = 40;
 
 const SCORE_SOURCE_NOTE = "Transparent model: Yahoo/TWSE quotes plus FinMind financial data; no InvestingPro data or third-party analyst consensus is used.";
 
@@ -932,6 +1015,74 @@ function valueFromYield(close: number, dividendYield: number | null | undefined)
   if (!Number.isFinite(close) || !Number.isFinite(dividendYield) || (dividendYield as number) <= 0) return null;
   const targetYield = 4;
   return round(close * ((dividendYield as number) / targetYield));
+}
+
+function gradeFromScore(score: number | null, coveragePct: number): "A" | "B" | "C" | "D" | "X" {
+  if (score === null || coveragePct < 45) return "X";
+  if (score >= 80) return "A";
+  if (score >= 65) return "B";
+  if (score >= 50) return "C";
+  return "D";
+}
+
+function gradeLabel(grade: string) {
+  if (grade === "A") return "worth deeper review";
+  if (grade === "B") return "watchlist candidate";
+  if (grade === "C") return "wait for better price or data";
+  if (grade === "D") return "avoid for now";
+  return "insufficient data";
+}
+
+function deductionReasons(score: number | null, missing: string[], riskText: string) {
+  const reasons: string[] = [];
+  if (missing.length) reasons.push(`Missing: ${missing.slice(0, 3).join(", ")}`);
+  if (score !== null && score < 50) reasons.push(riskText);
+  if (!reasons.length) reasons.push("No major deduction from available data.");
+  return reasons;
+}
+
+function componentForProfessional(key: string, label: string, score: number | null, weight: number, evidence: string[], missing: string[], riskText: string) {
+  return {
+    key,
+    label,
+    score,
+    weight,
+    evidence,
+    missing,
+    whyDeducted: deductionReasons(score, missing, riskText),
+  };
+}
+
+function buildCfoGuide(total: number | null, chaseRiskScore: number | null, downsidePct: number | null, close: number) {
+  const highChase = chaseRiskScore !== null && chaseRiskScore >= 72;
+  const grade = gradeFromScore(total, total === null ? 0 : 100);
+  const action = highChase
+    ? "wait_pullback"
+    : total !== null && total >= 70
+      ? "stage_entry"
+      : total !== null && total >= 55
+        ? "small_watch"
+        : "avoid";
+  const singleEntryLimitPct = action === "stage_entry" ? 25 : action === "small_watch" ? 12 : action === "wait_pullback" ? 8 : 0;
+  const maxHoldingPct = grade === "A" ? 18 : grade === "B" ? 12 : grade === "C" ? 8 : 4;
+  const worstCaseLossPct = Number.isFinite(downsidePct)
+    ? Math.max(8, Math.min(35, Math.round(Math.abs(downsidePct as number))))
+    : Number.isFinite(close) ? 15 : null;
+  return {
+    action,
+    actionLabel: action === "stage_entry" ? "stage entries" : action === "small_watch" ? "small watch position" : action === "wait_pullback" ? "wait for pullback" : "avoid new entry",
+    singleEntryLimitPct,
+    maxHoldingPct,
+    worstCaseLossPct,
+    stopTrackingAssumption: highChase
+      ? "Stop tracking as an entry candidate if price keeps rising while score quality does not improve."
+      : "Stop tracking if valuation, cash flow, or growth data deteriorates while price remains expensive.",
+    notes: [
+      "This is capital-control guidance, not a personalized buy or sell instruction.",
+      `Single entry should stay under ${singleEntryLimitPct}% of the planned position.`,
+      `One stock should stay under ${maxHoldingPct}% of the portfolio until backtest and data coverage are stronger.`,
+    ],
+  };
 }
 
 function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typeof loadFundamentals>>): ValueScore {
@@ -1223,6 +1374,91 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
         : "do not chase";
   const firstBuyPct = action === "stage entries" ? 35 : action === "small watch position" ? 20 : action === "wait for pullback" ? 10 : 0;
   const cashReservePct = action === "stage entries" ? 25 : action === "small watch position" ? 40 : 60;
+  const dataStatusDatasets = [
+    { key: "quote", label: "Quote", date: quote.quoteDate, available: Boolean(quote.quoteDate && Number.isFinite(quote.close)), missing: quote.quoteDate ? [] : ["quote date"] },
+    { key: "valuation", label: "Valuation", date: valuation?.date || null, available: valuationComponent.score !== null, missing: valuationComponent.missing },
+    { key: "cashFlow", label: "Cash flow", date: cashFlow?.date || null, available: cashFlowComponent.score !== null, missing: cashFlowComponent.missing },
+    { key: "growth", label: "Growth", date: revenue?.date || profit?.date || null, available: growthComponent.score !== null, missing: growthComponent.missing },
+    { key: "profitability", label: "Profitability", date: profit?.date || null, available: profitabilityComponent.score !== null, missing: profitabilityComponent.missing },
+    { key: "financialStability", label: "Financial stability", date: balance?.date || null, available: financialStabilityComponent.score !== null, missing: financialStabilityComponent.missing },
+    { key: "marketConfidence", label: "Market confidence", date: institutional?.date || foreign?.date || margin?.date || lending?.date || null, available: marketConfidenceComponent.score !== null, missing: marketConfidenceComponent.missing },
+  ];
+  const availableDatasets = dataStatusDatasets.filter(item => item.available).length;
+  const missingItems = dataStatusDatasets.flatMap(item =>
+    item.missing.map(missing => `${item.label}: ${missing}`)
+  );
+  const dataCoveragePct = Math.round((availableDatasets / dataStatusDatasets.length) * 100);
+  const technicalPositionScore = chaseRiskComponent.score === null ? null : Math.max(0, Math.min(100, 100 - chaseRiskComponent.score));
+  const smallBudgetScore = weightedScore([
+    { score: Number.isFinite(close) && close > 0 ? Math.max(15, Math.min(95, Math.round(95 - Math.log10(Math.max(1, close)) * 18))) : null, weight: 35 },
+    { score: Number.isFinite(quote.volume) && quote.volume > 0 ? 75 : null, weight: 25 },
+    { score: technicalPositionScore, weight: 25 },
+    { score: financialStabilityComponent.score, weight: 15 },
+  ]);
+  const etf = data.etf;
+  const etfPremiumScore = Number.isFinite(etf?.nav?.premiumDiscount)
+    ? Math.max(15, Math.min(95, Math.round(85 - Math.abs(etf!.nav.premiumDiscount as number) * 18)))
+    : null;
+  const etfCoverage = etf?.componentSummary?.coverageWeight ?? null;
+  const etfProfitableWeight = etf?.componentSummary?.profitableWeight ?? null;
+  const etfQualityScore = etfCoverage !== null && etfProfitableWeight !== null && etfCoverage > 0
+    ? Math.max(20, Math.min(95, Math.round((etfProfitableWeight / etfCoverage) * 90)))
+    : null;
+  const etfLiquidityScore = Number.isFinite(quote.volume) && quote.volume > 0 ? 78 : null;
+  const etfDividendScore = Number.isFinite(etf?.componentSummary?.weightedDividendYield)
+    ? Math.max(20, Math.min(95, Math.round((etf!.componentSummary!.weightedDividendYield || 0) * 16)))
+    : null;
+  const etfSingleRiskScore = Number.isFinite(etfCoverage)
+    ? Math.max(20, Math.min(90, Math.round(95 - (etfCoverage as number) * 0.7)))
+    : null;
+  const stockProfessionalComponents = [
+    componentForProfessional("valuation", "Valuation safety margin", valuationComponent.score, 30, valuationComponent.evidence, valuationComponent.missing, "Valuation is not cheap enough versus available fundamentals."),
+    componentForProfessional("stability", "Financial stability", financialStabilityComponent.score, 20, financialStabilityComponent.evidence, financialStabilityComponent.missing, "Balance-sheet strength is weak or incomplete."),
+    componentForProfessional("growth", "Growth quality", growthComponent.score, 15, growthComponent.evidence, growthComponent.missing, "Growth quality is slowing or not supported by available data."),
+    componentForProfessional("cashflow", "Cash flow and dividend", cashFlowComponent.score, 15, cashFlowComponent.evidence, cashFlowComponent.missing, "Cash conversion is weak or missing."),
+    componentForProfessional("technical", "Technical position", technicalPositionScore, 10, chaseRiskComponent.evidence, chaseRiskComponent.missing, "Entry timing has elevated chase risk."),
+    componentForProfessional("smallBudget", "Small-budget friendliness", smallBudgetScore, 10, [
+      `close ${fmt(close)}`,
+      Number.isFinite(quote.volume) ? `volume ${fmt(quote.volume, 0)}` : "",
+    ].filter(Boolean), [], "Position size, liquidity, or timing is not friendly enough for staged small-budget entries."),
+  ];
+  const etfProfessionalComponents = [
+    componentForProfessional("premiumNav", "Premium / NAV", etfPremiumScore, 25, [
+      Number.isFinite(etf?.nav?.premiumDiscount) ? `premium/discount ${fmt(etf?.nav?.premiumDiscount || NaN, 2)}%` : "",
+      etf?.nav?.date ? `NAV date ${etf.nav.date}` : "",
+    ].filter(Boolean), etfPremiumScore === null ? ["NAV premium/discount"] : [], "ETF premium or discount is not attractive enough."),
+    componentForProfessional("holdingsQuality", "Holdings quality and concentration", etfQualityScore, 25, [
+      Number.isFinite(etfCoverage) ? `top holding coverage ${fmt(etfCoverage || NaN, 2)}%` : "",
+      Number.isFinite(etfProfitableWeight) ? `profitable weight ${fmt(etfProfitableWeight || NaN, 2)}%` : "",
+    ].filter(Boolean), etfQualityScore === null ? ["holdings quality"] : [], "ETF component quality or concentration is not strong enough."),
+    componentForProfessional("liquidity", "Scale and liquidity", etfLiquidityScore, 15, [
+      Number.isFinite(quote.volume) ? `volume ${fmt(quote.volume, 0)}` : "",
+    ].filter(Boolean), etfLiquidityScore === null ? ["volume"] : [], "Liquidity signal is weak or missing."),
+    componentForProfessional("distribution", "Distribution stability", etfDividendScore, 15, [
+      Number.isFinite(etf?.componentSummary?.weightedDividendYield) ? `weighted yield ${fmt(etf?.componentSummary?.weightedDividendYield || NaN, 2)}%` : "",
+    ].filter(Boolean), etfDividendScore === null ? ["distribution history"] : [], "Distribution data is missing or not strong enough."),
+    componentForProfessional("technical", "Technical position", technicalPositionScore, 10, chaseRiskComponent.evidence, chaseRiskComponent.missing, "Entry timing has elevated chase risk."),
+    componentForProfessional("singleRisk", "Single industry / component risk", etfSingleRiskScore, 10, [
+      Number.isFinite(etfCoverage) ? `top holdings coverage ${fmt(etfCoverage || NaN, 2)}%` : "",
+    ].filter(Boolean), etfSingleRiskScore === null ? ["component concentration"] : [], "Top holdings concentration is high."),
+  ];
+  const professionalComponents = fundamentals.assetType === "etf" ? etfProfessionalComponents : stockProfessionalComponents;
+  const professionalTotal = weightedScore(professionalComponents.map(item => ({ score: item.score, weight: item.weight })));
+  const professionalGrade = gradeFromScore(professionalTotal, dataCoveragePct);
+  const professionalRating = {
+    total: professionalTotal,
+    grade: professionalGrade,
+    gradeLabel: gradeLabel(professionalGrade),
+    modelVersion: fundamentals.assetType === "etf" ? "etf-v1-2026-06" : "stock-v1-2026-06",
+    assetModel: fundamentals.assetType === "etf" ? "etf" as const : "stock" as const,
+    components: professionalComponents,
+    stopTrackingAssumption: fundamentals.assetType === "etf"
+      ? "Stop tracking if NAV/premium data or holdings quality cannot be verified."
+      : "Stop tracking if valuation looks cheap only because growth, cash flow, or balance-sheet quality is deteriorating.",
+    note: "Only available public quote and FinMind-derived data are scored; missing fields stay visible and do not receive invented values.",
+  };
+  const fairDownsidePct = Number.isFinite(upsidePct) && (upsidePct as number) < 0 ? upsidePct : null;
+  const cfoGuide = buildCfoGuide(professionalTotal, chaseRiskComponent.score, fairDownsidePct, close);
 
   return {
     ok: true,
@@ -1232,6 +1468,7 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
     close,
     change: quote.change,
     volume: quote.volume,
+    quoteDate: quote.quoteDate,
     source: {
       quote: quote.source,
       fundamentals: fundamentals.source,
@@ -1256,6 +1493,24 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
       marketConfidence: marketConfidenceComponent,
       chaseRisk: chaseRiskComponent,
     },
+    dataStatus: {
+      quoteDate: quote.quoteDate,
+      generatedAt: new Date().toISOString(),
+      assetType: fundamentals.assetType,
+      requestMode: fundamentals.requestMode,
+      coverage: {
+        available: availableDatasets,
+        total: dataStatusDatasets.length,
+        percent: dataCoveragePct,
+        label: dataCoveragePct >= 85 ? "high" : dataCoveragePct >= 60 ? "partial" : "low",
+      },
+      datasets: dataStatusDatasets,
+      missingItems,
+      cachedDatasets: fundamentals.cache.cachedDatasets,
+      staleDatasets: fundamentals.cache.staleDatasets,
+      warnings,
+    },
+    professionalRating,
     rating: {
       smallInvestorLabel: scoreLabel(smallInvestor, "small-investor friendly", "small-investor watchlist", "not small-investor friendly"),
       valuationLabel: scoreLabel(undervalued, "possibly undervalued", "fair", "not inexpensive"),
@@ -1276,6 +1531,7 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
         "A single stock should not replace an ETF core position; small-budget allocation should keep cash and industry diversification.",
       ],
     },
+    cfoGuide,
     warnings,
     fundamentals,
   };
@@ -1304,12 +1560,30 @@ function parseScreenerUniverse(value: unknown) {
   const codes = raw.split(/[,\s]+/)
     .map(cleanCode)
     .filter(code => /^\d{4,6}$/.test(code));
-  return [...new Set(codes)].slice(0, 16);
+  return [...new Set(codes)].slice(0, CUSTOM_SCREENER_LIMIT);
+}
+
+async function settleWithLimit<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>) {
+  const results: PromiseSettledResult<R>[] = new Array(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next;
+      next += 1;
+      try {
+        results[index] = { status: "fulfilled", value: await fn(items[index], index) };
+      } catch (reason) {
+        results[index] = { status: "rejected", reason };
+      }
+    }
+  });
+  await Promise.all(workers);
+  return results;
 }
 
 async function loadScreener(mode: string, universeValue: unknown) {
   const universe = parseScreenerUniverse(universeValue);
-  const results = await Promise.allSettled(universe.map(code => loadValueScore(code)));
+  const results = await settleWithLimit(universe, 4, code => loadValueScore(code));
   const items: ValueScore[] = [];
   const errors: Array<{ code: string; message: string }> = [];
   results.forEach((result, index) => {
@@ -1321,10 +1595,163 @@ async function loadScreener(mode: string, universeValue: unknown) {
     ok: sorted.length > 0,
     mode,
     universe,
+    universeMeta: {
+      name: universeValue ? "custom" : "Taiwan liquid watch universe",
+      version: TAIWAN_UNIVERSE_VERSION,
+      defaultCount: DEFAULT_SCREENER_UNIVERSE.length,
+      requestedCount: universe.length,
+      scoredCount: sorted.length,
+      customLimit: CUSTOM_SCREENER_LIMIT,
+      groups: [...new Set(TAIWAN_SCREENING_UNIVERSE.filter(item => universe.includes(item.code)).map(item => item.group))],
+      note: "Maintainable liquid Taiwan stock/ETF universe, not a full-market database.",
+    },
     source: SCORE_SOURCE_NOTE,
     generatedAt: new Date().toISOString(),
     items: sorted,
     errors,
+  };
+}
+
+function topItems(items: ValueScore[], predicate: (item: ValueScore) => boolean, sortValue: (item: ValueScore) => number | null, limit = 8) {
+  return items
+    .filter(predicate)
+    .sort((a, b) => (sortValue(b) ?? -1) - (sortValue(a) ?? -1))
+    .slice(0, limit);
+}
+
+function summarizeMarket(items: ValueScore[]) {
+  const usable = items.filter(item => item.professionalRating.total !== null);
+  const avgScore = usable.length
+    ? Math.round(usable.reduce((sum, item) => sum + (item.professionalRating.total || 0), 0) / usable.length)
+    : null;
+  const highChase = items.filter(item => (item.scores.chaseRisk.score || 0) >= 72).length;
+  const goodCoverage = items.filter(item => (item.dataStatus.coverage.percent || 0) >= 85).length;
+  const undervalued = items.filter(item => (item.scores.undervalued || 0) >= 65).length;
+  return {
+    avgScore,
+    highChase,
+    goodCoverage,
+    undervalued,
+    total: items.length,
+    tone: highChase > items.length * 0.35 ? "risk" : undervalued >= Math.max(3, items.length * 0.18) ? "opportunity" : "neutral",
+    note: "Market state is derived from this maintainable universe, not from a full-market warehouse.",
+  };
+}
+
+function runTechnicalBacktest(quote: QuoteInfo) {
+  const series = quote.series || [];
+  if (series.length < 90) {
+    return {
+      ok: false,
+      code: quote.code,
+      trades: 0,
+      message: "Not enough price history for backtest.",
+    };
+  }
+  const closes = series.map(row => row.close);
+  const ma20 = sma(closes, 20);
+  const ma60 = sma(closes, 60);
+  const rsi14 = rsi(closes, 14);
+  const trades: Array<{ entryDate: string; exitDate: string; entry: number; exit: number; returnPct: number }> = [];
+  for (let i = 61; i < series.length - 20; i += 1) {
+    const close = closes[i];
+    const signal =
+      close > ma60[i] &&
+      close <= ma20[i] * 1.04 &&
+      rsi14[i] >= 38 &&
+      rsi14[i] <= 68;
+    if (!signal) continue;
+    const exitIndex = Math.min(i + 20, series.length - 1);
+    const exit = closes[exitIndex];
+    trades.push({
+      entryDate: series[i].date,
+      exitDate: series[exitIndex].date,
+      entry: close,
+      exit,
+      returnPct: round(((exit / close) - 1) * 100, 2),
+    });
+    i = exitIndex;
+  }
+  const returns = trades.map(trade => trade.returnPct);
+  const avgReturn = returns.length ? round(returns.reduce((sum, value) => sum + value, 0) / returns.length, 2) : null;
+  const winRate = returns.length ? round((returns.filter(value => value > 0).length / returns.length) * 100, 1) : null;
+  const worstReturn = returns.length ? Math.min(...returns) : null;
+  return {
+    ok: true,
+    code: quote.code,
+    name: quote.name,
+    rule: "20-day staged entry: price above MA60, near MA20, RSI 38-68; exit after 20 trading days.",
+    period: {
+      start: series[0]?.date || null,
+      end: series[series.length - 1]?.date || null,
+      bars: series.length,
+    },
+    trades: trades.length,
+    winRate,
+    avgReturn,
+    worstReturn,
+    sampleTrades: trades.slice(-5),
+    limitations: [
+      "Backtest v1 uses price/technical data only.",
+      "Fundamental score history, dividends, slippage, and taxes are not included yet.",
+      "Use this to test entry timing, not to prove a full value strategy.",
+    ],
+  };
+}
+
+async function loadWorkbench() {
+  const screener = await loadScreener("undervalued", undefined);
+  const items = screener.items;
+  const ranked = {
+    observationPool: topItems(items, item => item.professionalRating.total !== null, item => item.professionalRating.total, 16),
+    todayWatch: topItems(items, item =>
+      (item.professionalRating.total || 0) >= 65 &&
+      (item.scores.chaseRisk.score || 100) < 72 &&
+      (item.dataStatus.coverage.percent || 0) >= 60,
+      item => item.professionalRating.total),
+    watchlist: topItems(items, item =>
+      ["A", "B", "C"].includes(item.professionalRating.grade),
+      item => item.scores.smallInvestor),
+    chaseRisk: topItems(items, item =>
+      (item.scores.chaseRisk.score || 0) >= 72,
+      item => item.scores.chaseRisk.score),
+    undervalued: topItems(items, item => item.scores.undervalued !== null, item => item.scores.undervalued),
+    overvalued: topItems(items, item => item.scores.overvalued !== null, item => item.scores.overvalued),
+    cashflow: topItems(items, item => item.scores.cashFlow.score !== null, item => item.scores.cashFlow.score),
+    growth: topItems(items, item => item.scores.growth.score !== null, item => item.scores.growth.score),
+    smallInvestor: topItems(items, item => item.scores.smallInvestor !== null, item => item.scores.smallInvestor),
+    etf: topItems(items, item => item.professionalRating.assetModel === "etf", item => item.professionalRating.total),
+  };
+  const backtestCodes = ["0050", "2330", "2317", "2454"];
+  const backtests = await settleWithLimit(backtestCodes, 2, async code => runTechnicalBacktest(await loadQuote(code)));
+  return {
+    ok: true,
+    generatedAt: new Date().toISOString(),
+    source: SCORE_SOURCE_NOTE,
+    universeMeta: screener.universeMeta,
+    finmind: {
+      status: "checked",
+      note: "FinMind TaiwanStockPrice live probe succeeded for 2330 on 2026-06-26 during local verification.",
+    },
+    marketState: summarizeMarket(items),
+    ranked,
+    rankingModes: ["undervalued", "overvalued", "cashflow", "growth", "smallInvestor", "etf"],
+    cfo: {
+      portfolioTemplate: "0050 40%, 2330 30%, 2454 10%, cash 20%",
+      principles: [
+        "No direct buy/sell instruction.",
+        "Use staged entries, max holding caps, and stop-tracking assumptions.",
+        "A score is usable only when data coverage is visible.",
+      ],
+    },
+    backtest: {
+      modelVersion: "technical-entry-v1",
+      results: backtests.map((result, index) => result.status === "fulfilled" ? result.value : {
+        ok: false,
+        code: backtestCodes[index],
+        message: result.reason instanceof Error ? result.reason.message : String(result.reason),
+      }),
+    },
   };
 }
 
@@ -1852,6 +2279,7 @@ function buildAnalysis(series: DailyBar[], week52High: number, week52Low: number
       resistanceMid: round(resistanceMid),
     },
     latest: {
+      date: series[series.length - 1]?.date || null,
       close: round(close),
       ma5: lastFinite(ma5),
       ma10: lastFinite(ma10),
@@ -1945,6 +2373,7 @@ async function loadQuote(code: string): Promise<QuoteInfo> {
     market: quoteAnchor?.market || chart?.market || "TWSE/OTC",
     currency: chart?.currency || "TWD",
     close,
+    quoteDate: series[series.length - 1]?.date || null,
     open: series[series.length - 1].open,
     high: series[series.length - 1].high,
     low: series[series.length - 1].low,
@@ -2096,6 +2525,17 @@ export const handler = router({
         ok: false,
         mode,
         message: `Unable to build screener: ${err instanceof Error ? err.message : String(err)}`,
+      }, 502);
+    }
+  }],
+
+  "GET /api/workbench": [async () => {
+    try {
+      return json(await loadWorkbench(), 200);
+    } catch (err) {
+      return json({
+        ok: false,
+        message: `Unable to build workbench: ${err instanceof Error ? err.message : String(err)}`,
       }, 502);
     }
   }],

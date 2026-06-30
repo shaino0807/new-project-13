@@ -119,3 +119,35 @@ Steps:
 7. Repeat on mobile width or narrow the viewport and scroll through the new sections.
 
 Expected: The same page shows 小資友善分數, 低估分數, 高估分數, 公允價值, 現金流評分, 增長評分, 市場信心, 分析師評級 status, and 追高風險警示. The ranking table updates without leaving the page. The note clearly says the default ranking is an observation universe, not the full Taiwan stock market. 配置助手 recalculates allocation rows in dollars and percentages. 持股健康檢查 reports concentration, cash, and available score-based risk messages without inventing data for unknown tickers. If value score or screener data is unavailable, 小資價值雷達 shows a clear unavailable or partial-data message while existing metrics, charts, 小資決策卡, 基本面白話化, 新聞關聯分析, Agent, 回檔機率, and 交易策略 remain readable without horizontal scrolling, overlap, or replacement-character mojibake.
+
+Additional expected: The value radar shows a data transparency panel with quote date, coverage rate, dataset dates, cache/stale status, and missing data items. The ranking note identifies the maintainable Taiwan universe version, scored/requested count, and states that it is not a real-time full-market database.
+
+## Test 11 - Client workbench stays separate from stock depth page
+Viewport: desktop and mobile
+Description: Verifies paid-client workflow features live in a separate tab while the existing stock analysis page remains available.
+
+Steps:
+1. Navigate to the app.
+2. Confirm the default stock depth page still shows the existing quote, charts, fundamentals, value radar, strategy, and Agent sections.
+3. Click 客戶工作台.
+4. Wait for the workbench load state to resolve.
+5. Inspect 評級標準與排行榜範圍.
+6. Click ranking scope filters: 觀察池, 個股, ETF.
+7. Click ranking metric filters: 低估, 高估, 現金流, 成長, 小資, ETF.
+8. In 我的持股風險, enter 0050 40%, 2330 30%, 2454 10%, cash 20% and click 分析持股.
+9. Click a stock from 今日值得觀察清單, 持股分數, or 價值評估清單.
+10. Return to 客戶工作台 and inspect 回測實驗室 v1 and AI 理財財務長.
+
+Expected: 客戶工作台 is a separate page view, not appended into the existing stock depth flow. It shows 評級標準與排行榜範圍, 市場狀態, 我的持股風險, 持股分數, 今日值得觀察清單, 值得觀察清單, 追高風險清單, 價值評估清單, scope filters, metric filters, 回測實驗室 v1, and AI 理財財務長. 評級標準 lists the stock weights 30/20/15/15/10/10 and ETF weights 25/25/15/15/10/10, while clearly saying unavailable inputs such as EV/EBITDA, same-industry comparison, ROE, margins, and dividend stability are only used when available. 排行榜範圍 explains 觀察池排行, 可評級台股池, and ETF 獨立榜 without claiming full-market coverage. Portfolio holdings with available universe scores show grade, total score, chase-risk score, and data coverage; holdings without a score are marked 資料不足 and are not assigned invented values. The stock depth page keeps the original analysis flow and shows a top-level 價值雷達 grade/total/coverage badge beside the stock result plus 價值雷達總分 with A/B/C/D/X and expandable weighted components. AI 理財財務長 shows stage/wait/avoid style guidance, single-entry cap, max holding cap, worst-case loss estimate, and a stop-tracking assumption without direct buy/sell instructions. All labels remain readable without overlap or replacement-character mojibake.
+
+## Test 12 - Local index fallback API bridge
+Viewport: desktop
+Description: Verifies index.html does not show global 載入失敗 when AppDeploy client bridge is unavailable in local/static usage.
+
+Steps:
+1. Open index.html through a local static host or direct file preview.
+2. Search 2330.
+3. Confirm /api/quote loads through the direct AppDeploy API base when window.appApi is not injected.
+4. Click 客戶工作台 while the public backend does not yet expose /api/workbench.
+
+Expected: The stock depth page loads quote data instead of global 載入失敗. If /api/workbench returns 404, 客戶工作台 falls back to existing /api/screener data, marks the mode as public screener fallback, and shows 回測實驗室 as unavailable until the new backend is deployed. It must not invent professional scores that are not derivable from existing screener fields.
