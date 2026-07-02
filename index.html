@@ -211,6 +211,7 @@
       <div class="view-tabs" id="viewTabs" aria-label="page switch">
         <button class="view-tab active" type="button" data-view="stock">&#x80a1;&#x7968;&#x6df1;&#x5ea6;&#x9801;</button>
         <button class="view-tab" type="button" data-view="client">&#x5ba2;&#x6236;&#x5de5;&#x4f5c;&#x53f0;</button>
+        <button class="view-tab" type="button" data-view="admin" id="adminTab" hidden>&#x5f8c;&#x81fa;&#x8cc7;&#x6599;&#x6aa2;&#x67e5;</button>
       </div>
       <div class="status" id="status">準備載入最新資料。</div>
     </section>
@@ -264,7 +265,7 @@
           </tbody>
         </table>
       </div>
-      <p class="note" id="screenerNote">&#x89c0;&#x5bdf;&#x6c60;&#x9810;&#x8a2d;&#x4f7f;&#x7528;&#x53f0;&#x80a1;&#x5e38;&#x898b;&#x5927;&#x578b;&#x80a1;&#x8207;&#x71b1;&#x9580;&#x67e5;&#x8a62;&#x80a1;&#xff1b;&#x9019;&#x4e0d;&#x662f;&#x5168;&#x5e02;&#x5834;&#x6392;&#x540d;&#x3002;</p>
+      <p class="note" id="screenerNote">&#x5f8c;&#x81fa;&#x5df2;&#x9023;&#x7dda;&#x5168;&#x81fa;&#x80a1;&#x516c;&#x53f8; universe&#xff1b;&#x76ee;&#x524d;&#x6392;&#x884c;&#x699c;&#x70ba;&#x53ef;&#x63a7;&#x6279;&#x6b21;&#x8a55;&#x5206;&#xff0c;&#x4e0d;&#x5047;&#x88dd;&#x5df2;&#x5b8c;&#x6210;&#x5168;&#x5e02;&#x5834;&#x5373;&#x6642;&#x6392;&#x540d;&#x3002;</p>
     </section>
 
     <section class="grid two">
@@ -299,6 +300,8 @@
       <section class="panel">
         <h2>買點好壞判斷</h2>
         <div id="entryQuality"></div>
+        <div id="entryPlanPanel"></div>
+        <div id="entryChecklistPanel"></div>
       </section>
       <section class="panel">
         <h2>基本面白話化</h2>
@@ -435,11 +438,11 @@
           </table>
         </div>
         <div class="scope-grid">
-          <div class="scope-item"><b>&#x89c0;&#x5bdf;&#x6c60;&#x6392;&#x884c;</b><p>&#x76ee;&#x524d;&#x53ef;&#x7528;&#x7684;&#x53f0;&#x80a1; universe&#xff0c;&#x7528;&#x65bc;&#x4eca;&#x65e5;&#x89c0;&#x5bdf;&#x8207;&#x6392;&#x884c;&#x699c;&#xff0c;&#x4e0d;&#x5ba3;&#x7a31;&#x5168;&#x5e02;&#x5834;&#x3002;</p></div>
-          <div class="scope-item"><b>&#x53ef;&#x8a55;&#x7d1a;&#x53f0;&#x80a1;&#x6c60;</b><p>&#x4e0b;&#x4e00;&#x6b65;&#x624d;&#x64f4;&#x5927;&#x5230;&#x4e0a;&#x5e02;&#x6ac3;&#x666e;&#x901a;&#x80a1;&#xff0c;&#x9700;&#x5148;&#x6392;&#x9664;&#x8cc7;&#x6599;&#x4e0d;&#x8db3;&#x3001;&#x6d41;&#x52d5;&#x6027;&#x904e;&#x4f4e;&#x8207;&#x7279;&#x6b8a;&#x80a1;&#x3002;</p></div>
-          <div class="scope-item"><b>ETF &#x7368;&#x7acb;&#x699c;</b><p>ETF &#x4f7f;&#x7528;&#x7368;&#x7acb;&#x6a21;&#x578b;&#xff0c;&#x4e0d;&#x8207;&#x500b;&#x80a1;&#x8ca1;&#x5831;&#x6a21;&#x578b;&#x6df7;&#x6392;&#x3002;</p></div>
+          <div class="scope-item"><b>全臺股公司 universe</b><p>後臺已接 FinMind TaiwanStockInfo，範圍含上市、上櫃與興櫃公司，並排除 ETF、ETN、DR 與基金型商品。</p></div>
+          <div class="scope-item"><b>目前排行榜</b><p>目前仍採可控批次評分，避免即時請求數千檔造成配額用完或超時。要實現全市場排名，需再加批次評分與持久化資料表。</p></div>
+          <div class="scope-item"><b>ETF 獨立榜</b><p>ETF 使用獨立模型，不與個股財報模型混排。</p></div>
         </div>
-        <p class="note">&#x80fd;&#x7b97;&#x7684;&#x624d;&#x7d66;&#x5206;&#xff1b;&#x4e0d;&#x80fd;&#x7b97;&#x7684;&#x986f;&#x793a;&#x8cc7;&#x6599;&#x4e0d;&#x8db3;&#x3002;&#x7b2c;&#x4e09;&#x65b9;&#x7db2;&#x7ad9;&#x53ea;&#x7576;&#x4ecb;&#x9762;&#x8207;&#x6a19;&#x6e96;&#x53c3;&#x8003;&#xff0c;&#x4e0d;&#x5047;&#x88dd;&#x6211;&#x5011;&#x6709;&#x540c;&#x7b49;&#x5c08;&#x6709;&#x8cc7;&#x6599;&#x3002;</p>
+        <p class="note">能算的才給分；不能算的顯示資料不足。第三方網站只當介面與標準參考，不假裝我們有同等專有資料。</p>
       </section>
       <section class="grid two">
         <section class="panel"><h2>&#x5e02;&#x5834;&#x72c0;&#x614b;</h2><div id="marketStatePanel"></div></section>
@@ -484,6 +487,22 @@
         <section class="panel"><h2>&#x56de;&#x6e2c;&#x5be6;&#x9a57;&#x5ba4; v1</h2><div id="backtestLab"></div></section>
       </section>
     </div>
+
+    <div id="adminPage" class="page-view" hidden>
+      <section class="panel">
+        <div class="control-row">
+          <h2>&#x5f8c;&#x81fa;&#x8cc7;&#x6599;&#x6aa2;&#x67e5;</h2>
+          <button type="button" id="refreshAdminBtn">&#x91cd;&#x65b0;&#x6aa2;&#x67e5;</button>
+        </div>
+        <p class="note">&#x9019;&#x500b;&#x5206;&#x9801;&#x53ea;&#x5728;&#x7db2;&#x5740;&#x5e36; ?admin=1 &#x6216; #admin &#x6642;&#x986f;&#x793a;&#xff1b;&#x5ba2;&#x6236;&#x9801;&#x4e0d;&#x5217;&#x51fa;&#x8cc7;&#x6599;&#x900f;&#x660e;&#x5ea6;&#x7d30;&#x9805;&#x3002;</p>
+        <div class="client-grid" id="adminUniverseSummary"></div>
+        <div id="adminUniverseDetail"></div>
+      </section>
+      <section class="panel">
+        <h2>&#x76ee;&#x524d;&#x500b;&#x80a1;&#x8cc7;&#x6599;&#x900f;&#x660e;&#x5ea6;</h2>
+        <div id="adminValueDataStatus"></div>
+      </section>
+    </div>
   </main>
 
   <script type="module" src="./src/main.ts"></script>
@@ -503,6 +522,8 @@
     let clientWorkbench = null;
     let clientRankingMode = "undervalued";
     let clientRankingScope = "all";
+    let adminUniverse = null;
+    const adminEnabled = new URLSearchParams(location.search).get("admin") === "1" || location.hash.toLowerCase() === "#admin";
 
     const fmt = (n, d=2) => Number.isFinite(Number(n)) ? Number(n).toLocaleString("zh-TW", { maximumFractionDigits:d, minimumFractionDigits:d }) : "--";
     const pct = (n) => Number.isFinite(Number(n)) ? `${n >= 0 ? "+" : ""}${fmt(n, 2)}%` : "--";
@@ -640,6 +661,13 @@
       }
     }
 
+    async function getUniverse() {
+      const api = await waitForAppApi();
+      const { data } = await api.get("/api/universe");
+      if (!data || !data.ok) throw new Error(data?.message || "\u5168\u81fa\u80a1 universe \u8f09\u5165\u5931\u6557");
+      return data;
+    }
+
     function fallbackGrade(score) {
       if (!Number.isFinite(Number(score))) return "X";
       if (score >= 80) return "A";
@@ -658,12 +686,12 @@
       const assetModel = item.fundamentals?.assetType === "etf" ? "etf" : "stock";
       const technicalPosition = Number.isFinite(Number(item.scores?.chaseRisk?.score)) ? 100 - Number(item.scores.chaseRisk.score) : null;
       const components = [
-        { key:"valuation", label:"Valuation safety margin", score:item.scores?.valuation?.score ?? null, weight:30, evidence:item.scores?.valuation?.evidence || [], missing:item.scores?.valuation?.missing || [], whyDeducted:[] },
-        { key:"stability", label:"Financial stability", score:item.scores?.financialStability?.score ?? null, weight:20, evidence:item.scores?.financialStability?.evidence || [], missing:item.scores?.financialStability?.missing || [], whyDeducted:[] },
-        { key:"growth", label:"Growth quality", score:item.scores?.growth?.score ?? null, weight:15, evidence:item.scores?.growth?.evidence || [], missing:item.scores?.growth?.missing || [], whyDeducted:[] },
-        { key:"cashflow", label:"Cash flow and dividend", score:item.scores?.cashFlow?.score ?? null, weight:15, evidence:item.scores?.cashFlow?.evidence || [], missing:item.scores?.cashFlow?.missing || [], whyDeducted:[] },
-        { key:"technical", label:"Technical position", score:technicalPosition, weight:10, evidence:item.scores?.chaseRisk?.evidence || [], missing:item.scores?.chaseRisk?.missing || [], whyDeducted:[] },
-        { key:"smallBudget", label:"Small-budget friendliness", score:item.scores?.smallInvestor ?? null, weight:10, evidence:[], missing:[], whyDeducted:[] },
+        { key:"valuation", label:"估值安全邊際", score:item.scores?.valuation?.score ?? null, weight:30, evidence:item.scores?.valuation?.evidence || [], missing:item.scores?.valuation?.missing || [], whyDeducted:[] },
+        { key:"stability", label:"財務穩健", score:item.scores?.financialStability?.score ?? null, weight:20, evidence:item.scores?.financialStability?.evidence || [], missing:item.scores?.financialStability?.missing || [], whyDeducted:[] },
+        { key:"growth", label:"成長品質", score:item.scores?.growth?.score ?? null, weight:15, evidence:item.scores?.growth?.evidence || [], missing:item.scores?.growth?.missing || [], whyDeducted:[] },
+        { key:"cashflow", label:"現金流與股利", score:item.scores?.cashFlow?.score ?? null, weight:15, evidence:item.scores?.cashFlow?.evidence || [], missing:item.scores?.cashFlow?.missing || [], whyDeducted:[] },
+        { key:"technical", label:"技術位置", score:technicalPosition, weight:10, evidence:item.scores?.chaseRisk?.evidence || [], missing:item.scores?.chaseRisk?.missing || [], whyDeducted:[] },
+        { key:"smallBudget", label:"小資友善", score:item.scores?.smallInvestor ?? null, weight:10, evidence:[], missing:[], whyDeducted:[] },
       ];
       const available = components.filter(row => row.score !== null && row.score !== undefined).length;
       const total = Number.isFinite(Number(item.scores?.smallInvestor))
@@ -697,7 +725,7 @@
       const action = item.allocationGuide?.action || (Number(item.scores?.chaseRisk?.score) >= 72 ? "wait for pullback" : "stage entries");
       item.cfoGuide = {
         action,
-        actionLabel: action,
+        actionLabel: localizeRiskText(action),
         singleEntryLimitPct: item.allocationGuide?.firstBuyPct || 10,
         maxHoldingPct: grade === "A" || grade === "B" ? 20 : 10,
         worstCaseLossPct: item.fairValue?.upsidePct !== null && item.fairValue?.upsidePct < 0 ? item.fairValue.upsidePct : null,
@@ -725,7 +753,7 @@
         ok: true,
         generatedAt: new Date().toISOString(),
         source: "\u516c\u958b screener fallback",
-        universeMeta: first.universeMeta || { name:"\u53f0\u80a1 observation universe", version:"public-fallback", requestedCount:allItems.length, scoredCount:allItems.length },
+        universeMeta: first.universeMeta || { name:"\u53f0\u80a1\u6279\u6b21\u8a55\u5206", version:"public-fallback", requestedCount:allItems.length, scoredCount:allItems.length },
         finmind: { status:"checked", note:"\u5df2\u4f7f\u7528\u76ee\u524d\u516c\u958b screener API\uff1b\u65b0\u7248 /api/workbench \u9700\u90e8\u7f72\u5f8c\u624d\u6703\u555f\u7528\u3002" },
         marketState: {
           avgScore,
@@ -887,6 +915,45 @@
             <tr><td>1000 元零股</td><td>${shares1000 ? `${fmt(lossPerShare * shares1000, 0)} 元` : "不足 1 股"}</td><td>${shares1000 ? `約 ${shares1000} 股。` : "金額低於目前股價，需提高金額或改看低價標的。"}</td></tr>
           </tbody>
         </table>`;
+    }
+
+    function renderEntrySupportPanels(data) {
+      const budget = budgetValue();
+      const stop = stopPrice(data);
+      const support = data.support;
+      const resistance = data.resistance;
+      const riskPct = Number.isFinite(data.close) && data.close > 0 ? ((data.close - stop) / data.close) * 100 : NaN;
+      const score = activeValueScore;
+      const chaseScore = score?.scores?.chaseRisk?.score;
+      const grade = score?.professionalRating?.grade || "X";
+      const coverage = score?.dataStatus?.coverage?.percent || 0;
+      const firstPct = score?.allocationGuide?.firstBuyPct ?? (data.pullback >= 70 ? 10 : 20);
+      const firstBudget = Math.max(0, budget * firstPct / 100);
+      const firstShares = data.close > 0 ? Math.floor(firstBudget / data.close) : 0;
+      const planTone = data.close <= support * 1.03 ? "bull" : data.close >= resistance * .98 ? "bear" : "warn";
+      const riskTone = Number.isFinite(chaseScore) ? scoreTone(chaseScore, true) : data.pullback >= 70 ? "bear" : data.pullback >= 45 ? "warn" : "bull";
+      $("entryPlanPanel").innerHTML = `
+        <div class="data-status">
+          <h3>\u5206\u6279\u9032\u5834\u7bc0\u594f ${badge(planTone === "bull" ? "\u9760\u8fd1\u652f\u6490" : planTone === "bear" ? "\u63a5\u8fd1\u58d3\u529b" : "\u4e2d\u6027\u89c0\u5bdf", planTone)}</h3>
+          <div class="data-status-grid">
+            <div class="data-status-card"><b>\u53c3\u8003\u652f\u6490</b><strong>${fmt(support)} \u5143</strong></div>
+            <div class="data-status-card"><b>\u53c3\u8003\u58d3\u529b</b><strong>${fmt(resistance)} \u5143</strong></div>
+            <div class="data-status-card"><b>\u7b2c\u4e00\u7b46\u4e0a\u9650</b><strong>${fmt(firstBudget, 0)} \u5143</strong></div>
+            <div class="data-status-card"><b>\u4f30\u8a08\u80a1\u6578</b><strong>${firstShares || "\u4e0d\u8db3 1 \u80a1"}</strong></div>
+          </div>
+          <p class="note">\u8a08\u756b\u4f9d\u76ee\u524d\u9810\u7b97 ${fmt(budget, 0)} \u5143\u3001\u6280\u8853\u652f\u6490\u8207\u8ffd\u9ad8\u98a8\u96aa\u63a8\u7b97\uff1b\u4e0d\u662f\u76f4\u63a5\u8cb7\u8ce3\u5efa\u8b70\u3002</p>
+        </div>`;
+      $("entryChecklistPanel").innerHTML = `
+        <div class="data-status">
+          <h3>\u98a8\u96aa\u6aa2\u67e5 ${badge(localizeRiskText(score?.scores?.chaseRisk?.label || (data.pullback >= 70 ? "\u8ffd\u9ad8\u98a8\u96aa\u9ad8" : "\u8ffd\u9ad8\u98a8\u96aa\u4e2d")), riskTone)}</h3>
+          <div class="data-status-list">
+            <div><span>\u505c\u640d\u53c3\u8003</span><strong>${fmt(stop)} \u5143</strong></div>
+            <div><span>\u55ae\u80a1\u98a8\u96aa</span><strong>${fmt(Math.max(0, data.close - stop), 0)} \u5143</strong></div>
+            <div><span>\u50f9\u503c\u96f7\u9054</span><strong>${escapeHtml(grade)} / ${coverage}%</strong></div>
+            <div><span>\u4f30\u8a08\u56de\u64a4</span><strong>${Number.isFinite(riskPct) ? fmt(riskPct, 1) + "%" : "--"}</strong></div>
+          </div>
+          <p class="note">\u82e5\u50f9\u683c\u8dcc\u7834\u505c\u640d\u53c3\u8003\u6216\u50f9\u503c\u96f7\u9054\u8986\u84cb\u964d\u4f4e\uff0c\u61c9\u5148\u505c\u6b62\u63a8\u8ad6\u4e26\u91cd\u65b0\u6aa2\u67e5\u8cc7\u6599\u3002</p>
+        </div>`;
     }
 
     function renderHorizons(data) {
@@ -1521,10 +1588,30 @@
         .replace("margin balance change", "\u878d\u8cc7\u9918\u984d\u8b8a\u5316");
     }
 
-    function renderValueDataStatus(score) {
+    function localizeRiskText(value) {
+      return String(value || "")
+        .replace(/chase risk high/gi, "\u8ffd\u9ad8\u98a8\u96aa\u9ad8")
+        .replace(/chase risk medium/gi, "\u8ffd\u9ad8\u98a8\u96aa\u4e2d")
+        .replace(/chase risk low/gi, "\u8ffd\u9ad8\u98a8\u96aa\u4f4e")
+        .replace(/pullback probability/gi, "\u56de\u6a94\u6a5f\u7387")
+        .replace(/distance from short-term support/gi, "\u8ddd\u77ed\u7dda\u652f\u6490")
+        .replace(/Chase risk is elevated, so the first entry should be conservative\./gi, "\u8ffd\u9ad8\u98a8\u96aa\u504f\u9ad8\uff0c\u7b2c\u4e00\u7b46\u61c9\u4fdd\u5b88\uff0c\u5148\u7b49\u56de\u6a94\u6216\u78ba\u8a8d\u8a0a\u865f\u3002")
+        .replace(/Chase risk is not elevated; staged entries can reduce timing risk\./gi, "\u8ffd\u9ad8\u98a8\u96aa\u6c92\u6709\u660e\u986f\u5347\u9ad8\uff1b\u53ef\u7528\u5206\u6279\u65b9\u5f0f\u964d\u4f4e\u9032\u5834\u6642\u9ede\u98a8\u96aa\u3002")
+        .replace(/The undervaluation score is high, but financial updates and major news still need review\./gi, "\u4f4e\u4f30\u5206\u6578\u504f\u9ad8\uff0c\u4f46\u4ecd\u8981\u8907\u67e5\u8ca1\u5831\u66f4\u65b0\u8207\u91cd\u5927\u65b0\u805e\u3002")
+        .replace(/The undervaluation signal is not strong enough to buy only because of rank\./gi, "\u4f4e\u4f30\u8a0a\u865f\u9084\u4e0d\u5920\u5f37\uff0c\u4e0d\u80fd\u53ea\u56e0\u6392\u884c\u4f4d\u7f6e\u5c31\u8cb7\u9032\u3002")
+        .replace(/A single stock should not replace an ETF core position; small-budget allocation should keep cash and industry diversification\./gi, "\u55ae\u4e00\u500b\u80a1\u4e0d\u61c9\u53d6\u4ee3\u6838\u5fc3 ETF\uff1b\u5c0f\u8cc7\u914d\u7f6e\u4ecd\u8981\u4fdd\u7559\u73fe\u91d1\u8207\u7522\u696d\u5206\u6563\u3002")
+        .replace(/small watch position/gi, "\u5c0f\u984d\u89c0\u5bdf\u90e8\u4f4d")
+        .replace(/wait for pullback/gi, "\u7b49\u56de\u6a94")
+        .replace(/stage entries/gi, "\u5206\u6279\u9032\u5834")
+        .replace(/do not chase/gi, "\u4e0d\u8ffd\u50f9");
+    }
+
+    function renderValueDataStatus(score, targetId = "valueDataStatus") {
+      const target = $(targetId);
+      if (!target) return;
       const status = score?.dataStatus;
       if (!status) {
-        $("valueDataStatus").innerHTML = "";
+        target.innerHTML = "";
         return;
       }
       const coverage = status.coverage || {};
@@ -1543,7 +1630,7 @@
       const missingText = missing.length
         ? missing.slice(0, 8).map(missingLabel).join("\uff1b")
         : "\u76ee\u524d\u8a55\u5206\u6240\u9700\u95dc\u9375\u6b04\u4f4d\u90fd\u6709\u53ef\u7528\u8cc7\u6599";
-      $("valueDataStatus").innerHTML = `
+      target.innerHTML = `
         <div class="data-status">
           <h3>\u8cc7\u6599\u900f\u660e\u5ea6</h3>
           <div class="data-status-grid">
@@ -1554,7 +1641,7 @@
           </div>
           <div class="data-status-list">${datasetRows}</div>
           <p class="note">\u7f3a\u8cc7\u6599\u9805\u76ee\uff1a${escapeHtml(missingText)}\u3002</p>
-          <p class="note">\u6392\u884c\u699c\u4f86\u81ea\u7dad\u8b77\u4e2d\u7684\u53f0\u80a1 universe\uff0c\u4e0d\u662f\u5373\u6642\u5168\u5e02\u5834\u8cc7\u6599\u5eab\u3002</p>
+          <p class="note">\u5168\u81fa\u80a1\u516c\u53f8 universe \u7531\u5f8c\u81fa\u6aa2\u67e5\uff1b\u6392\u884c\u699c\u76ee\u524d\u4f7f\u7528\u53ef\u63a7\u6279\u6b21\u8a55\u5206\uff0c\u907f\u514d\u4e0a\u6e38 API \u914d\u984d\u8207\u8d85\u6642\u3002</p>
         </div>`;
     }
 
@@ -1623,16 +1710,17 @@
         valueCard("\u5e02\u5834\u4fe1\u5fc3", scoreText(s.marketConfidence?.score), score?.rating?.marketConfidenceLabel || "\u4ee5\u6cd5\u4eba\u8207\u6280\u8853\u66ff\u4ee3", scoreTone(s.marketConfidence?.score)),
         valueCard("\u5206\u6790\u5e2b\u8a55\u7d1a", "\u672a\u63a5\u5165", score?.rating?.analystConsensus?.note || "\u76ee\u524d\u6c92\u6709\u7b2c\u4e09\u65b9\u5206\u6790\u5e2b\u5171\u8b58\u8cc7\u6599\u3002", "warn")
       ].join("");
-      renderValueDataStatus(score);
-      $("valueDataStatus").innerHTML += renderProfessionalRating(score);
+      $("valueDataStatus").innerHTML = renderProfessionalRating(score);
+      renderValueDataStatus(score, "adminValueDataStatus");
       const chase = s.chaseRisk || {};
       const chaseCls = scoreTone(chase.score, true);
       $("chaseRiskPanel").innerHTML = `
         <div class="warning-box">
-          <b>\u8ffd\u9ad8\u98a8\u96aa\u8b66\u793a\uff1a${escapeHtml(chase.label || "\u8cc7\u6599\u4e0d\u8db3")} ${scoreText(chase.score)}</b>
-          <p>${escapeHtml((chase.evidence || []).join("\uff1b") || "\u6280\u8853\u8cc7\u6599\u4e0d\u8db3\uff0c\u66ab\u4e0d\u7522\u751f\u8ffd\u9ad8\u5224\u65b7\u3002")}</p>
-          <p>${badge(score?.allocationGuide?.action || "\u89c0\u5bdf", chaseCls)} ${escapeHtml((score?.allocationGuide?.notes || []).join(" "))}</p>
+          <b>\u8ffd\u9ad8\u98a8\u96aa\u8b66\u793a\uff1a${escapeHtml(localizeRiskText(chase.label || "\u8cc7\u6599\u4e0d\u8db3"))} ${scoreText(chase.score)}</b>
+          <p>${escapeHtml(localizeRiskText((chase.evidence || []).join("\uff1b") || "\u6280\u8853\u8cc7\u6599\u4e0d\u8db3\uff0c\u66ab\u4e0d\u7522\u751f\u8ffd\u9ad8\u5224\u65b7\u3002"))}</p>
+          <p>${badge(localizeRiskText(score?.allocationGuide?.action || "\u89c0\u5bdf"), chaseCls)} ${escapeHtml(localizeRiskText((score?.allocationGuide?.notes || []).join(" ")))}</p>
         </div>`;
+      if (activeData) renderEntrySupportPanels(activeData);
       renderAllocationGuide();
       renderPortfolioHealth();
     }
@@ -1667,7 +1755,10 @@
       const errorText = payload?.errors?.length ? `\uff1b${payload.errors.length} \u6a94\u8cc7\u6599\u66ab\u6642\u4e0d\u53ef\u7528` : "";
       const meta = payload?.universeMeta || {};
       const groups = Array.isArray(meta.groups) && meta.groups.length ? `\uff1b\u5206\u7d44 ${meta.groups.join(" / ")}` : "";
-      $("screenerNote").textContent = `${modeLabel}\uff1a${meta.name || "\u53f0\u80a1 universe"} ${meta.version || ""}\uff0c\u6e05\u55ae ${meta.defaultCount || payload?.universe?.length || 0} \u6a94\uff0c\u672c\u6b21\u8a55\u5206 ${meta.scoredCount || latestScreenerItems.length} / ${meta.requestedCount || payload?.universe?.length || 0} \u6a94${groups}\u3002\u8cc7\u6599\u4f86\u6e90\u70ba\u516c\u958b\u5831\u50f9\u8207 FinMind\uff1b\u9019\u662f\u53ef\u7dad\u8b77 universe\uff0c\u4e0d\u662f\u5373\u6642\u5168\u5e02\u5834\u8cc7\u6599\u5eab${errorText}\u3002`;
+      const fullMarketText = meta.fullMarketCompanyCount
+        ? `\u5f8c\u81fa\u5168\u81fa\u80a1\u516c\u53f8 universe ${meta.fullMarketCompanyCount} \u6a94\u5df2\u9023\u7dda`
+        : "\u5f8c\u81fa\u5168\u81fa\u80a1\u516c\u53f8 universe \u5f85\u6aa2\u67e5";
+      $("screenerNote").textContent = `${modeLabel}\uff1a${meta.name || "\u53f0\u80a1\u6279\u6b21\u8a55\u5206"} ${meta.version || ""}\uff0c\u6e05\u55ae ${meta.defaultCount || payload?.universe?.length || 0} \u6a94\uff0c\u672c\u6b21\u8a55\u5206 ${meta.scoredCount || latestScreenerItems.length} / ${meta.requestedCount || payload?.universe?.length || 0} \u6a94${groups}\u3002${fullMarketText}\uff1b\u76ee\u524d\u6392\u884c\u662f\u53ef\u63a7\u6279\u6b21\u8a55\u5206\uff0c\u4e0d\u5047\u88dd\u70ba\u5168\u5e02\u5834\u5373\u6642\u6392\u540d${errorText}\u3002`;
     }
 
     async function loadScreenerMode(mode = currentScreenerMode) {
@@ -1792,7 +1883,10 @@
         </tr>`).join("") : `<tr><td colspan="7">\u76ee\u524d\u6c92\u6709\u7b26\u5408\u689d\u4ef6\u7684\u6e05\u55ae\u3002</td></tr>`;
       const meta = clientWorkbench?.universeMeta || {};
       const scopeLabel = clientRankingScope === "stock" ? "\u500b\u80a1" : clientRankingScope === "etf" ? "ETF" : "\u89c0\u5bdf\u6c60";
-      $("clientRankingNote").textContent = `${scopeLabel}\uff1a${meta.name || "\u53f0\u80a1 universe"} ${meta.version || ""}\uff0c\u672c\u6b21\u8a55\u5206 ${meta.scoredCount || 0} / ${meta.requestedCount || 0} \u6a94\uff0c\u76ee\u524d\u986f\u793a ${rows.length} \u6a94\u3002\u9019\u662f\u53ef\u7dad\u8b77\u6e05\u55ae\uff0c\u4e0d\u662f\u5373\u6642\u5168\u5e02\u5834\u8cc7\u6599\u5eab\u3002`;
+      const marketText = meta.fullMarketCompanyCount
+        ? `\u5f8c\u81fa\u5168\u81fa\u80a1\u516c\u53f8 universe ${meta.fullMarketCompanyCount} \u6a94\u5df2\u9023\u7dda`
+        : "\u5f8c\u81fa\u5168\u81fa\u80a1\u516c\u53f8 universe \u5f85\u6aa2\u67e5";
+      $("clientRankingNote").textContent = `${scopeLabel}\uff1a${meta.name || "\u53f0\u80a1\u6279\u6b21\u8a55\u5206"} ${meta.version || ""}\uff0c\u672c\u6b21\u8a55\u5206 ${meta.scoredCount || 0} / ${meta.requestedCount || 0} \u6a94\uff0c\u76ee\u524d\u986f\u793a ${rows.length} \u6a94\u3002${marketText}\uff1b\u76ee\u524d\u6392\u884c\u4ecd\u662f\u53ef\u63a7\u6279\u6b21\uff0c\u4e0d\u5047\u88dd\u70ba\u5168\u5e02\u5834\u5373\u6642\u6392\u540d\u3002`;
     }
 
     function renderBacktestLab(results) {
@@ -1809,8 +1903,10 @@
     function renderClientWorkbench(payload) {
       clientWorkbench = payload;
       const state = payload?.marketState || {};
+      const meta = payload?.universeMeta || {};
       $("clientSummary").innerHTML = [
-        valueCard("\u5de5\u4f5c\u53f0 universe", `${payload?.universeMeta?.scoredCount || 0}/${payload?.universeMeta?.requestedCount || 0}`, payload?.universeMeta?.version || "", "neut"),
+        valueCard("\u5168\u81fa\u80a1\u516c\u53f8", meta.fullMarketCompanyCount ? `${meta.fullMarketCompanyCount} \u6a94` : "\u5f85\u6aa2\u67e5", meta.fullMarketStatus === "connected" ? "\u5f8c\u81fa universe \u5df2\u9023\u7dda" : (meta.fullMarketMessage || "\u8acb\u5230\u5f8c\u81fa\u6aa2\u67e5"), meta.fullMarketStatus === "connected" ? "bull" : "warn"),
+        valueCard("\u672c\u6b21\u6279\u6b21\u8a55\u5206", `${meta.scoredCount || 0}/${meta.requestedCount || 0}`, meta.version || "", "neut"),
         valueCard("\u5e73\u5747\u5c08\u696d\u5206", scoreText(state.avgScore), state.note || "", state.tone === "opportunity" ? "bull" : state.tone === "risk" ? "bear" : "warn"),
         valueCard("FinMind", payload?.finmind?.status || "\u672a\u6aa2\u67e5", payload?.finmind?.note || "", "bull"),
       ].join("");
@@ -1849,12 +1945,60 @@
       }
     }
 
+    function renderAdminUniverse(payload) {
+      const counts = payload?.counts || {};
+      const total = payload?.companyCount || 0;
+      const statusTone = payload?.stale ? "warn" : "bull";
+      $("adminUniverseSummary").innerHTML = [
+        valueCard("\u5168\u81fa\u80a1\u516c\u53f8", `${total} \u6a94`, payload?.version || "", statusTone),
+        valueCard("\u4e0a\u5e02", `${counts.twse || 0} \u6a94`, "\u666e\u901a\u516c\u53f8\uff0c\u5df2\u6392\u9664 ETF/DR/ETN", "neut"),
+        valueCard("\u4e0a\u6ac3", `${counts.tpex || 0} \u6a94`, "\u666e\u901a\u516c\u53f8\uff0c\u5df2\u6392\u9664\u57fa\u91d1\u578b\u5546\u54c1", "neut"),
+        valueCard("\u8208\u6ac3", `${counts.emerging || 0} \u6a94`, "\u4f9d FinMind TaiwanStockInfo", "neut"),
+      ].join("");
+      const samples = (payload?.samples || []).slice(0, 12).map(item => `
+        <div>
+          <span>${escapeHtml(item.code)} ${escapeHtml(item.name || "")}</span>
+          <strong>${escapeHtml(item.type || "")} / ${escapeHtml(item.industry || "")}</strong>
+        </div>`).join("");
+      $("adminUniverseDetail").innerHTML = `
+        <div class="data-status">
+          <h3>\u8cc7\u6599\u5eab\u6aa2\u67e5 ${badge(payload?.stale ? "\u4f7f\u7528\u820a\u5feb\u53d6" : "\u5df2\u9023\u7dda", statusTone)}</h3>
+          <div class="data-status-grid">
+            <div class="data-status-card"><b>\u539f\u59cb\u5217\u6578</b><strong>${fmt(payload?.rawRows || 0, 0)}</strong></div>
+            <div class="data-status-card"><b>\u539f\u59cb\u4ee3\u78bc</b><strong>${fmt(payload?.rawUniqueCodes || 0, 0)}</strong></div>
+            <div class="data-status-card"><b>\u53d6\u5f97\u6642\u9593</b><strong>${escapeHtml(statusDate(payload?.fetchedAt))}</strong></div>
+            <div class="data-status-card"><b>\u5feb\u53d6</b><strong>${payload?.cached ? "\u662f" : "\u5426"}</strong></div>
+          </div>
+          <p class="note">${escapeHtml(payload?.filter || "")}</p>
+          <div class="data-status-list">${samples}</div>
+          ${payload?.warning ? `<p class="note">\u8b66\u793a\uff1a${escapeHtml(payload.warning)}</p>` : ""}
+        </div>`;
+    }
+
+    async function loadAdminUniverse(force = false) {
+      if (adminUniverse && !force) {
+        renderAdminUniverse(adminUniverse);
+        return;
+      }
+      $("adminUniverseSummary").innerHTML = valueCard("\u5168\u81fa\u80a1\u516c\u53f8", "\u6aa2\u67e5\u4e2d", "\u6b63\u5728\u8b80\u53d6 FinMind TaiwanStockInfo\u3002", "warn");
+      try {
+        adminUniverse = await getUniverse();
+        renderAdminUniverse(adminUniverse);
+      } catch (err) {
+        $("adminUniverseSummary").innerHTML = valueCard("\u5168\u81fa\u80a1\u516c\u53f8", "\u6aa2\u67e5\u5931\u6557", err.message || "\u8cc7\u6599\u4f86\u6e90\u66ab\u6642\u4e0d\u53ef\u7528", "bear");
+        $("adminUniverseDetail").innerHTML = "";
+      }
+    }
+
     function switchView(view) {
       const client = view === "client";
-      $("stockPage").hidden = client;
+      const admin = view === "admin";
+      $("stockPage").hidden = client || admin;
       $("clientPage").hidden = !client;
+      $("adminPage").hidden = !admin;
       $("viewTabs").querySelectorAll("[data-view]").forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view));
       if (client) loadClientWorkbench();
+      if (admin) loadAdminUniverse();
     }
 
     function portfolioEntries() {
@@ -1959,8 +2103,10 @@
         valueCard(entityText("&#x5e02;&#x5834;&#x4fe1;&#x5fc3;"), pending, pendingDetail, "neut"),
         valueCard(entityText("&#x5206;&#x6790;&#x5e2b;&#x8a55;&#x7d1a;"), pending, pendingDetail, "warn"),
       ].join("");
-      $("chaseRiskPanel").innerHTML = `<div class="warning-box"><b>Ranking loads on demand</b><p>This protects FinMind quota so the main fundamentals section remains reliable.</p></div>`;
-      $("screenerRows").innerHTML = `<tr><td colspan="10">Click a ranking tab to load public-data scores.</td></tr>`;
+      $("valueDataStatus").innerHTML = "";
+      $("adminValueDataStatus").innerHTML = `<p class="note">\u8f09\u5165\u500b\u80a1\u5f8c\uff0c\u9019\u88e1\u6703\u986f\u793a\u5167\u90e8\u8cc7\u6599\u900f\u660e\u5ea6\u3002</p>`;
+      $("chaseRiskPanel").innerHTML = `<div class="warning-box"><b>\u6392\u884c\u699c\u6309\u9700\u8f09\u5165</b><p>\u9019\u6a23\u53ef\u907f\u514d\u7528\u76e1 FinMind \u914d\u984d\uff0c\u8b93\u4e3b\u8981\u57fa\u672c\u9762\u8cc7\u6599\u4fdd\u6301\u7a69\u5b9a\u3002</p></div>`;
+      $("screenerRows").innerHTML = `<tr><td colspan="10">\u9ede\u9078\u6392\u884c\u5206\u9801\u5f8c\uff0c\u6703\u8f09\u5165\u516c\u958b\u8cc7\u6599\u8a55\u5206\u3002</td></tr>`;
       renderAllocationGuide();
       renderPortfolioHealth();
     }
@@ -1972,7 +2118,7 @@
       if (valueFeatureRequestKey === requestKey) return;
       valueFeatureRequestKey = requestKey;
       $("valueRadarHeroBadge").innerHTML = [heroFact("\u50f9\u503c\u96f7\u9054 \u8f09\u5165\u4e2d", "warn")].join("");
-      $("valueScoreCards").innerHTML = `<div class="value-card"><b>Value score</b><strong>Loading</strong><p>Fetching valuation, cash flow, growth, and small-investor scores.</p></div>`;
+      $("valueScoreCards").innerHTML = `<div class="value-card"><b>\u50f9\u503c\u8a55\u5206</b><strong>\u8f09\u5165\u4e2d</strong><p>\u6b63\u5728\u53d6\u5f97\u4f30\u503c\u3001\u73fe\u91d1\u6d41\u3001\u6210\u9577\u8207\u5c0f\u8cc7\u5206\u6578\u3002</p></div>`;
       $("chaseRiskPanel").innerHTML = "";
       activeValueScore = null;
       renderAllocationGuide();
@@ -1985,7 +2131,7 @@
         renderValueScore(scoreResult.value);
       } else {
         $("valueRadarHeroBadge").innerHTML = [heroFact("\u50f9\u503c\u96f7\u9054 \u4e0d\u53ef\u7528", "bear")].join("");
-        $("valueScoreCards").innerHTML = `<div class="value-card"><b>Value score</b><strong>Unavailable</strong><p>${escapeHtml(scoreResult.reason?.message || "Data source failed temporarily.")}</p></div>`;
+        $("valueScoreCards").innerHTML = `<div class="value-card"><b>\u50f9\u503c\u8a55\u5206</b><strong>\u6682\u6642\u4e0d\u53ef\u7528</strong><p>${escapeHtml(scoreResult.reason?.message || "\u8cc7\u6599\u4f86\u6e90\u66ab\u6642\u5931\u6557\u3002")}</p></div>`;
       }
       if (screenerResult.status === "fulfilled") {
         renderScreener(screenerResult.value, currentScreenerMode);
@@ -2341,6 +2487,7 @@
       $("status").textContent = q.source ? `資料來源：${q.source}。頁面每次開啟都會重新向後端請求最新資料。` : "已載入公開報價資料。";
       renderRetailDecision(data);
       renderEntryQuality(data);
+      renderEntrySupportPanels(data);
       renderHorizons(data);
       renderWaveStructure(data);
       renderGranville(data);
@@ -2414,6 +2561,8 @@
       $("screenerRows").innerHTML = `<tr><td colspan="10">資料載入失敗，排行榜暫停更新。</td></tr>`;
       activeValueScore = null;
       $("entryQuality").innerHTML = "";
+      $("entryPlanPanel").innerHTML = "";
+      $("entryChecklistPanel").innerHTML = "";
       $("horizonRows").innerHTML = "";
       $("plainFundamentals").innerHTML = "";
       $("newsRows").innerHTML = "";
@@ -2463,6 +2612,7 @@
     });
     $("monthlyBudget").addEventListener("input", () => {
       if (activeData) renderRetailDecision(activeData);
+      if (activeData) renderEntrySupportPanels(activeData);
       renderAllocationGuide();
     });
     $("riskProfile").addEventListener("change", renderAllocationGuide);
@@ -2479,6 +2629,7 @@
       if (btn) run(btn.dataset.rankCode);
     });
     $("refreshWorkbenchBtn").addEventListener("click", () => loadClientWorkbench(true));
+    $("refreshAdminBtn").addEventListener("click", () => loadAdminUniverse(true));
     $("analyzeClientPortfolioBtn").addEventListener("click", () => {
       if (!clientWorkbench) loadClientWorkbench();
       else renderClientPortfolio();
@@ -2505,8 +2656,12 @@
       switchView("stock");
       run(btn.dataset.rankCode);
     });
+    if (adminEnabled) {
+      $("adminTab").hidden = false;
+    }
     renderPortfolioHealth();
     run(new URLSearchParams(location.search).get("code") || "2330");
+    if (adminEnabled) switchView("admin");
   </script>
 </body>
 </html>

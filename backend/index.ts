@@ -29,16 +29,16 @@ type QuoteInfo = {
 };
 
 const FALLBACK_NAMES: Record<string, string> = {
-  "0050": "元大台灣50",
-  "2303": "聯電",
-  "2308": "台達電",
-  "2317": "鴻海",
-  "2330": "台積電",
-  "2344": "華邦電",
-  "2356": "英業達",
-  "2382": "廣達",
-  "2454": "聯發科",
-  "3231": "緯創",
+  "0050": "\u5143\u5927\u53F0\u706350",
+  "2303": "\u806F\u96FB",
+  "2308": "\u53F0\u9054\u96FB",
+  "2317": "\u9D3B\u6D77",
+  "2330": "\u53F0\u7A4D\u96FB",
+  "2344": "\u83EF\u90A6\u96FB",
+  "2356": "\u82F1\u696D\u9054",
+  "2382": "\u5EE3\u9054",
+  "2454": "\u806F\u767C\u79D1",
+  "3231": "\u7DEF\u5275",
 };
 
 function cleanCode(value: string | undefined) {
@@ -171,10 +171,10 @@ function finMindErrorCode(status: number): FinMindError["code"] {
 
 function finMindPublicMessage(err: unknown) {
   if (err instanceof FinMindError) {
-    if (err.code === "quota_exceeded") return "FinMind API 額度暫時用完，已保留其他可用資料。";
-    if (err.code === "auth_error") return "FinMind Token 無效或來源暫時拒絕存取。";
-    if (err.code === "upstream_error") return "FinMind 服務暫時異常。";
-    return "FinMind 回傳格式不符合預期。";
+    if (err.code === "quota_exceeded") return "FinMind API \u984D\u5EA6\u66AB\u6642\u7528\u5B8C\uFF0C\u5DF2\u4FDD\u7559\u5176\u4ED6\u53EF\u7528\u8CC7\u6599\u3002";
+    if (err.code === "auth_error") return "FinMind Token \u7121\u6548\u6216\u4F86\u6E90\u66AB\u6642\u62D2\u7D55\u5B58\u53D6\u3002";
+    if (err.code === "upstream_error") return "FinMind \u670D\u52D9\u66AB\u6642\u7570\u5E38\u3002";
+    return "FinMind \u56DE\u50B3\u683C\u5F0F\u4E0D\u7B26\u5408\u9810\u671F\u3002";
   }
   return err instanceof Error ? err.message : String(err);
 }
@@ -200,10 +200,12 @@ async function requestFinMindDataset(dataset: string, code: string): Promise<Fin
   const request = (async () => {
     const params = new URLSearchParams({
       dataset,
-      data_id: code,
-      start_date: finMindStartDate(dataset),
-      end_date: new Date().toISOString().slice(0, 10),
     });
+    if (dataset !== "TaiwanStockInfo") {
+      params.set("start_date", finMindStartDate(dataset));
+      params.set("end_date", new Date().toISOString().slice(0, 10));
+    }
+    if (code) params.set("data_id", code);
     const token = await getFinMindToken();
     const requestUrl = `${FINMIND_API_URL}?${params.toString()}`;
     const fetchDataset = async (useToken: boolean) => {
@@ -581,17 +583,29 @@ function normalizeDate(value: string | null | undefined) {
 
 function parseYuantaHoldings(html: string) {
   const holdings: EtfHolding[] = [];
-  const pattern = /商品代碼<\/span>\s*<span[^>]*>(\d{4,6})<\/span>[\s\S]*?商品名稱<\/span>\s*<span[^>]*>([^<]+)<\/span>[\s\S]*?商品數量<\/span>\s*<span[^>]*>[^<]*<\/span>[\s\S]*?商品權重<\/span>\s*<span[^>]*>([\d.]+)<\/span>/g;
-  for (const match of html.matchAll(pattern)) {
-    const weight = toNumber(match[3]);
+  const spanValues = [...html.matchAll(/<span[^>]*>([\s\S]*?)<\/span>/g)]
+    .map(match => stripTags(match[1]).trim())
+    .filter(Boolean);
+  const seen = new Set<string>();
+  for (let index = 0; index < spanValues.length; index += 1) {
+    const code = spanValues[index];
+    if (!/^\d{4,6}$/.test(code) || seen.has(code)) continue;
+    const name = spanValues[index + 1] || "";
+    const nearbyNumbers = spanValues
+      .slice(index + 2, index + 8)
+      .map(value => toNumber(value))
+      .filter(value => Number.isFinite(value) && value > 0 && value <= 100);
+    const weight = nearbyNumbers[nearbyNumbers.length - 1];
+    if (!name || !Number.isFinite(weight)) continue;
+    seen.add(code);
     if (!Number.isFinite(weight)) continue;
     holdings.push({
-      code: match[1],
-      name: stripTags(match[2]),
+      code,
+      name,
       weight: round(weight, 2),
     });
   }
-  const dateMatch = html.match(/交易日期:\s*(?:<br[^>]*>)?\s*(\d{4}\/\d{2}\/\d{2})/);
+  const dateMatch = html.match(/(\d{4}\/\d{2}\/\d{2})/);
   return {
     date: normalizeDate(dateMatch?.[1]),
     holdings,
@@ -599,7 +613,7 @@ function parseYuantaHoldings(html: string) {
 }
 
 function parseYuantaNav(html: string) {
-  const match = html.match(/<h5[^>]*>(\d{4}\/\d{2}\/\d{2})<\/h5>\s*<h4[^>]*>\s*每受益權單位淨資產價值\(元\)\s*<\/h4>\s*<p[^>]*>NTD\s*([\d,.]+)<\/p>/);
+  const match = html.match(/<h5[^>]*>(\d{4}\/\d{2}\/\d{2})<\/h5>[\s\S]*?<p[^>]*>\s*NTD\s*([\d,.]+)<\/p>/i);
   return {
     date: normalizeDate(match?.[1]),
     value: finiteOrNull(match?.[2]),
@@ -723,13 +737,13 @@ async function loadEtfProfile(code: string, name: string): Promise<EtfProfile> {
         profile.holdings = components.holdings;
         profile.componentSummary = components.summary;
       } else {
-        profile.warnings.push("元大投信持股頁目前沒有可解析的成分股。");
+        profile.warnings.push("\u5143\u5927\u6295\u4FE1\u6301\u80A1\u9801\u76EE\u524D\u6C92\u6709\u53EF\u89E3\u6790\u7684\u6210\u5206\u80A1\u3002");
       }
     } catch (err) {
-      profile.warnings.push(`0050 ETF 官方資料暫時無法取得：${err instanceof Error ? err.message : String(err)}`);
+      profile.warnings.push(`0050 ETF \u5B98\u65B9\u8CC7\u6599\u66AB\u6642\u7121\u6CD5\u53D6\u5F97\uFF1A${err instanceof Error ? err.message : String(err)}`);
     }
   } else {
-    profile.warnings.push("目前完整成分股與淨值聚合先支援 0050，其他 ETF 仍保留法人與籌碼資料。");
+    profile.warnings.push("\u76EE\u524D\u5B8C\u6574\u6210\u5206\u80A1\u8207\u6DE8\u503C\u805A\u5408\u5148\u652F\u63F4 0050\uFF0C\u5176\u4ED6 ETF \u4ECD\u4FDD\u7559\u6CD5\u4EBA\u8207\u7C4C\u78BC\u8CC7\u6599\u3002");
   }
 
   etfProfileCache.set(code, { data: profile, fetchedAt: Date.now() });
@@ -808,7 +822,7 @@ async function loadFundamentals(code: string) {
     cache: {
       cachedDatasets,
       staleDatasets,
-      policy: "財報 6 小時、月營收 2 小時、估值與籌碼 30 分鐘；來源失敗時最多沿用 24 小時舊快取。",
+      policy: "\u8CA1\u5831 6 \u5C0F\u6642\u3001\u6708\u71DF\u6536 2 \u5C0F\u6642\u3001\u4F30\u503C\u8207\u7C4C\u78BC 30 \u5206\u9418\uFF1B\u4F86\u6E90\u5931\u6557\u6642\u6700\u591A\u6CBF\u7528 24 \u5C0F\u6642\u820A\u5FEB\u53D6\u3002",
     },
     data: {
       profitability: assetType === "stock" ? buildFinancialSummary(rows("TaiwanStockFinancialStatements")) : null,
@@ -924,6 +938,24 @@ type ValueScore = {
 };
 
 const TAIWAN_UNIVERSE_VERSION = "tw-liquid-v1-2026-06";
+const TAIWAN_COMPANY_UNIVERSE_VERSION = "finmind-tw-company-universe-2026-07";
+const TAIWAN_COMPANY_TYPES = new Set(["twse", "tpex", "emerging"]);
+const OFFICIAL_TAIWAN_COMPANY_UNIVERSE_ENDPOINTS = [
+  { type: "twse", source: "TWSE t187ap03_L", url: "https://openapi.twse.com.tw/v1/opendata/t187ap03_L" },
+  { type: "tpex", source: "TPEx mopsfin_t187ap03_O", url: "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_O" },
+  { type: "emerging", source: "TPEx mopsfin_t187ap03_R", url: "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_R" },
+];
+const TAIWAN_NON_COMPANY_KEYWORDS = [
+  "ETF",
+  "\u6307\u6578\u80a1\u7968\u578b\u57fa\u91d1",
+  "\u53d7\u76ca\u8b49\u5238",
+  "\u5b58\u8a17\u6191\u8b49",
+  "ETN",
+  "\u50b5",
+  "\u671f\u8ca8",
+  "\u8a8d\u8cfc",
+  "\u8a8d\u552e",
+];
 const TAIWAN_SCREENING_UNIVERSE = [
   { code: "0050", name: "Yuanta Taiwan 50", group: "ETF core" },
   { code: "006208", name: "Fubon Taiwan 50", group: "ETF core" },
@@ -974,11 +1006,144 @@ const CUSTOM_SCREENER_LIMIT = 40;
 
 const SCORE_SOURCE_NOTE = "Transparent model: Yahoo/TWSE quotes plus FinMind financial data; no InvestingPro data or third-party analyst consensus is used.";
 
+function summarizeTaiwanCompanies(companies: Array<{ code: string; name: string; type: string; industry: string }>) {
+  return companies.reduce((acc: Record<string, number>, item) => {
+    acc[item.type] = (acc[item.type] || 0) + 1;
+    return acc;
+  }, {});
+}
+
+function buildTaiwanCompanyUniverseFromFinMind(info: FinMindDatasetResult) {
+  const byCode = new Map<string, { code: string; name: string; type: string; industry: string }>();
+  const rawUnique = new Set<string>();
+  for (const row of info.data) {
+    const code = cleanCode(row.stock_id);
+    if (!code) continue;
+    rawUnique.add(code);
+    const type = String(row.type || "").toLowerCase();
+    const industry = String(row.industry_category || "");
+    if (!/^\d{4}$/.test(code)) continue;
+    if (!TAIWAN_COMPANY_TYPES.has(type)) continue;
+    if (TAIWAN_NON_COMPANY_KEYWORDS.some(keyword => industry.toUpperCase().includes(keyword))) continue;
+    if (!byCode.has(code)) {
+      byCode.set(code, {
+        code,
+        name: String(row.stock_name || FALLBACK_NAMES[code] || code),
+        type,
+        industry,
+      });
+    }
+  }
+  const companies = [...byCode.values()].sort((a, b) => a.code.localeCompare(b.code));
+  const counts = summarizeTaiwanCompanies(companies);
+  return {
+    ok: true,
+    version: TAIWAN_COMPANY_UNIVERSE_VERSION,
+    source: "FinMind TaiwanStockInfo",
+    fetchedAt: info.fetchedAt,
+    cached: info.cached,
+    stale: info.stale,
+    warning: info.warning || null,
+    rawRows: info.data.length,
+    rawUniqueCodes: rawUnique.size,
+    companyCount: companies.length,
+    counts,
+    filter: "4-digit twse/tpex/emerging companies; ETF, bond ETF, ETN, warrants, DR and fund-like products are excluded.",
+    samples: companies.slice(0, 20),
+  };
+}
+
+function rowValue(row: any, keys: string[]) {
+  for (const key of keys) {
+    const value = row?.[key];
+    if (value !== undefined && value !== null && String(value).trim()) return String(value).trim();
+  }
+  return "";
+}
+
+async function requestOfficialCompanyRows(endpoint: typeof OFFICIAL_TAIWAN_COMPANY_UNIVERSE_ENDPOINTS[number]) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const res = await fetch(endpoint.url, { signal: controller.signal, headers: { Accept: "application/json" } });
+    const text = await res.text();
+    if (!res.ok) throw new Error(`${endpoint.source} HTTP ${res.status}: ${text.slice(0, 120)}`);
+    const rows = JSON.parse(text);
+    if (!Array.isArray(rows)) throw new Error(`${endpoint.source} returned a non-array payload`);
+    return rows;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function loadOfficialTaiwanCompanyUniverseFallback(finMindError: unknown) {
+  const settled = await Promise.allSettled(
+    OFFICIAL_TAIWAN_COMPANY_UNIVERSE_ENDPOINTS.map(async endpoint => ({ endpoint, rows: await requestOfficialCompanyRows(endpoint) }))
+  );
+  const byCode = new Map<string, { code: string; name: string; type: string; industry: string }>();
+  const rawUnique = new Set<string>();
+  const warnings: string[] = [];
+  let rawRows = 0;
+  for (const result of settled) {
+    if (result.status === "rejected") {
+      warnings.push(String(result.reason?.message || result.reason || "official endpoint failed"));
+      continue;
+    }
+    const { endpoint, rows } = result.value;
+    rawRows += rows.length;
+    for (const row of rows) {
+      const code = cleanCode(rowValue(row, ["SecuritiesCompanyCode", "\u516C\u53F8\u4EE3\u865F"]));
+      if (!/^\d{4}$/.test(code)) continue;
+      rawUnique.add(code);
+      if (!byCode.has(code)) {
+        byCode.set(code, {
+          code,
+          name: rowValue(row, ["CompanyAbbreviation", "CompanyName", "\u516C\u53F8\u7C21\u7A31", "\u516C\u53F8\u540D\u7A31"]) || FALLBACK_NAMES[code] || code,
+          type: endpoint.type,
+          industry: rowValue(row, ["SecuritiesIndustryCode", "\u7522\u696D\u5225"]),
+        });
+      }
+    }
+  }
+  const companies = [...byCode.values()].sort((a, b) => a.code.localeCompare(b.code));
+  if (!companies.length) {
+    throw new Error(`Unable to load Taiwan company universe from FinMind or official fallback: ${String((finMindError as Error)?.message || finMindError || "unknown error")}`);
+  }
+  const counts = summarizeTaiwanCompanies(companies);
+  return {
+    ok: true,
+    version: `${TAIWAN_COMPANY_UNIVERSE_VERSION}-official-fallback`,
+    source: "TWSE/TPEx OpenAPI fallback",
+    fetchedAt: new Date().toISOString(),
+    cached: false,
+    stale: true,
+    warning: [
+      `FinMind unavailable: ${String((finMindError as Error)?.message || finMindError || "unknown error")}`,
+      ...warnings,
+    ].filter(Boolean).join(" | "),
+    rawRows,
+    rawUniqueCodes: rawUnique.size,
+    companyCount: companies.length,
+    counts,
+    filter: "Official listed, OTC, and emerging company profile endpoints; used only when FinMind TaiwanStockInfo is temporarily unavailable.",
+    samples: companies.slice(0, 20),
+  };
+}
+
+async function loadTaiwanCompanyUniverse() {
+  try {
+    const info = await requestFinMindDataset("TaiwanStockInfo", "");
+    return buildTaiwanCompanyUniverseFromFinMind(info);
+  } catch (err) {
+    return loadOfficialTaiwanCompanyUniverseFallback(err);
+  }
+}
+
 function scoreLabel(score: number | null, high = "strong", mid = "neutral", low = "weak") {
   if (score === null) return "insufficient data";
   if (score >= 80) return high;
   if (score >= 60) return mid;
-  if (score >= 40) return "watch";
+  if (score >= 40) return mid;
   return low;
 }
 
@@ -1070,17 +1235,17 @@ function buildCfoGuide(total: number | null, chaseRiskScore: number | null, down
     : Number.isFinite(close) ? 15 : null;
   return {
     action,
-    actionLabel: action === "stage_entry" ? "stage entries" : action === "small_watch" ? "small watch position" : action === "wait_pullback" ? "wait for pullback" : "avoid new entry",
+    actionLabel: action === "stage_entry" ? "\u5206\u6279\u9032\u5834" : action === "small_watch" ? "\u5C0F\u984D\u89C0\u5BDF\u90E8\u4F4D" : action === "wait_pullback" ? "\u7B49\u5F85\u56DE\u6A94" : "\u907F\u514D\u65B0\u589E\u90E8\u4F4D",
     singleEntryLimitPct,
     maxHoldingPct,
     worstCaseLossPct,
     stopTrackingAssumption: highChase
-      ? "Stop tracking as an entry candidate if price keeps rising while score quality does not improve."
-      : "Stop tracking if valuation, cash flow, or growth data deteriorates while price remains expensive.",
+      ? "\u82E5\u50F9\u683C\u6301\u7E8C\u588A\u9AD8\u4F46\u5206\u6578\u54C1\u8CEA\u6C92\u6709\u6539\u5584\uFF0C\u5148\u505C\u6B62\u628A\u5B83\u5217\u70BA\u9032\u5834\u5019\u9078\u3002"
+      : "\u82E5\u4F30\u503C\u3001\u73FE\u91D1\u6D41\u6216\u6210\u9577\u8CC7\u6599\u60E1\u5316\uFF0C\u540C\u6642\u50F9\u683C\u4ECD\u504F\u8CB4\uFF0C\u5148\u505C\u6B62\u8FFD\u8E64\u3002",
     notes: [
-      "This is capital-control guidance, not a personalized buy or sell instruction.",
-      `Single entry should stay under ${singleEntryLimitPct}% of the planned position.`,
-      `One stock should stay under ${maxHoldingPct}% of the portfolio until backtest and data coverage are stronger.`,
+      "\u9019\u662F\u8CC7\u91D1\u63A7\u7BA1\u60C5\u5883\uFF0C\u4E0D\u662F\u500B\u4EBA\u5316\u8CB7\u8CE3\u6307\u793A\u3002",
+      `\u55AE\u6B21\u6295\u5165\u61C9\u4F4E\u65BC\u898F\u5283\u90E8\u4F4D\u7684 ${singleEntryLimitPct}%\u3002`,
+      `\u5728\u56DE\u6E2C\u8207\u8CC7\u6599\u8986\u84CB\u66F4\u5B8C\u6574\u4EE5\u524D\uFF0C\u55AE\u4E00\u500B\u80A1\u61C9\u4F4E\u65BC\u6295\u8CC7\u7D44\u5408\u7684 ${maxHoldingPct}%\u3002`,
     ],
   };
 }
@@ -1295,14 +1460,14 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
     label: "",
     weight: 15,
     evidence: [
-      `pullback probability ${latest.pullback}%`,
+      `\u56DE\u6A94\u6A5F\u7387 ${latest.pullback}%`,
       Number.isFinite(latest.rsi14) ? `RSI ${fmt(latest.rsi14, 1)}` : "",
       Number.isFinite(latest.pctB) ? `Bollinger %B ${fmt(latest.pctB, 2)}` : "",
-      Number.isFinite(distanceFromSupport) ? `distance from short-term support ${fmt(distanceFromSupport || NaN, 2)}%` : "",
+      Number.isFinite(distanceFromSupport) ? `\u8DDD\u77ED\u7DDA\u652F\u6490 ${fmt(distanceFromSupport || NaN, 2)}%` : "",
     ].filter(Boolean),
     missing: [],
   };
-  chaseRiskComponent.label = scoreLabel(chaseRiskComponent.score, "chase risk high", "chase risk medium", "chase risk low");
+  chaseRiskComponent.label = scoreLabel(chaseRiskComponent.score, "\u8FFD\u9AD8\u98A8\u96AA\u9AD8", "\u8FFD\u9AD8\u98A8\u96AA\u4E2D", "\u8FFD\u9AD8\u98A8\u96AA\u4F4E");
 
   const fairPer = Math.max(10, Math.min(24, 14 + ((growthComponent.score || 50) - 50) / 5));
   const earningsValue = Number.isFinite(profit?.eps) && (profit?.eps || 0) > 0
@@ -1318,10 +1483,10 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
     { score: (latest.week52High + latest.week52Low) / 2, weight: 20 },
   ]);
   const fairMethods = [
-    { name: "annualized EPS fair PER", value: earningsValue, weight: 40, note: `Annualized latest EPS with fair PER ${fmt(fairPer, 1)}x.` },
-    { name: "book value fair PBR", value: bookValue, weight: 25, note: "Backs into book value per share from current PBR, then applies 1.8x PBR." },
-    { name: "dividend yield implied value", value: dividendValue, weight: 15, note: "Uses a 4% target yield; excluded when dividend yield data is unavailable." },
-    { name: "technical mean", value: technicalMean, weight: 20, note: "Mean-reversion reference from MA60, MA120, and the 52-week mid price." },
+    { name: "\u5E74\u5316 EPS \u5408\u7406\u672C\u76CA\u6BD4", value: earningsValue, weight: 40, note: `\u6700\u65B0 EPS \u5E74\u5316\u5F8C\u5957\u7528\u5408\u7406\u672C\u76CA\u6BD4 ${fmt(fairPer, 1)} \u500D\u3002` },
+    { name: "\u6DE8\u503C\u5408\u7406\u80A1\u50F9\u6DE8\u503C\u6BD4", value: bookValue, weight: 25, note: "\u7531\u76EE\u524D PBR \u53CD\u63A8\u6BCF\u80A1\u6DE8\u503C\uFF0C\u518D\u5957\u7528 1.8 \u500D PBR\u3002" },
+    { name: "\u80A1\u5229\u6B96\u5229\u7387\u53CD\u63A8\u50F9\u503C", value: dividendValue, weight: 15, note: "\u4F7F\u7528 4% \u76EE\u6A19\u6B96\u5229\u7387\uFF1B\u7F3A\u80A1\u5229\u6B96\u5229\u7387\u6642\u6392\u9664\u3002" },
+    { name: "\u6280\u8853\u5747\u503C", value: technicalMean, weight: 20, note: "\u4F7F\u7528 MA60\u3001MA120 \u8207 52 \u9031\u4E2D\u4F4D\u50F9\u4F5C\u5747\u503C\u56DE\u6B78\u53C3\u8003\u3002" },
   ];
   const fairValue = weightedScore(fairMethods.map(method => ({ score: method.value, weight: method.weight })));
   const upsidePct = fairValue && close > 0 ? round(((fairValue / close) - 1) * 100, 2) : null;
@@ -1380,7 +1545,7 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
     { key: "cashFlow", label: "Cash flow", date: cashFlow?.date || null, available: cashFlowComponent.score !== null, missing: cashFlowComponent.missing },
     { key: "growth", label: "Growth", date: revenue?.date || profit?.date || null, available: growthComponent.score !== null, missing: growthComponent.missing },
     { key: "profitability", label: "Profitability", date: profit?.date || null, available: profitabilityComponent.score !== null, missing: profitabilityComponent.missing },
-    { key: "financialStability", label: "Financial stability", date: balance?.date || null, available: financialStabilityComponent.score !== null, missing: financialStabilityComponent.missing },
+    { key: "financialStability", label: "\u8CA1\u52D9\u7A69\u5065", date: balance?.date || null, available: financialStabilityComponent.score !== null, missing: financialStabilityComponent.missing },
     { key: "marketConfidence", label: "Market confidence", date: institutional?.date || foreign?.date || margin?.date || lending?.date || null, available: marketConfidenceComponent.score !== null, missing: marketConfidenceComponent.missing },
   ];
   const availableDatasets = dataStatusDatasets.filter(item => item.available).length;
@@ -1412,35 +1577,35 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
     ? Math.max(20, Math.min(90, Math.round(95 - (etfCoverage as number) * 0.7)))
     : null;
   const stockProfessionalComponents = [
-    componentForProfessional("valuation", "Valuation safety margin", valuationComponent.score, 30, valuationComponent.evidence, valuationComponent.missing, "Valuation is not cheap enough versus available fundamentals."),
-    componentForProfessional("stability", "Financial stability", financialStabilityComponent.score, 20, financialStabilityComponent.evidence, financialStabilityComponent.missing, "Balance-sheet strength is weak or incomplete."),
-    componentForProfessional("growth", "Growth quality", growthComponent.score, 15, growthComponent.evidence, growthComponent.missing, "Growth quality is slowing or not supported by available data."),
-    componentForProfessional("cashflow", "Cash flow and dividend", cashFlowComponent.score, 15, cashFlowComponent.evidence, cashFlowComponent.missing, "Cash conversion is weak or missing."),
-    componentForProfessional("technical", "Technical position", technicalPositionScore, 10, chaseRiskComponent.evidence, chaseRiskComponent.missing, "Entry timing has elevated chase risk."),
-    componentForProfessional("smallBudget", "Small-budget friendliness", smallBudgetScore, 10, [
+    componentForProfessional("valuation", "\u4F30\u503C\u5B89\u5168\u908A\u969B", valuationComponent.score, 30, valuationComponent.evidence, valuationComponent.missing, "\u4F30\u503C\u76F8\u5C0D\u76EE\u524D\u53EF\u7528\u57FA\u672C\u9762\u9084\u4E0D\u5920\u4FBF\u5B9C\u3002"),
+    componentForProfessional("stability", "\u8CA1\u52D9\u7A69\u5065", financialStabilityComponent.score, 20, financialStabilityComponent.evidence, financialStabilityComponent.missing, "\u8CC7\u7522\u8CA0\u50B5\u8868\u5F37\u5EA6\u504F\u5F31\u6216\u8CC7\u6599\u4E0D\u5B8C\u6574\u3002"),
+    componentForProfessional("growth", "\u6210\u9577\u54C1\u8CEA", growthComponent.score, 15, growthComponent.evidence, growthComponent.missing, "\u6210\u9577\u54C1\u8CEA\u653E\u7DE9\uFF0C\u6216\u76EE\u524D\u53EF\u7528\u8CC7\u6599\u652F\u6301\u5EA6\u4E0D\u8DB3\u3002"),
+    componentForProfessional("cashflow", "\u73FE\u91D1\u6D41\u8207\u80A1\u5229", cashFlowComponent.score, 15, cashFlowComponent.evidence, cashFlowComponent.missing, "\u73FE\u91D1\u8F49\u63DB\u504F\u5F31\u6216\u8CC7\u6599\u7F3A\u6F0F\u3002"),
+    componentForProfessional("technical", "\u6280\u8853\u4F4D\u7F6E", technicalPositionScore, 10, chaseRiskComponent.evidence, chaseRiskComponent.missing, "\u9032\u5834\u6642\u9EDE\u6709\u8F03\u9AD8\u8FFD\u9AD8\u98A8\u96AA\u3002"),
+    componentForProfessional("smallBudget", "\u5C0F\u8CC7\u53CB\u5584", smallBudgetScore, 10, [
       `close ${fmt(close)}`,
       Number.isFinite(quote.volume) ? `volume ${fmt(quote.volume, 0)}` : "",
-    ].filter(Boolean), [], "Position size, liquidity, or timing is not friendly enough for staged small-budget entries."),
+    ].filter(Boolean), [], "\u90E8\u4F4D\u5927\u5C0F\u3001\u6D41\u52D5\u6027\u6216\u6642\u9EDE\u4E0D\u5920\u9069\u5408\u5C0F\u8CC7\u5206\u6279\u9032\u5834\u3002"),
   ];
   const etfProfessionalComponents = [
-    componentForProfessional("premiumNav", "Premium / NAV", etfPremiumScore, 25, [
-      Number.isFinite(etf?.nav?.premiumDiscount) ? `premium/discount ${fmt(etf?.nav?.premiumDiscount || NaN, 2)}%` : "",
-      etf?.nav?.date ? `NAV date ${etf.nav.date}` : "",
-    ].filter(Boolean), etfPremiumScore === null ? ["NAV premium/discount"] : [], "ETF premium or discount is not attractive enough."),
-    componentForProfessional("holdingsQuality", "Holdings quality and concentration", etfQualityScore, 25, [
-      Number.isFinite(etfCoverage) ? `top holding coverage ${fmt(etfCoverage || NaN, 2)}%` : "",
-      Number.isFinite(etfProfitableWeight) ? `profitable weight ${fmt(etfProfitableWeight || NaN, 2)}%` : "",
-    ].filter(Boolean), etfQualityScore === null ? ["holdings quality"] : [], "ETF component quality or concentration is not strong enough."),
-    componentForProfessional("liquidity", "Scale and liquidity", etfLiquidityScore, 15, [
-      Number.isFinite(quote.volume) ? `volume ${fmt(quote.volume, 0)}` : "",
-    ].filter(Boolean), etfLiquidityScore === null ? ["volume"] : [], "Liquidity signal is weak or missing."),
-    componentForProfessional("distribution", "Distribution stability", etfDividendScore, 15, [
-      Number.isFinite(etf?.componentSummary?.weightedDividendYield) ? `weighted yield ${fmt(etf?.componentSummary?.weightedDividendYield || NaN, 2)}%` : "",
-    ].filter(Boolean), etfDividendScore === null ? ["distribution history"] : [], "Distribution data is missing or not strong enough."),
-    componentForProfessional("technical", "Technical position", technicalPositionScore, 10, chaseRiskComponent.evidence, chaseRiskComponent.missing, "Entry timing has elevated chase risk."),
-    componentForProfessional("singleRisk", "Single industry / component risk", etfSingleRiskScore, 10, [
-      Number.isFinite(etfCoverage) ? `top holdings coverage ${fmt(etfCoverage || NaN, 2)}%` : "",
-    ].filter(Boolean), etfSingleRiskScore === null ? ["component concentration"] : [], "Top holdings concentration is high."),
+    componentForProfessional("premiumNav", "\u6298\u6EA2\u50F9\u8207\u6DE8\u503C", etfPremiumScore, 25, [
+      Number.isFinite(etf?.nav?.premiumDiscount) ? `\u6298\u6EA2\u50F9 ${fmt(etf?.nav?.premiumDiscount || NaN, 2)}%` : "",
+      etf?.nav?.date ? `\u6DE8\u503C\u65E5\u671F ${etf.nav.date}` : "",
+    ].filter(Boolean), etfPremiumScore === null ? ["NAV \u6298\u6EA2\u50F9"] : [], "ETF \u6298\u6EA2\u50F9\u4E0D\u5920\u6709\u5438\u5F15\u529B\u3002"),
+    componentForProfessional("holdingsQuality", "\u6210\u5206\u80A1\u54C1\u8CEA\u8207\u96C6\u4E2D\u5EA6", etfQualityScore, 25, [
+      Number.isFinite(etfCoverage) ? `\u4E3B\u8981\u6210\u5206\u80A1\u8986\u84CB ${fmt(etfCoverage || NaN, 2)}%` : "",
+      Number.isFinite(etfProfitableWeight) ? `\u7372\u5229\u6210\u5206\u6B0A\u91CD ${fmt(etfProfitableWeight || NaN, 2)}%` : "",
+    ].filter(Boolean), etfQualityScore === null ? ["\u6210\u5206\u80A1\u54C1\u8CEA"] : [], "ETF \u6210\u5206\u80A1\u54C1\u8CEA\u6216\u96C6\u4E2D\u5EA6\u4E0D\u5920\u7406\u60F3\u3002"),
+    componentForProfessional("liquidity", "\u898F\u6A21\u8207\u6D41\u52D5\u6027", etfLiquidityScore, 15, [
+      Number.isFinite(quote.volume) ? `\u6210\u4EA4\u91CF ${fmt(quote.volume, 0)}` : "",
+    ].filter(Boolean), etfLiquidityScore === null ? ["\u6210\u4EA4\u91CF"] : [], "\u6D41\u52D5\u6027\u8A0A\u865F\u504F\u5F31\u6216\u7F3A\u6F0F\u3002"),
+    componentForProfessional("distribution", "\u914D\u606F\u7A69\u5B9A\u5EA6", etfDividendScore, 15, [
+      Number.isFinite(etf?.componentSummary?.weightedDividendYield) ? `\u52A0\u6B0A\u6B96\u5229\u7387 ${fmt(etf?.componentSummary?.weightedDividendYield || NaN, 2)}%` : "",
+    ].filter(Boolean), etfDividendScore === null ? ["\u914D\u606F\u7D00\u9304"] : [], "\u914D\u606F\u8CC7\u6599\u7F3A\u6F0F\u6216\u5F37\u5EA6\u4E0D\u8DB3\u3002"),
+    componentForProfessional("technical", "\u6280\u8853\u4F4D\u7F6E", technicalPositionScore, 10, chaseRiskComponent.evidence, chaseRiskComponent.missing, "\u9032\u5834\u6642\u9EDE\u6709\u8F03\u9AD8\u8FFD\u9AD8\u98A8\u96AA\u3002"),
+    componentForProfessional("singleRisk", "\u55AE\u4E00\u7522\u696D\u6216\u6210\u5206\u98A8\u96AA", etfSingleRiskScore, 10, [
+      Number.isFinite(etfCoverage) ? `\u4E3B\u8981\u6210\u5206\u80A1\u8986\u84CB ${fmt(etfCoverage || NaN, 2)}%` : "",
+    ].filter(Boolean), etfSingleRiskScore === null ? ["\u6210\u5206\u80A1\u96C6\u4E2D\u5EA6"] : [], "\u524D\u5927\u6210\u5206\u80A1\u96C6\u4E2D\u5EA6\u504F\u9AD8\u3002"),
   ];
   const professionalComponents = fundamentals.assetType === "etf" ? etfProfessionalComponents : stockProfessionalComponents;
   const professionalTotal = weightedScore(professionalComponents.map(item => ({ score: item.score, weight: item.weight })));
@@ -1453,9 +1618,9 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
     assetModel: fundamentals.assetType === "etf" ? "etf" as const : "stock" as const,
     components: professionalComponents,
     stopTrackingAssumption: fundamentals.assetType === "etf"
-      ? "Stop tracking if NAV/premium data or holdings quality cannot be verified."
-      : "Stop tracking if valuation looks cheap only because growth, cash flow, or balance-sheet quality is deteriorating.",
-    note: "Only available public quote and FinMind-derived data are scored; missing fields stay visible and do not receive invented values.",
+      ? "\u82E5 NAV\u3001\u6298\u6EA2\u50F9\u6216\u6210\u5206\u80A1\u54C1\u8CEA\u7121\u6CD5\u9A57\u8B49\uFF0C\u5148\u505C\u6B62\u8FFD\u8E64\u3002"
+      : "\u82E5\u4F4E\u4F30\u53EA\u4F86\u81EA\u6210\u9577\u3001\u73FE\u91D1\u6D41\u6216\u8CA1\u52D9\u9AD4\u8CEA\u60E1\u5316\uFF0C\u5148\u505C\u6B62\u8FFD\u8E64\u3002",
+    note: "\u53EA\u4F7F\u7528\u53EF\u53D6\u5F97\u7684\u516C\u958B\u5831\u50F9\u8207 FinMind \u884D\u751F\u8CC7\u6599\u8A55\u5206\uFF1B\u7F3A\u6F0F\u6B04\u4F4D\u6703\u4FDD\u7559\u53EF\u898B\uFF0C\u4E0D\u88DC\u5047\u5206\u6578\u3002",
   };
   const fairDownsidePct = Number.isFinite(upsidePct) && (upsidePct as number) < 0 ? upsidePct : null;
   const cfoGuide = buildCfoGuide(professionalTotal, chaseRiskComponent.score, fairDownsidePct, close);
@@ -1479,7 +1644,7 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
       value: fairValue,
       upsidePct,
       methods: fairMethods,
-      note: "This is the site's transparent valuation model, not an analyst target price; missing EPS, PBR, dividend yield, or technical mean data automatically reduces that method's weight.",
+    note: "\u9019\u662F\u672C\u7AD9\u516C\u958B\u8CC7\u6599\u4F30\u503C\u6A21\u578B\uFF0C\u4E0D\u662F\u5206\u6790\u5E2B\u76EE\u6A19\u50F9\uFF1BEPS\u3001PBR\u3001\u80A1\u5229\u6B96\u5229\u7387\u6216\u6280\u8853\u5747\u503C\u8CC7\u6599\u7F3A\u6F0F\u6642\uFF0C\u8A72\u65B9\u6CD5\u6B0A\u91CD\u6703\u81EA\u52D5\u964D\u4F4E\u3002",
     },
     scores: {
       undervalued,
@@ -1512,13 +1677,13 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
     },
     professionalRating,
     rating: {
-      smallInvestorLabel: scoreLabel(smallInvestor, "small-investor friendly", "small-investor watchlist", "not small-investor friendly"),
-      valuationLabel: scoreLabel(undervalued, "possibly undervalued", "fair", "not inexpensive"),
+      smallInvestorLabel: scoreLabel(smallInvestor, "\u5C0F\u8CC7\u53CB\u5584", "\u5C0F\u8CC7\u89C0\u5BDF", "\u4E0D\u9069\u5408\u5C0F\u8CC7\u8FFD\u50F9"),
+      valuationLabel: scoreLabel(undervalued, "\u53EF\u80FD\u4F4E\u4F30", "\u5408\u7406\u89C0\u5BDF", "\u4E0D\u4FBF\u5B9C"),
       marketConfidenceLabel: marketConfidenceComponent.label,
       analystConsensus: {
         available: false,
-        label: "third-party analyst consensus unavailable",
-        note: "Market-confidence scoring is used instead; buy/hold/sell consensus will only be shown after a licensed analyst-data source is connected.",
+        label: "\u5C1A\u672A\u63A5\u5165\u7B2C\u4E09\u65B9\u5206\u6790\u5E2B\u5171\u8B58",
+        note: "\u76EE\u524D\u6539\u7528\u5E02\u5834\u4FE1\u5FC3\u5206\u6578\uFF1B\u53D6\u5F97\u6388\u6B0A\u5206\u6790\u5E2B\u8CC7\u6599\u4F86\u6E90\u5F8C\uFF0C\u624D\u6703\u986F\u793A\u8CB7\u9032\u3001\u6301\u6709\u6216\u8CE3\u51FA\u5171\u8B58\u3002",
       },
     },
     allocationGuide: {
@@ -1526,9 +1691,9 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
       firstBuyPct,
       cashReservePct,
       notes: [
-        chaseRiskComponent.score !== null && chaseRiskComponent.score >= 72 ? "Chase risk is elevated, so the first entry should be conservative." : "Chase risk is not elevated; staged entries can reduce timing risk.",
-        undervalued !== null && undervalued >= 70 ? "The undervaluation score is high, but financial updates and major news still need review." : "The undervaluation signal is not strong enough to buy only because of rank.",
-        "A single stock should not replace an ETF core position; small-budget allocation should keep cash and industry diversification.",
+        chaseRiskComponent.score !== null && chaseRiskComponent.score >= 72 ? "\u8FFD\u9AD8\u98A8\u96AA\u504F\u9AD8\uFF0C\u7B2C\u4E00\u7B46\u61C9\u4FDD\u5B88\uFF0C\u5148\u7B49\u56DE\u6A94\u6216\u78BA\u8A8D\u8A0A\u865F\u3002" : "\u8FFD\u9AD8\u98A8\u96AA\u6C92\u6709\u660E\u986F\u5347\u9AD8\uFF0C\u53EF\u7528\u5206\u6279\u65B9\u5F0F\u964D\u4F4E\u9032\u5834\u6642\u9EDE\u98A8\u96AA\u3002",
+        undervalued !== null && undervalued >= 70 ? "\u4F4E\u4F30\u5206\u6578\u504F\u9AD8\uFF0C\u4F46\u4ECD\u8981\u8907\u67E5\u8CA1\u5831\u66F4\u65B0\u8207\u91CD\u5927\u65B0\u805E\u3002" : "\u4F4E\u4F30\u8A0A\u865F\u9084\u4E0D\u5920\u5F37\uFF0C\u4E0D\u80FD\u53EA\u56E0\u6392\u884C\u4F4D\u7F6E\u5C31\u8CB7\u9032\u3002",
+        "\u55AE\u4E00\u500B\u80A1\u4E0D\u61C9\u53D6\u4EE3\u6838\u5FC3 ETF\uFF1B\u5C0F\u8CC7\u914D\u7F6E\u4ECD\u8981\u4FDD\u7559\u73FE\u91D1\u8207\u7522\u696D\u5206\u6563\u3002",
       ],
     },
     cfoGuide,
@@ -1583,7 +1748,13 @@ async function settleWithLimit<T, R>(items: T[], limit: number, fn: (item: T, in
 
 async function loadScreener(mode: string, universeValue: unknown) {
   const universe = parseScreenerUniverse(universeValue);
-  const results = await settleWithLimit(universe, 4, code => loadValueScore(code));
+  const [marketUniverseResult, results] = await Promise.all([
+    loadTaiwanCompanyUniverse().catch(err => ({
+      ok: false,
+      message: err instanceof Error ? err.message : String(err),
+    })),
+    settleWithLimit(universe, 4, code => loadValueScore(code)),
+  ]);
   const items: ValueScore[] = [];
   const errors: Array<{ code: string; message: string }> = [];
   results.forEach((result, index) => {
@@ -1596,14 +1767,19 @@ async function loadScreener(mode: string, universeValue: unknown) {
     mode,
     universe,
     universeMeta: {
-      name: universeValue ? "custom" : "Taiwan liquid watch universe",
+      name: universeValue ? "custom scoring batch" : "Taiwan scored watch batch",
       version: TAIWAN_UNIVERSE_VERSION,
+      fullMarketVersion: (marketUniverseResult as any).version || TAIWAN_COMPANY_UNIVERSE_VERSION,
+      fullMarketCompanyCount: (marketUniverseResult as any).companyCount || null,
+      fullMarketCounts: (marketUniverseResult as any).counts || null,
+      fullMarketStatus: (marketUniverseResult as any).ok ? "connected" : "unavailable",
+      fullMarketMessage: (marketUniverseResult as any).message || null,
       defaultCount: DEFAULT_SCREENER_UNIVERSE.length,
       requestedCount: universe.length,
       scoredCount: sorted.length,
       customLimit: CUSTOM_SCREENER_LIMIT,
       groups: [...new Set(TAIWAN_SCREENING_UNIVERSE.filter(item => universe.includes(item.code)).map(item => item.group))],
-      note: "Maintainable liquid Taiwan stock/ETF universe, not a full-market database.",
+      note: "Full Taiwan company universe is checked separately; this endpoint scores a controlled batch to avoid upstream quota/timeouts.",
     },
     source: SCORE_SOURCE_NOTE,
     generatedAt: new Date().toISOString(),
@@ -1845,20 +2021,20 @@ async function fetchExchangeSnapshot(code: string) {
     try {
       const data = await fetchJson(endpoint.url);
       const row = Array.isArray(data) ? data.find((item: any) =>
-        String(item.Code || item.SecuritiesCompanyCode || item.SecuritiesCode || item["證券代號"]) === code
+        String(item.Code || item.SecuritiesCompanyCode || item.SecuritiesCode || item["\u8B49\u5238\u4EE3\u865F"]) === code
       ) : null;
       if (!row) continue;
-      const close = toNumber(row.ClosingPrice || row.Close || row.close || row["收盤價"]);
+      const close = toNumber(row.ClosingPrice || row.Close || row.close || row["\u6536\u76E4\u50F9"]);
       if (!Number.isFinite(close)) continue;
       return {
-        name: row.Name || row.CompanyName || row.SecuritiesCompanyName || row["證券名稱"] || FALLBACK_NAMES[code] || code,
+        name: row.Name || row.CompanyName || row.SecuritiesCompanyName || row["\u8B49\u5238\u540D\u7A31"] || FALLBACK_NAMES[code] || code,
         market: endpoint.market,
         close,
-        open: toNumber(row.OpeningPrice || row.Open || row.open || row["開盤價"]),
-        high: toNumber(row.HighestPrice || row.High || row.high || row["最高價"]),
-        low: toNumber(row.LowestPrice || row.Low || row.low || row["最低價"]),
-        change: toNumber(row.Change || row.PriceChange || row["漲跌價差"]),
-        volume: toNumber(row.TradeVolume || row.Volume || row.TradingShares || row["成交股數"] || row["成交量"]),
+        open: toNumber(row.OpeningPrice || row.Open || row.open || row["\u958B\u76E4\u50F9"]),
+        high: toNumber(row.HighestPrice || row.High || row.high || row["\u6700\u9AD8\u50F9"]),
+        low: toNumber(row.LowestPrice || row.Low || row.low || row["\u6700\u4F4E\u50F9"]),
+        change: toNumber(row.Change || row.PriceChange || row["\u6F32\u8DCC\u50F9\u5DEE"]),
+        volume: toNumber(row.TradeVolume || row.Volume || row.TradingShares || row["\u6210\u4EA4\u80A1\u6578"] || row["\u6210\u4EA4\u91CF"]),
         date: new Date().toISOString().slice(0, 10),
         sourceUrl: endpoint.url,
       };
@@ -1939,14 +2115,14 @@ function parseRssItems(xml: string): NewsItem[] {
 }
 
 function stockThemes(code: string, name: string) {
-  const base = ["台股", "股票", name, code].filter(Boolean);
-  const semiconductorNames = ["台積", "聯電", "華邦", "聯發", "半導體", "晶片"];
-  const electronicsNames = ["電", "鴻海", "廣達", "緯創", "英業達"];
+  const base = ["\u53F0\u80A1", "\u80A1\u7968", name, code].filter(Boolean);
+  const semiconductorNames = ["\u53F0\u7A4D", "\u806F\u96FB", "\u83EF\u90A6", "\u806F\u767C", "\u534A\u5C0E\u9AD4", "\u6676\u7247"];
+  const electronicsNames = ["\u96FB", "\u9D3B\u6D77", "\u5EE3\u9054", "\u7DEF\u5275", "\u82F1\u696D\u9054"];
   const semiconductor = ["2330", "2303", "2344", "2454"].includes(code) || semiconductorNames.some((word) => name.includes(word));
   const electronics = ["2308", "2317", "2356", "2382", "3231"].includes(code) || electronicsNames.some((word) => name.includes(word));
-  if (semiconductor) return [...base, "半導體", "晶片", "AI", "先進製程", "封測", "晶圓", "記憶體", "IC設計"];
-  if (electronics) return [...base, "AI伺服器", "電子", "代工", "電源", "供應鏈", "伺服器", "筆電"];
-  if (code === "0050") return [...base, "ETF", "大盤", "權值股", "台灣50", "指數"];
+  if (semiconductor) return [...base, "\u534A\u5C0E\u9AD4", "\u6676\u7247", "AI", "\u5148\u9032\u88FD\u7A0B", "\u5C01\u6E2C", "\u6676\u5713", "\u8A18\u61B6\u9AD4", "IC\u8A2D\u8A08"];
+  if (electronics) return [...base, "AI\u4F3A\u670D\u5668", "\u96FB\u5B50", "\u4EE3\u5DE5", "\u96FB\u6E90", "\u4F9B\u61C9\u93C8", "\u4F3A\u670D\u5668", "\u7B46\u96FB"];
+  if (code === "0050") return [...base, "ETF", "\u5927\u76E4", "\u6B0A\u503C\u80A1", "\u53F0\u706350", "\u6307\u6578"];
   return base;
 }
 
@@ -1959,36 +2135,36 @@ function classifyNews(item: NewsItem, code: string, name: string) {
   const themes = stockThemes(code, name);
   const directHit = text.includes(code) || Boolean(name && text.includes(name));
   const themeHits = countMatches(text, themes);
-  const bullWords = ["成長", "創高", "上修", "受惠", "訂單", "擴產", "漲", "突破", "買超", "獲利", "增溫", "看旺", "法說"];
-  const bearWords = ["下修", "衰退", "虧損", "跌", "賣超", "降評", "裁員", "庫存", "警示", "減少", "疲弱", "利空"];
+  const bullWords = ["\u6210\u9577", "\u5275\u9AD8", "\u4E0A\u4FEE", "\u53D7\u60E0", "\u8A02\u55AE", "\u64F4\u7522", "\u6F32", "\u7A81\u7834", "\u8CB7\u8D85", "\u7372\u5229", "\u589E\u6EAB", "\u770B\u65FA", "\u6CD5\u8AAA"];
+  const bearWords = ["\u4E0B\u4FEE", "\u8870\u9000", "\u8667\u640D", "\u8DCC", "\u8CE3\u8D85", "\u964D\u8A55", "\u88C1\u54E1", "\u5EAB\u5B58", "\u8B66\u793A", "\u6E1B\u5C11", "\u75B2\u5F31", "\u5229\u7A7A"];
   const bull = countMatches(text, bullWords);
   const bear = countMatches(text, bearWords);
-  const relation = directHit ? "直接相關" : themeHits >= 2 ? "間接相關" : "無關雜訊";
-  const sentiment = bull > bear ? "利多" : bear > bull ? "利空" : "中性";
-  const shortWords = ["今日", "盤中", "外資", "買超", "賣超", "股價", "開盤", "收盤"];
-  const midWords = ["月營收", "季報", "法說", "訂單", "庫存", "匯率", "產品", "展望"];
-  const longWords = ["產業", "長期", "擴產", "資本支出", "政策", "趨勢", "投資"];
-  const revenueWords = ["營收", "訂單", "出貨", "客戶"];
-  const marginWords = ["毛利", "成本", "匯率", "報價", "價格"];
-  const valuationWords = ["本益比", "目標價", "評等", "估值"];
-  const industryWords = ["AI", "政策", "產業", "擴產", "資本支出"];
+  const relation = directHit ? "\u76F4\u63A5\u76F8\u95DC" : themeHits >= 2 ? "\u9593\u63A5\u76F8\u95DC" : "\u7121\u95DC\u96DC\u8A0A";
+  const sentiment = bull > bear ? "\u5229\u591A" : bear > bull ? "\u5229\u7A7A" : "\u4E2D\u6027";
+  const shortWords = ["\u4ECA\u65E5", "\u76E4\u4E2D", "\u5916\u8CC7", "\u8CB7\u8D85", "\u8CE3\u8D85", "\u80A1\u50F9", "\u958B\u76E4", "\u6536\u76E4"];
+  const midWords = ["\u6708\u71DF\u6536", "\u5B63\u5831", "\u6CD5\u8AAA", "\u8A02\u55AE", "\u5EAB\u5B58", "\u532F\u7387", "\u7522\u54C1", "\u5C55\u671B"];
+  const longWords = ["\u7522\u696D", "\u9577\u671F", "\u64F4\u7522", "\u8CC7\u672C\u652F\u51FA", "\u653F\u7B56", "\u8DA8\u52E2", "\u6295\u8CC7"];
+  const revenueWords = ["\u71DF\u6536", "\u8A02\u55AE", "\u51FA\u8CA8", "\u5BA2\u6236"];
+  const marginWords = ["\u6BDB\u5229", "\u6210\u672C", "\u532F\u7387", "\u5831\u50F9", "\u50F9\u683C"];
+  const valuationWords = ["\u672C\u76CA\u6BD4", "\u76EE\u6A19\u50F9", "\u8A55\u7B49", "\u4F30\u503C"];
+  const industryWords = ["AI", "\u653F\u7B56", "\u7522\u696D", "\u64F4\u7522", "\u8CC7\u672C\u652F\u51FA"];
   const horizon = countMatches(text, shortWords) > 0
-    ? "短線"
+    ? "\u77ED\u7DDA"
     : countMatches(text, midWords) > 0
-      ? "中線"
+      ? "\u4E2D\u7DDA"
       : countMatches(text, longWords) > 0
-        ? "長線"
-        : "中線";
+        ? "\u9577\u7DDA"
+        : "\u4E2D\u7DDA";
   const confidence = Math.max(25, Math.min(92, (directHit ? 60 : themeHits >= 2 ? 42 : 25) + Math.min(18, themeHits * 6) + Math.min(10, (bull + bear) * 3)));
   const impact = countMatches(text, revenueWords) > 0
-    ? "可能影響營收與未來成長想像"
+    ? "\u53EF\u80FD\u5F71\u97FF\u71DF\u6536\u8207\u672A\u4F86\u6210\u9577\u60F3\u50CF"
     : countMatches(text, marginWords) > 0
-      ? "可能影響毛利與獲利壓力"
+      ? "\u53EF\u80FD\u5F71\u97FF\u6BDB\u5229\u8207\u7372\u5229\u58D3\u529B"
       : countMatches(text, valuationWords) > 0
-        ? "可能影響估值與市場期待"
+        ? "\u53EF\u80FD\u5F71\u97FF\u4F30\u503C\u8207\u5E02\u5834\u671F\u5F85"
         : countMatches(text, industryWords) > 0
-          ? "可能影響產業方向與長期敘事"
-          : "主要影響市場情緒，需再用營收與財報驗證";
+          ? "\u53EF\u80FD\u5F71\u97FF\u7522\u696D\u65B9\u5411\u8207\u9577\u671F\u6558\u4E8B"
+          : "\u4E3B\u8981\u5F71\u97FF\u5E02\u5834\u60C5\u7DD2\uFF0C\u9700\u518D\u7528\u71DF\u6536\u8207\u8CA1\u5831\u9A57\u8B49";
 
   return {
     ...item,
@@ -2010,8 +2186,8 @@ async function loadNews(code: string, name = FALLBACK_NAMES[code] || code) {
       cached: true,
       stale: false,
       note: cached.payload.items.length
-        ? "新聞由短期快取提供，仍需點開原文確認細節。"
-        : "新聞來源查詢成功，但目前沒有符合條件的可判讀新聞。",
+        ? "\u65B0\u805E\u7531\u77ED\u671F\u5FEB\u53D6\u63D0\u4F9B\uFF0C\u4ECD\u9700\u9EDE\u958B\u539F\u6587\u78BA\u8A8D\u7D30\u7BC0\u3002"
+        : "\u65B0\u805E\u4F86\u6E90\u67E5\u8A62\u6210\u529F\uFF0C\u4F46\u76EE\u524D\u6C92\u6709\u7B26\u5408\u689D\u4EF6\u7684\u53EF\u5224\u8B80\u65B0\u805E\u3002",
     };
   }
 
@@ -2019,8 +2195,8 @@ async function loadNews(code: string, name = FALLBACK_NAMES[code] || code) {
   if (activeRequest) return activeRequest;
 
   const query = code === "0050"
-    ? "0050 元大台灣50 ETF OR 成分股 OR 台股大盤"
-    : `${code} ${name} 股票 OR 台股`;
+    ? "0050 \u5143\u5927\u53F0\u706350 ETF OR \u6210\u5206\u80A1 OR \u53F0\u80A1\u5927\u76E4"
+    : `${code} ${name} \u80A1\u7968 OR \u53F0\u80A1`;
   const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
   const request = (async (): Promise<NewsPayload> => {
     try {
@@ -2036,8 +2212,8 @@ async function loadNews(code: string, name = FALLBACK_NAMES[code] || code) {
         cached: false,
         stale: false,
         note: items.length
-          ? "新聞用標題與摘要做關聯判讀，仍需點開原文確認細節。"
-          : "新聞來源查詢成功，但目前沒有符合條件的可判讀新聞。",
+          ? "\u65B0\u805E\u7528\u6A19\u984C\u8207\u6458\u8981\u505A\u95DC\u806F\u5224\u8B80\uFF0C\u4ECD\u9700\u9EDE\u958B\u539F\u6587\u78BA\u8A8D\u7D30\u7BC0\u3002"
+          : "\u65B0\u805E\u4F86\u6E90\u67E5\u8A62\u6210\u529F\uFF0C\u4F46\u76EE\u524D\u6C92\u6709\u7B26\u5408\u689D\u4EF6\u7684\u53EF\u5224\u8B80\u65B0\u805E\u3002",
       };
       newsCache.set(cacheKey, { payload, fetchedAt: Date.now() });
       return payload;
@@ -2055,8 +2231,8 @@ async function loadNews(code: string, name = FALLBACK_NAMES[code] || code) {
           unavailableReason: isTimeout ? "timeout" : "upstream",
           generatedAt: new Date().toISOString(),
           note: isTimeout
-            ? "新聞來源本次逾時，顯示最近一次成功取得的快取。"
-            : "新聞來源本次暫時不可用，顯示最近一次成功取得的快取。",
+            ? "\u65B0\u805E\u4F86\u6E90\u672C\u6B21\u903E\u6642\uFF0C\u986F\u793A\u6700\u8FD1\u4E00\u6B21\u6210\u529F\u53D6\u5F97\u7684\u5FEB\u53D6\u3002"
+            : "\u65B0\u805E\u4F86\u6E90\u672C\u6B21\u66AB\u6642\u4E0D\u53EF\u7528\uFF0C\u986F\u793A\u6700\u8FD1\u4E00\u6B21\u6210\u529F\u53D6\u5F97\u7684\u5FEB\u53D6\u3002",
         };
       }
       return {
@@ -2070,8 +2246,8 @@ async function loadNews(code: string, name = FALLBACK_NAMES[code] || code) {
         stale: false,
         unavailableReason: isTimeout ? "timeout" : "upstream",
         note: isTimeout
-          ? "新聞來源讀取逾時，不代表沒有新聞，請稍後重試。"
-          : "新聞來源暫時無法連線，不代表沒有新聞，請稍後重試。",
+          ? "\u65B0\u805E\u4F86\u6E90\u8B80\u53D6\u903E\u6642\uFF0C\u4E0D\u4EE3\u8868\u6C92\u6709\u65B0\u805E\uFF0C\u8ACB\u7A0D\u5F8C\u91CD\u8A66\u3002"
+          : "\u65B0\u805E\u4F86\u6E90\u66AB\u6642\u7121\u6CD5\u9023\u7DDA\uFF0C\u4E0D\u4EE3\u8868\u6C92\u6709\u65B0\u805E\uFF0C\u8ACB\u7A0D\u5F8C\u91CD\u8A66\u3002",
       };
     }
   })();
@@ -2396,7 +2572,7 @@ function fmt(value: number, digits = 2) {
 }
 
 function buildAgentReply(quote: QuoteInfo, question: string) {
-  const q = question.trim() || "請給我目前風險與操作建議";
+  const q = question.trim() || "\u8ACB\u7D66\u6211\u76EE\u524D\u98A8\u96AA\u8207\u64CD\u4F5C\u5EFA\u8B70";
   const latest = quote.analysis.latest;
   const levels = quote.analysis.levels;
   const prob = quote.analysis.probabilities;
@@ -2407,31 +2583,31 @@ function buildAgentReply(quote: QuoteInfo, question: string) {
   const trendUp = close > latest.ma20 && latest.ma20 > latest.ma60;
   const highRisk = latest.pullback >= 70;
   const tone = highRisk ? "bear" : trendUp ? "bull" : "neutral";
-  const stance = highRisk ? "高風險" : trendUp ? "偏多" : "觀察";
+  const stance = highRisk ? "\u9AD8\u98A8\u96AA" : trendUp ? "\u504F\u591A" : "\u89C0\u5BDF";
 
   return {
-    title: `${quote.code} ${quote.name} Agent 回覆`,
+    title: `${quote.code} ${quote.name} Agent \u56DE\u8986`,
     stance,
     tone,
     confidence: Math.max(45, Math.min(88, 100 - Math.abs(latest.pullback - 50))),
     question: q,
-    answer: `目前收盤 ${fmt(close)}，回檔機率 ${latest.pullback}%。短線支撐 ${fmt(levels.supportShort)}，中線支撐 ${fmt(levels.supportMid)}，短線壓力 ${fmt(levels.resistanceShort)}。${highRisk ? "不建議追高，等回測或量縮整理較好。" : trendUp ? "趨勢仍偏多，但進場仍需分批。" : "目前以觀察和控風險為主。"}`,
+    answer: `\u76EE\u524D\u6536\u76E4 ${fmt(close)}\uFF0C\u56DE\u6A94\u6A5F\u7387 ${latest.pullback}%\u3002\u77ED\u7DDA\u652F\u6490 ${fmt(levels.supportShort)}\uFF0C\u4E2D\u7DDA\u652F\u6490 ${fmt(levels.supportMid)}\uFF0C\u77ED\u7DDA\u58D3\u529B ${fmt(levels.resistanceShort)}\u3002${highRisk ? "\u4E0D\u5EFA\u8B70\u8FFD\u9AD8\uFF0C\u7B49\u56DE\u6E2C\u6216\u91CF\u7E2E\u6574\u7406\u8F03\u597D\u3002" : trendUp ? "\u8DA8\u52E2\u4ECD\u504F\u591A\uFF0C\u4F46\u9032\u5834\u4ECD\u9700\u5206\u6279\u3002" : "\u76EE\u524D\u4EE5\u89C0\u5BDF\u548C\u63A7\u98A8\u96AA\u70BA\u4E3B\u3002"}`,
     keyPoints: [
-      `均線：MA20 ${fmt(latest.ma20)}、MA60 ${fmt(latest.ma60)}、MA120 ${fmt(latest.ma120)}。`,
-      `指標：RSI14 ${fmt(latest.rsi14, 1)}、KD ${fmt(latest.k, 1)} / ${fmt(latest.d, 1)}、MACD Hist ${fmt(latest.hist, 3)}。`,
-      `機率：整體 ${prob.overall}%、技術 ${prob.technical}%、量能 ${prob.volume}%、波段 ${prob.wave}%。`,
+      `\u5747\u7DDA\uFF1AMA20 ${fmt(latest.ma20)}\u3001MA60 ${fmt(latest.ma60)}\u3001MA120 ${fmt(latest.ma120)}\u3002`,
+      `\u6307\u6A19\uFF1ARSI14 ${fmt(latest.rsi14, 1)}\u3001KD ${fmt(latest.k, 1)} / ${fmt(latest.d, 1)}\u3001MACD Hist ${fmt(latest.hist, 3)}\u3002`,
+      `\u6A5F\u7387\uFF1A\u6574\u9AD4 ${prob.overall}%\u3001\u6280\u8853 ${prob.technical}%\u3001\u91CF\u80FD ${prob.volume}%\u3001\u6CE2\u6BB5 ${prob.wave}%\u3002`,
     ],
     actions: [
-      `第一觀察買點：${fmt(levels.supportShort * 0.99)} - ${fmt(levels.supportShort * 1.01)}。`,
-      `第二分批買點：${fmt(levels.supportMid * 0.99)} - ${fmt(levels.supportMid * 1.02)}。`,
-      `停損：${fmt(stop)}；目標：${fmt(target1)} / ${fmt(target2)}。`,
+      `\u7B2C\u4E00\u89C0\u5BDF\u8CB7\u9EDE\uFF1A${fmt(levels.supportShort * 0.99)} - ${fmt(levels.supportShort * 1.01)}\u3002`,
+      `\u7B2C\u4E8C\u5206\u6279\u8CB7\u9EDE\uFF1A${fmt(levels.supportMid * 0.99)} - ${fmt(levels.supportMid * 1.02)}\u3002`,
+      `\u505C\u640D\uFF1A${fmt(stop)}\uFF1B\u76EE\u6A19\uFF1A${fmt(target1)} / ${fmt(target2)}\u3002`,
     ],
     watchlist: [
-      "若跌破 MA20 且無法收回，短線結構轉弱。",
-      "若突破壓力但量能沒有放大，容易是假突破。",
-      "若 RSI 維持 70 以上，代表強勢但追價風險同步升高。",
+      "\u82E5\u8DCC\u7834 MA20 \u4E14\u7121\u6CD5\u6536\u56DE\uFF0C\u77ED\u7DDA\u7D50\u69CB\u8F49\u5F31\u3002",
+      "\u82E5\u7A81\u7834\u58D3\u529B\u4F46\u91CF\u80FD\u6C92\u6709\u653E\u5927\uFF0C\u5BB9\u6613\u662F\u5047\u7A81\u7834\u3002",
+      "\u82E5 RSI \u7DAD\u6301 70 \u4EE5\u4E0A\uFF0C\u4EE3\u8868\u5F37\u52E2\u4F46\u8FFD\u50F9\u98A8\u96AA\u540C\u6B65\u5347\u9AD8\u3002",
     ],
-    disclaimer: "本頁為技術分析與情境推估工具，不構成投資建議。",
+    disclaimer: "\u672C\u9801\u70BA\u6280\u8853\u5206\u6790\u8207\u60C5\u5883\u63A8\u4F30\u5DE5\u5177\uFF0C\u4E0D\u69CB\u6210\u6295\u8CC7\u5EFA\u8B70\u3002",
     generatedAt: new Date().toISOString(),
   };
 }
@@ -2439,7 +2615,7 @@ function buildAgentReply(quote: QuoteInfo, question: string) {
 export const handler = router({
   "GET /api/_healthcheck": [async () => json({ message: "Success" })],
 
-  "GET /api/quote": [async ({ query }) => {
+  "GET /api/quote": [async ({ query }: any) => {
     const code = cleanCode(query.code);
     if (!code) return error("Missing stock code", 400);
     try {
@@ -2452,7 +2628,7 @@ export const handler = router({
     }
   }],
 
-  "GET /api/agent": [async ({ query }) => {
+  "GET /api/agent": [async ({ query }: any) => {
     const code = cleanCode(query.code);
     const question = String(query.question || "").slice(0, 500);
     if (!code) return error("Missing stock code", 400);
@@ -2479,14 +2655,14 @@ export const handler = router({
     }
   }],
 
-  "GET /api/news": [async ({ query }) => {
+  "GET /api/news": [async ({ query }: any) => {
     const code = cleanCode(query.code);
     const name = String(query.name || FALLBACK_NAMES[code] || code).slice(0, 40);
     if (!code) return error("Missing stock code", 400);
     return json(await loadNews(code, name));
   }],
 
-  "GET /api/fundamentals": [async ({ query }) => {
+  "GET /api/fundamentals": [async ({ query }: any) => {
     const code = cleanCode(query.code);
     if (!code || !/^\d{4,6}$/.test(code)) return error("Missing or invalid stock code", 400);
     try {
@@ -2525,6 +2701,17 @@ export const handler = router({
         ok: false,
         mode,
         message: `Unable to build screener: ${err instanceof Error ? err.message : String(err)}`,
+      }, 502);
+    }
+  }],
+
+  "GET /api/universe": [async () => {
+    try {
+      return json(await loadTaiwanCompanyUniverse(), 200);
+    } catch (err) {
+      return json({
+        ok: false,
+        message: `Unable to load Taiwan company universe: ${err instanceof Error ? err.message : String(err)}`,
       }, 502);
     }
   }],
