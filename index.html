@@ -123,7 +123,9 @@
     .rank-tabs { display:flex; flex-wrap:wrap; gap:.45rem; margin:.65rem 0; }
     .rank-tabs button { background:#fff; color:var(--ink); border:1px solid var(--line); min-height:32px; border-radius:999px; font-size:12px; padding:0 .72rem; }
     .rank-tabs button.active { background:var(--ink); color:#fff; }
-    .table-wrap { width:100%; overflow-x:auto; }
+    .table-wrap { width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .table-wrap table { min-width:640px; }
+    .table-wrap.compact-table table { min-width:520px; }
     .mini-form { display:grid; gap:.55rem; }
     .mini-form label { display:grid; gap:.25rem; color:var(--muted); font-size:12px; }
     select, textarea { border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); font:inherit; }
@@ -168,21 +170,36 @@
       .form input { flex:1 1 100%; width:auto; }
       .form button { flex:1 1 0; min-width:0; }
       button.chip { flex:1 1 calc(50% - .45rem); white-space:normal; line-height:1.25; }
-      .mc .v { font-size:1rem; line-height:1.3; }
+      .mc { min-height:86px; padding:.7rem .8rem; }
+      .mc .k,.value-card b,.client-card b,.decision-card b,.horizon-card b,.news-item b { font-size:12px; }
+      .mc .v { font-size:1.22rem; line-height:1.22; }
+      .value-card strong { font-size:1.38rem; }
+      .client-card strong,.decision-card > span,.theory-card strong,.data-status-card strong { font-size:1.18rem; }
       .pb { grid-template-columns:1fr; gap:.25rem; }
       .allocation-row { grid-template-columns:1fr; }
-      table { table-layout:fixed; font-size:11px; }
-      th,td { padding:.44rem .35rem; }
+      table { font-size:12.5px; }
+      th,td { padding:.56rem .48rem; }
       h1 { font-size:1.45rem; }
       .agent-form { grid-template-columns:1fr; }
       .agent-msg.user,.agent-msg.agent { margin-left:0; margin-right:0; }
     }
     @media (max-width:520px) {
-      .metrics { grid-template-columns:1fr; }
-      table, thead, tbody, tr, th, td { display:block; width:100%; }
-      thead { display:none; }
-      tr { border-bottom:.5px solid #e7e5e1; padding:.35rem 0; }
-      td { border-bottom:0; padding:.22rem .1rem; }
+      .page { padding:.72rem; }
+      .hero { border-radius:12px; padding:.85rem; }
+      .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem; }
+      .value-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .rank-tabs button { flex:1 1 calc(50% - .45rem); padding:0 .55rem; }
+      .table-wrap { margin-inline:-.1rem; padding-bottom:.2rem; }
+      .table-wrap table { min-width:700px; }
+      .table-wrap.compact-table table { min-width:540px; }
+      .table-wrap td:first-child,.table-wrap th:first-child { position:sticky; left:0; background:var(--card); z-index:1; box-shadow:8px 0 10px -12px rgba(0,0,0,.45); }
+      .table-wrap tbody td:first-child { background:#fbfaf8; }
+      .mc .v { font-size:1.18rem; }
+      .value-card strong { font-size:1.3rem; }
+      .client-card strong,.decision-card > span,.theory-card strong,.data-status-card strong { font-size:1.12rem; }
+    }
+    @media (max-width:360px) {
+      .metrics,.value-grid { grid-template-columns:1fr; }
     }
   </style>
 </head>
@@ -907,14 +924,16 @@
             : ["風險報酬不明", "warn", "方向不夠清楚，先等支撐或量價訊號。"];
       $("entryQuality").innerHTML = `
         <div class="sr"><div class="sl">${mode[2]}</div>${badge(mode[0], mode[1])}</div>
-        <table>
-          <thead><tr><th>買法</th><th>估算停損損失</th><th>說明</th></tr></thead>
-          <tbody>
-            <tr><td>買 1 股</td><td>${fmt(lossPerShare, 0)} 元</td><td>用來理解單股風險。</td></tr>
-            <tr><td>買 10 股</td><td>${fmt(lossPerShare * 10, 0)} 元</td><td>小額測試時較容易控制情緒。</td></tr>
-            <tr><td>1000 元零股</td><td>${shares1000 ? `${fmt(lossPerShare * shares1000, 0)} 元` : "不足 1 股"}</td><td>${shares1000 ? `約 ${shares1000} 股。` : "金額低於目前股價，需提高金額或改看低價標的。"}</td></tr>
-          </tbody>
-        </table>`;
+        <div class="table-wrap compact-table">
+          <table>
+            <thead><tr><th>買法</th><th>估算停損損失</th><th>說明</th></tr></thead>
+            <tbody>
+              <tr><td>買 1 股</td><td>${fmt(lossPerShare, 0)} 元</td><td>用來理解單股風險。</td></tr>
+              <tr><td>買 10 股</td><td>${fmt(lossPerShare * 10, 0)} 元</td><td>小額測試時較容易控制情緒。</td></tr>
+              <tr><td>1000 元零股</td><td>${shares1000 ? `${fmt(lossPerShare * shares1000, 0)} 元` : "不足 1 股"}</td><td>${shares1000 ? `約 ${shares1000} 股。` : "金額低於目前股價，需提高金額或改看低價標的。"}</td></tr>
+            </tbody>
+          </table>
+        </div>`;
     }
 
     function renderEntrySupportPanels(data) {
@@ -2267,17 +2286,19 @@
       ];
       $("rrCompare").innerHTML = `
         <h2 style="margin-top:1rem">三買點風險報酬比比較</h2>
-        <table>
-          <thead><tr><th>買點</th><th>進場</th><th>停損</th><th>最大虧損</th><th>目標</th><th>潛在報酬</th><th>R:R比</th><th>評級</th></tr></thead>
-          <tbody>
-            ${plans.map(([name, entry, planStop, target, basis]) => {
-              const loss = gapPct(planStop, entry);
-              const gain = gapPct(target, entry);
-              const rr = rrValue(entry, planStop, target);
-              return `<tr><td>${name}<br><span class="note">${basis}</span></td><td>${fmt(entry)} 元</td><td>${fmt(planStop)} 元</td><td>${pct(loss)}</td><td>${fmt(target)} 元</td><td>${pct(gain)}</td><td>1 : ${fmt(rr, 1)}</td><td>${rrBadge(rr)}</td></tr>`;
-            }).join("")}
-          </tbody>
-        </table>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>買點</th><th>進場</th><th>停損</th><th>最大虧損</th><th>目標</th><th>潛在報酬</th><th>R:R比</th><th>評級</th></tr></thead>
+            <tbody>
+              ${plans.map(([name, entry, planStop, target, basis]) => {
+                const loss = gapPct(planStop, entry);
+                const gain = gapPct(target, entry);
+                const rr = rrValue(entry, planStop, target);
+                return `<tr><td>${name}<br><span class="note">${basis}</span></td><td>${fmt(entry)} 元</td><td>${fmt(planStop)} 元</td><td>${pct(loss)}</td><td>${fmt(target)} 元</td><td>${pct(gain)}</td><td>1 : ${fmt(rr, 1)}</td><td>${rrBadge(rr)}</td></tr>`;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
         <div class="summary-box" style="margin-top:.75rem">
           <b>操作核心建議</b>
           <p>若今日已大漲，先觀察隔日是否量縮守高。最好的佈局通常不是追在壓力附近，而是等回測 MA20 或中期支撐後，用較短停損換較高 R:R。</p>

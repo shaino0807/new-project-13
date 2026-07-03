@@ -56,7 +56,7 @@ Steps:
 2. Enter "0050" and run analysis.
 3. Scroll from top to bottom.
 
-Expected: The input, metric cards, 小資決策卡, 買點好壞判斷, 短中長線分層, 新聞關聯分析, charts, signal rows, 葛蘭威爾八大法則當前位置, 道氏理論三期趨勢, Agent panel, 回檔機率 summary, and strategy sections are readable without horizontal scrolling.
+Expected: The input, metric cards, 小資決策卡, 買點好壞判斷, 短中長線分層, 新聞關聯分析, charts, signal rows, 葛蘭威爾八大法則當前位置, 道氏理論三期趨勢, Agent panel, 回檔機率 summary, and strategy sections are readable. Key numeric cards remain at mobile-readable size, the top metrics use a compact two-column layout on normal phone widths, and dense ranking or risk tables scroll horizontally inside their panels instead of shrinking numbers into tiny text or breaking each row into unreadable blocks.
 
 ## Test 6 - News relation module handles external data
 Viewport: desktop
