@@ -846,6 +846,7 @@ type ScoreComponent = {
   weight: number;
   evidence: string[];
   missing: string[];
+  groups?: Record<string, { score: number | null; weight: number; evidence: string[]; missing: string[] }>;
 };
 
 type ValueScore = {
@@ -1845,6 +1846,36 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
     { score: volumeRisk, weight: 20 },
     { score: extensionRisk, weight: 25 },
   ];
+  const chaseRiskV2Groups = {
+    trend: {
+      score: trendRisk,
+      weight: 25,
+      evidence: technicalTrendComponent.evidence,
+      missing: trendRisk === null ? ["moving average trend"] : [],
+    },
+    oscillator: {
+      score: oscillatorRisk,
+      weight: 30,
+      evidence: [
+        Number.isFinite(latest.rsi14) ? `RSI ${fmt(latest.rsi14, 1)}` : "",
+        Number.isFinite(latest.k) && Number.isFinite(latest.d) ? `Stochastic K/D ${fmt(latest.k, 1)}/${fmt(latest.d, 1)}` : "",
+        Number.isFinite(latest.pctB) ? `Bollinger %B ${fmt(latest.pctB, 2)}` : "",
+      ].filter(Boolean),
+      missing: oscillatorRisk === null ? ["RSI/Stochastic/Bollinger oscillator group"] : [],
+    },
+    volume: {
+      score: volumeRisk,
+      weight: 20,
+      evidence: [Number.isFinite(latest.volumeRatio) ? `volume ratio ${fmt(latest.volumeRatio, 2)}` : ""].filter(Boolean),
+      missing: volumeRisk === null ? ["volume ratio"] : [],
+    },
+    extension: {
+      score: extensionRisk,
+      weight: 25,
+      evidence: [Number.isFinite(distanceFromSupport) ? `distance from short-term support ${fmt(distanceFromSupport as number, 2)}%` : ""].filter(Boolean),
+      missing: extensionRisk === null ? ["support distance"] : [],
+    },
+  };
   const chaseRiskV2Component: ScoreComponent = {
     score: strictWeightedScore(chaseRiskV2Parts),
     label: scoreLabel(strictWeightedScore(chaseRiskV2Parts), "\u8FFD\u9AD8\u98A8\u96AA\u9AD8", "\u8FFD\u9AD8\u98A8\u96AA\u4E2D", "\u8FFD\u9AD8\u98A8\u96AA\u4F4E"),
@@ -1861,6 +1892,7 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
       volumeRisk === null ? "volume group" : "",
       extensionRisk === null ? "support distance" : "",
     ].filter(Boolean),
+    groups: chaseRiskV2Groups,
   };
   const oneLotCost = Number.isFinite(close) ? close * 1000 : null;
   const entryCostScore = Number.isFinite(oneLotCost)
@@ -2093,12 +2125,24 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
       capitalConfidence: capitalConfidenceComponent,
       technicalTrend: technicalTrendComponent,
       chaseRisk: chaseRiskV2Component,
+      smallInvestorDetail: {
+        score: smallInvestorV2,
+        groups: {
+          entryCost: { score: entryCostScore, weight: 20 },
+          liquidity: { score: liquidityV2Score, weight: 25 },
+          volatility: { score: volatilityV2Score, weight: 20 },
+          positionRisk: { score: positionRiskV2Score, weight: 15 },
+          financialQuality: { score: financialQualityV2Score, weight: 20 },
+        },
+      },
       etfDistributionQuality: etfDistributionQualityScore,
     },
     weights: {
       undervalued: { valuation: 25, upside: 20, cashFlow: 15, financialStability: 10, profitability: 10, growth: 10, technicalPosition: 5, dataConfidence: 5 },
       overvalued: { expensiveValuation: 25, downside: 20, weakGrowth: 15, weakProfitCashFlow: 15, financialRisk: 10, chaseRisk: 10, dataConfidenceRisk: 5 },
       smallInvestor: { entryCost: 20, liquidity: 25, volatility: 20, positionRisk: 15, financialQuality: 20 },
+      chaseRisk: { trend: 25, oscillator: 30, volume: 20, extension: 25 },
+      etfDistributionQuality: { continuity: 30, payoutVolatility: 25, yieldReasonableness: 15, navTotalReturnStability: 15, scaleLiquidity: 15 },
     },
     rankingEligibility,
     professionalRating: {
