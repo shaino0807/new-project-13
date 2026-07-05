@@ -1,0 +1,14 @@
+# Score v2 QA
+
+## Test 13 - Score v2 remains parallel before cutover
+Viewport: desktop
+Description: Verifies the redesigned Score v2 model is available for internal comparison without replacing customer-facing v1 scores.
+
+Steps:
+1. Open the app with `?admin=1` or `#admin`.
+2. Wait for the admin data checks and client workbench summary to load.
+3. Inspect the Score v2 parallel-test section in the admin page.
+4. Search a stock such as 2330, then return to the admin view.
+5. Compare the stock depth page value radar with the admin Score v2 detail.
+
+Expected: `/api/value-score` still returns the existing v1 fields as the customer-facing `professionalRating`, `scores`, `fairValue`, and `cfoGuide`. It also returns `scoreV2` with `status: parallel_only`, `clientActive: false`, v1/v2 total and grade comparison, data-confidence caps, critical missing data, v2 fair-value method coverage, separated `capitalConfidence` and `technicalTrend`, ATR-based small-investor volatility evidence, and v2 ranking eligibility. `/api/workbench` returns existing `ranked` plus separate `rankedV2`, `scoreV2Summary`, and `scoreV2Summary.rankingChanges`. The admin-only page shows average v2 confidence, eligibility counts, largest v1/v2 deltas, ranking changes, and the current stock's v2 detail. Customer-facing ranking and stock-depth cards remain on v1 until an explicit cutover.

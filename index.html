@@ -519,6 +519,12 @@
         <h2>&#x76ee;&#x524d;&#x500b;&#x80a1;&#x8cc7;&#x6599;&#x900f;&#x660e;&#x5ea6;</h2>
         <div id="adminValueDataStatus"></div>
       </section>
+      <section class="panel">
+        <h2>Score v2 &#x5e73;&#x884c;&#x6e2c;&#x8a66;</h2>
+        <div class="client-grid" id="adminScoreV2Summary"></div>
+        <div id="adminScoreV2Current"></div>
+        <div id="adminScoreV2Detail"></div>
+      </section>
     </div>
   </main>
 
@@ -540,6 +546,7 @@
     let clientRankingMode = "undervalued";
     let clientRankingScope = "all";
     let adminUniverse = null;
+    let adminScoreV2Workbench = null;
     const adminEnabled = new URLSearchParams(location.search).get("admin") === "1" || location.hash.toLowerCase() === "#admin";
 
     const fmt = (n, d=2) => Number.isFinite(Number(n)) ? Number(n).toLocaleString("zh-TW", { maximumFractionDigits:d, minimumFractionDigits:d }) : "--";
@@ -1731,6 +1738,7 @@
       ].join("");
       $("valueDataStatus").innerHTML = renderProfessionalRating(score);
       renderValueDataStatus(score, "adminValueDataStatus");
+      renderCurrentScoreV2(score);
       const chase = s.chaseRisk || {};
       const chaseCls = scoreTone(chase.score, true);
       $("chaseRiskPanel").innerHTML = `
@@ -2009,6 +2017,114 @@
       }
     }
 
+    function renderAdminScoreV2(payload) {
+      const summary = payload?.scoreV2Summary;
+      const target = $("adminScoreV2Summary");
+      const detail = $("adminScoreV2Detail");
+      if (!target || !detail) return;
+      if (!summary) {
+        target.innerHTML = valueCard("Score v2", "\u672a\u90e8\u7f72", "\u5f8c\u7aef\u5c1a\u672a\u56de\u50b3 scoreV2Summary\uff0c\u76ee\u524d\u4ecd\u53ea\u80fd\u770b v1\u3002", "warn");
+        detail.innerHTML = "";
+        return;
+      }
+      const counts = summary.eligibleCounts || {};
+      target.innerHTML = [
+        valueCard("Score v2", summary.clientActive ? "\u5df2\u555f\u7528" : "\u5e73\u884c\u6e2c\u8a66", summary.modelVersion || "", summary.clientActive ? "bull" : "warn"),
+        valueCard("\u5e73\u5747\u4fe1\u5fc3\u5ea6", scoreText(summary.averageConfidence), "\u542b\u8cc7\u6599\u8986\u84cb\u8207\u95dc\u9375\u7f3a\u6f0f\u6263\u5206", scoreTone(summary.averageConfidence)),
+        valueCard("\u4f4e\u4f30\u53ef\u6392\u540d", `${counts.undervalued || 0} \u6a94`, "\u7121 EPS\u3001\u7121\u73fe\u91d1\u6d41\u6216\u4f30\u503c\u65b9\u6cd5\u4e0d\u8db3\u6703\u88ab\u6392\u9664", "neut"),
+        valueCard("\u8ffd\u9ad8\u53ef\u8a55\u5206", `${counts.chaseRisk || 0} \u6a94`, "\u8da8\u52e2\u3001\u9707\u76ea\u3001\u91cf\u80fd\u3001\u4e56\u96e2\u5206\u7d44", "neut"),
+      ].join("");
+      const rows = (summary.largestDeltas || []).slice(0, 10).map((item) => `
+        <tr>
+          <td>${escapeHtml(item.code)} ${escapeHtml(item.name || "")}</td>
+          <td>${badge(item.v1Grade || "X", ["A","B"].includes(item.v1Grade) ? "bull" : item.v1Grade === "C" ? "warn" : "bear")} ${scoreText(item.v1Total)}</td>
+          <td>${badge(item.v2Grade || "X", ["A","B"].includes(item.v2Grade) ? "bull" : item.v2Grade === "C" ? "warn" : "bear")} ${scoreText(item.v2Total)}</td>
+          <td>${Number.isFinite(Number(item.delta)) ? (item.delta > 0 ? "+" : "") + item.delta : "--"}</td>
+          <td>${scoreText(item.confidence)}</td>
+          <td>${escapeHtml((item.criticalMissing || []).join(", ") || "\u7121")}</td>
+        </tr>`).join("");
+      const rankingLabels = {
+        todayWatch: "\u4eca\u65e5\u89c0\u5bdf",
+        watchlist: "\u89c0\u5bdf\u6e05\u55ae",
+        chaseRisk: "\u8ffd\u9ad8\u98a8\u96aa",
+        undervalued: "\u4f4e\u4f30",
+        overvalued: "\u9ad8\u4f30",
+        cashflow: "\u73fe\u91d1\u6d41",
+        growth: "\u6210\u9577",
+        smallInvestor: "\u5c0f\u8cc7",
+        etf: "ETF",
+      };
+      const rankingRows = (summary.rankingChanges || []).flatMap((group) => (group.changes || []).slice(0, 3).map((item) => {
+        const status = item.status === "new" ? "\u65b0\u9032" : item.status === "dropped" ? "\u6389\u51fa" : item.status === "changed" ? "\u8b8a\u52d5" : "\u672a\u8b8a";
+        const delta = item.rankDelta !== null && item.rankDelta !== undefined && Number.isFinite(Number(item.rankDelta)) ? (item.rankDelta > 0 ? "+" : "") + item.rankDelta : "--";
+        return `
+          <tr>
+            <td>${escapeHtml(rankingLabels[group.mode] || group.mode || "--")}</td>
+            <td>${escapeHtml(item.code)} ${escapeHtml(item.name || "")}</td>
+            <td>${item.v1Rank || "--"}</td>
+            <td>${item.v2Rank || "--"}</td>
+            <td>${delta}</td>
+            <td>${escapeHtml(status)}</td>
+          </tr>`;
+      })).join("");
+      detail.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>\u80a1\u7968</th><th>v1</th><th>v2</th><th>\u5dee\u7570</th><th>\u4fe1\u5fc3</th><th>\u95dc\u9375\u7f3a\u6f0f</th></tr></thead>
+            <tbody>${rows || `<tr><td colspan="6">\u5c1a\u7121 v2 \u5dee\u7570\u8cc7\u6599\u3002</td></tr>`}</tbody>
+          </table>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>\u699c\u55ae</th><th>\u80a1\u7968</th><th>v1 \u540d\u6b21</th><th>v2 \u540d\u6b21</th><th>\u8b8a\u52d5</th><th>\u72c0\u614b</th></tr></thead>
+            <tbody>${rankingRows || `<tr><td colspan="6">\u5c1a\u7121\u6392\u540d\u8b8a\u5316\u8cc7\u6599\u3002</td></tr>`}</tbody>
+          </table>
+        </div>
+        <p class="note">${escapeHtml(summary.note || "\u5e73\u884c\u6e2c\u8a66\uff0c\u5ba2\u6236\u7aef\u5c1a\u672a\u5207\u63db\u3002")}</p>`;
+    }
+
+    async function loadAdminScoreV2(force = false) {
+      if (adminScoreV2Workbench && !force) {
+        renderAdminScoreV2(adminScoreV2Workbench);
+        return;
+      }
+      if ($("adminScoreV2Summary")) {
+        $("adminScoreV2Summary").innerHTML = valueCard("Score v2", "\u8f09\u5165\u4e2d", "\u6b63\u5728\u8b80\u53d6\u5de5\u4f5c\u53f0\u7684 v1/v2 \u6bd4\u8f03\u3002", "warn");
+      }
+      try {
+        adminScoreV2Workbench = await getWorkbench();
+        renderAdminScoreV2(adminScoreV2Workbench);
+      } catch (err) {
+        if ($("adminScoreV2Summary")) $("adminScoreV2Summary").innerHTML = valueCard("Score v2", "\u8f09\u5165\u5931\u6557", err.message || "\u5de5\u4f5c\u53f0\u8cc7\u6599\u4e0d\u53ef\u7528", "bear");
+        if ($("adminScoreV2Detail")) $("adminScoreV2Detail").innerHTML = "";
+      }
+    }
+
+    function renderCurrentScoreV2(score) {
+      const target = $("adminScoreV2Current");
+      if (!target) return;
+      const v2 = score?.scoreV2;
+      if (!v2) {
+        target.innerHTML = `<p class="note">\u8f09\u5165\u500b\u80a1\u5f8c\uff0c\u9019\u88e1\u6703\u986f\u793a\u76ee\u524d\u500b\u80a1\u7684 Score v2 \u5e73\u884c\u5206\u6578\u3002</p>`;
+        return;
+      }
+      const cmp = v2.comparison || {};
+      const confidence = v2.confidence || {};
+      const fair = v2.fairValue || {};
+      target.innerHTML = `
+        <div class="data-status">
+          <h3>\u76ee\u524d\u500b\u80a1 Score v2 ${badge(v2.clientActive ? "\u5df2\u555f\u7528" : "\u5e73\u884c\u6e2c\u8a66", v2.clientActive ? "bull" : "warn")}</h3>
+          <div class="data-status-grid">
+            <div class="data-status-card"><b>v1</b><strong>${escapeHtml(cmp.v1Grade || "X")} / ${scoreText(cmp.v1Total)}</strong></div>
+            <div class="data-status-card"><b>v2</b><strong>${escapeHtml(cmp.v2Grade || "X")} / ${scoreText(cmp.v2Total)}</strong></div>
+            <div class="data-status-card"><b>\u5dee\u7570</b><strong>${Number.isFinite(Number(cmp.delta)) ? (cmp.delta > 0 ? "+" : "") + cmp.delta : "--"}</strong></div>
+            <div class="data-status-card"><b>\u8cc7\u6599\u4fe1\u5fc3</b><strong>${scoreText(confidence.score)}</strong></div>
+          </div>
+          <p class="note">\u95dc\u9375\u7f3a\u6f0f\uff1a${escapeHtml((confidence.criticalMissing || []).join(", ") || "\u7121")}\u3002\u516c\u5141\u50f9 v2\uff1a${fair.value ? fmt(fair.value) : "--"}\uff0c\u65b9\u6cd5\u8986\u84cb ${fair.methodCoverage || 0}%\uff0c\u7522\u696d\u7d44 ${escapeHtml(fair.industryGroup || "--")}\u3002</p>
+          <p class="note">${escapeHtml(v2.professionalRating?.note || "")}</p>
+        </div>`;
+    }
+
     function switchView(view) {
       const client = view === "client";
       const admin = view === "admin";
@@ -2017,7 +2133,11 @@
       $("adminPage").hidden = !admin;
       $("viewTabs").querySelectorAll("[data-view]").forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view));
       if (client) loadClientWorkbench();
-      if (admin) loadAdminUniverse();
+      if (admin) {
+        loadAdminUniverse();
+        loadAdminScoreV2();
+        renderCurrentScoreV2(activeValueScore);
+      }
     }
 
     function portfolioEntries() {
@@ -2124,6 +2244,8 @@
       ].join("");
       $("valueDataStatus").innerHTML = "";
       $("adminValueDataStatus").innerHTML = `<p class="note">\u8f09\u5165\u500b\u80a1\u5f8c\uff0c\u9019\u88e1\u6703\u986f\u793a\u5167\u90e8\u8cc7\u6599\u900f\u660e\u5ea6\u3002</p>`;
+      if ($("adminScoreV2Summary")) $("adminScoreV2Summary").innerHTML = valueCard("Score v2", "\u5c1a\u672a\u8f09\u5165", "\u958b\u555f\u5f8c\u53f0\u5f8c\u6703\u986f\u793a v1/v2 \u6bd4\u8f03\u3002", "warn");
+      if ($("adminScoreV2Current")) $("adminScoreV2Current").innerHTML = `<p class="note">\u8f09\u5165\u500b\u80a1\u5f8c\uff0c\u9019\u88e1\u6703\u986f\u793a\u76ee\u524d\u500b\u80a1\u7684 Score v2 \u5e73\u884c\u5206\u6578\u3002</p>`;
       $("chaseRiskPanel").innerHTML = `<div class="warning-box"><b>\u6392\u884c\u699c\u6309\u9700\u8f09\u5165</b><p>\u9019\u6a23\u53ef\u907f\u514d\u7528\u76e1 FinMind \u914d\u984d\uff0c\u8b93\u4e3b\u8981\u57fa\u672c\u9762\u8cc7\u6599\u4fdd\u6301\u7a69\u5b9a\u3002</p></div>`;
       $("screenerRows").innerHTML = `<tr><td colspan="10">\u9ede\u9078\u6392\u884c\u5206\u9801\u5f8c\uff0c\u6703\u8f09\u5165\u516c\u958b\u8cc7\u6599\u8a55\u5206\u3002</td></tr>`;
       renderAllocationGuide();
@@ -2140,6 +2262,7 @@
       $("valueScoreCards").innerHTML = `<div class="value-card"><b>\u50f9\u503c\u8a55\u5206</b><strong>\u8f09\u5165\u4e2d</strong><p>\u6b63\u5728\u53d6\u5f97\u4f30\u503c\u3001\u73fe\u91d1\u6d41\u3001\u6210\u9577\u8207\u5c0f\u8cc7\u5206\u6578\u3002</p></div>`;
       $("chaseRiskPanel").innerHTML = "";
       activeValueScore = null;
+      renderCurrentScoreV2(null);
       renderAllocationGuide();
       const [scoreResult, screenerResult] = await Promise.allSettled([
         getValueScore(requestCode),

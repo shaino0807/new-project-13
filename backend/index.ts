@@ -933,6 +933,7 @@ type ValueScore = {
     stopTrackingAssumption: string;
     notes: string[];
   };
+  scoreV2: any;
   warnings: string[];
   fundamentals: Awaited<ReturnType<typeof loadFundamentals>>;
 };
@@ -1152,6 +1153,53 @@ function weightedScore(parts: Array<{ score: number | null; weight: number }>) {
   const totalWeight = usable.reduce((sum, part) => sum + part.weight, 0);
   if (!totalWeight) return null;
   return Math.round(usable.reduce((sum, part) => sum + (part.score as number) * part.weight, 0) / totalWeight);
+}
+
+function strictWeightedScore(parts: Array<{ score: number | null; weight: number }>) {
+  const totalWeight = parts.filter(part => part.weight > 0).reduce((sum, part) => sum + part.weight, 0);
+  if (!totalWeight) return null;
+  const scored = parts.reduce((sum, part) => {
+    if (part.weight <= 0 || part.score === null || !Number.isFinite(part.score)) return sum;
+    return sum + (part.score as number) * part.weight;
+  }, 0);
+  return Math.round(scored / totalWeight);
+}
+
+function weightedAvailability(parts: Array<{ score: number | null; weight: number }>) {
+  const totalWeight = parts.filter(part => part.weight > 0).reduce((sum, part) => sum + part.weight, 0);
+  if (!totalWeight) return 0;
+  const availableWeight = parts
+    .filter(part => part.weight > 0 && part.score !== null && Number.isFinite(part.score))
+    .reduce((sum, part) => sum + part.weight, 0);
+  return Math.round((availableWeight / totalWeight) * 100);
+}
+
+function gradeFromScoreV2(score: number | null, coveragePct: number): "A" | "B" | "C" | "D" | "X" {
+  if (score === null || coveragePct < 45) return "X";
+  let grade: "A" | "B" | "C" | "D" = score >= 80 ? "A" : score >= 65 ? "B" : score >= 50 ? "C" : "D";
+  if (coveragePct < 55) return "D";
+  if (coveragePct < 70 && (grade === "A" || grade === "B")) return "C";
+  if (coveragePct < 85 && grade === "A") return "B";
+  return grade;
+}
+
+function signalScore(signals: Array<number | null>) {
+  const usable = signals.filter((value): value is number => Number.isFinite(value));
+  if (!usable.length) return null;
+  const average = usable.reduce((sum, value) => sum + value, 0) / usable.length;
+  return Math.max(0, Math.min(100, Math.round(50 + average * 50)));
+}
+
+function scoreFromRange(value: number | null | undefined, bands: Array<[number, number]>) {
+  if (!Number.isFinite(value)) return null;
+  for (const [limit, score] of bands) {
+    if ((value as number) <= limit) return score;
+  }
+  return bands[bands.length - 1]?.[1] ?? null;
+}
+
+function scoreTextValue(value: number | null | undefined) {
+  return Number.isFinite(value) ? String(Math.round(value as number)) : "--";
 }
 
 function scoreFromThresholds(value: number | null | undefined, thresholds: Array<[number, number]>, missing: string) {
@@ -1624,6 +1672,449 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
   };
   const fairDownsidePct = Number.isFinite(upsidePct) && (upsidePct as number) < 0 ? upsidePct : null;
   const cfoGuide = buildCfoGuide(professionalTotal, chaseRiskComponent.score, fairDownsidePct, close);
+  const universeEntry = TAIWAN_SCREENING_UNIVERSE.find(item => item.code === quote.code);
+  const industryGroup = universeEntry?.group || (fundamentals.assetType === "etf" ? "etf" : "unclassified");
+  const isFinancialIndustry = /^28/.test(quote.code) || /financial|bank|insurance/i.test(industryGroup);
+  const isSemiconductorIndustry = /semiconductor/i.test(industryGroup);
+  const isCyclicalIndustry = /steel|materials|plastics|shipping|commodity/i.test(industryGroup);
+  const isDividendProfile = /income|dividend/i.test(industryGroup);
+  const growthAnchor = [
+    revenue?.yoy,
+    profit?.epsYoY,
+    profit?.revenueYoY,
+  ].filter((value): value is number => Number.isFinite(value));
+  const normalizedGrowth = growthAnchor.length
+    ? Math.max(-20, Math.min(45, growthAnchor.reduce((sum, value) => sum + value, 0) / growthAnchor.length))
+    : null;
+  const industryFairPer = isSemiconductorIndustry
+    ? Math.max(12, Math.min(28, 18 + ((normalizedGrowth ?? 8) / 4)))
+    : isFinancialIndustry
+      ? Math.max(8, Math.min(14, 10 + ((normalizedGrowth ?? 3) / 12)))
+      : isCyclicalIndustry
+        ? Math.max(8, Math.min(16, 11 + ((normalizedGrowth ?? 0) / 8)))
+        : Math.max(9, Math.min(22, 13 + ((normalizedGrowth ?? 5) / 6)));
+  const industryTargetPbr = isFinancialIndustry ? 1.15 : isSemiconductorIndustry ? 2.4 : isCyclicalIndustry ? 1.25 : 1.6;
+  const industryTargetYield = isDividendProfile ? 5.8 : isFinancialIndustry ? 5.2 : isCyclicalIndustry ? 4.8 : 3.6;
+  const peg = Number.isFinite(valuation?.per) && (valuation?.per || 0) > 0 && normalizedGrowth !== null && normalizedGrowth > 0
+    ? round((valuation?.per || 0) / normalizedGrowth, 2)
+    : null;
+  const pegScore = scoreFromRange(peg, [[0.75, 90], [1, 78], [1.5, 62], [2, 45], [999, 22]]);
+  const valuationV2Parts = [
+    { score: perScore, weight: 25 },
+    { score: pbrScore, weight: 20 },
+    { score: yieldScore, weight: 10 },
+    { score: rangeScore, weight: 20 },
+    { score: pegScore, weight: 25 },
+  ];
+  const valuationV2Component: ScoreComponent = {
+    score: strictWeightedScore(valuationV2Parts),
+    label: scoreLabel(strictWeightedScore(valuationV2Parts), "valuation v2 inexpensive", "valuation v2 fair", "valuation v2 expensive"),
+    weight: 25,
+    evidence: [
+      ...valuationComponent.evidence,
+      peg !== null ? `PEG ${fmt(peg, 2)}` : "",
+      `industry group ${industryGroup}`,
+    ].filter(Boolean),
+    missing: [
+      ...valuationComponent.missing,
+      pegScore === null ? "PEG or positive growth" : "",
+    ].filter(Boolean),
+  };
+  const cashFlowV2Parts = [
+    { score: ocfScore, weight: 35 },
+    { score: fcfScore, weight: 35 },
+    { score: cashChangeScore, weight: 15 },
+    { score: endingCashScore, weight: 15 },
+  ];
+  const cashFlowV2Score = strictWeightedScore(cashFlowV2Parts);
+  const growthV2Parts = [
+    { score: monthlyRevenueScore, weight: 30 },
+    { score: revenueMomentumScore, weight: 20 },
+    { score: epsGrowthScore, weight: 30 },
+    { score: quarterRevenueScore, weight: 20 },
+  ];
+  const growthV2Score = strictWeightedScore(growthV2Parts);
+  const profitabilityV2Parts = [
+    { score: epsScore, weight: 35 },
+    { score: netIncomeScore, weight: 30 },
+    { score: opIncomeScore, weight: 20 },
+    { score: grossProfitScore, weight: 15 },
+  ];
+  const profitabilityV2Score = strictWeightedScore(profitabilityV2Parts);
+  const stabilityV2Parts = [
+    { score: debtScore, weight: 35 },
+    { score: currentRatioScore, weight: 30 },
+    { score: cashScore, weight: 20 },
+    { score: equityScore, weight: 15 },
+  ];
+  const stabilityV2Score = strictWeightedScore(stabilityV2Parts);
+  const lendingRiskScore = Number.isFinite(lending?.volumeRatio)
+    ? ((lending?.volumeRatio || 0) >= 2 ? 28 : (lending?.volumeRatio || 0) >= 1.25 ? 48 : 66)
+    : null;
+  const capitalConfidenceParts = [
+    { score: institutionalScore, weight: 35 },
+    { score: foreignScore, weight: 25 },
+    { score: marginRiskScore, weight: 20 },
+    { score: lendingRiskScore, weight: 20 },
+  ];
+  const capitalConfidenceComponent: ScoreComponent = {
+    score: strictWeightedScore(capitalConfidenceParts),
+    label: scoreLabel(strictWeightedScore(capitalConfidenceParts), "capital confidence strong", "capital confidence neutral", "capital confidence weak"),
+    weight: 10,
+    evidence: [
+      ...marketConfidenceComponent.evidence.filter(item => !item.startsWith("technical trend")),
+      Number.isFinite(lending?.volumeRatio) ? `securities lending ratio ${fmt(lending?.volumeRatio || NaN, 2)}` : "",
+    ].filter(Boolean),
+    missing: [
+      institutionalScore === null ? "institutional net buy/sell" : "",
+      foreignScore === null ? "foreign ownership change" : "",
+      marginRiskScore === null ? "margin balance change" : "",
+      lendingRiskScore === null ? "securities lending volume" : "",
+    ].filter(Boolean),
+  };
+  const rsiValues = quote.analysis.rsi14 || [];
+  const prevRsi = rsiValues.length > 1 ? lastFinite(rsiValues.slice(0, -1)) : NaN;
+  const kdK = quote.analysis.kd?.k || [];
+  const kdD = quote.analysis.kd?.d || [];
+  const prevK = kdK.length > 1 ? lastFinite(kdK.slice(0, -1)) : NaN;
+  const prevD = kdD.length > 1 ? lastFinite(kdD.slice(0, -1)) : NaN;
+  const histValues = quote.analysis.macd?.hist || [];
+  const prevHist = histValues.length > 1 ? lastFinite(histValues.slice(0, -1)) : NaN;
+  const maSignals = [latest.ma5, latest.ma10, latest.ma20, latest.ma60, latest.ma120]
+    .map(ma => Number.isFinite(ma) ? (close > ma ? 1 : close < ma ? -1 : 0) : null);
+  const trendStructureSignals = [
+    ...maSignals,
+    Number.isFinite(latest.ma20) && Number.isFinite(latest.ma60) ? (latest.ma20 > latest.ma60 ? 1 : latest.ma20 < latest.ma60 ? -1 : 0) : null,
+    Number.isFinite(latest.ma60) && Number.isFinite(latest.ma120) ? (latest.ma60 > latest.ma120 ? 1 : latest.ma60 < latest.ma120 ? -1 : 0) : null,
+  ];
+  const trendSignalScore = signalScore(trendStructureSignals);
+  const oscillatorSignalScore = signalScore([
+    Number.isFinite(latest.dif) && Number.isFinite(latest.dea) ? (latest.dif > latest.dea ? 1 : latest.dif < latest.dea ? -1 : 0) : null,
+    Number.isFinite(latest.hist) && Number.isFinite(prevHist) ? (latest.hist > prevHist ? 1 : latest.hist < prevHist ? -1 : 0) : null,
+    Number.isFinite(latest.rsi14) && Number.isFinite(prevRsi)
+      ? (latest.rsi14 < 30 && latest.rsi14 > prevRsi ? 1 : latest.rsi14 > 70 && latest.rsi14 < prevRsi ? -1 : latest.rsi14 >= 45 && latest.rsi14 <= 68 ? 0.35 : 0)
+      : null,
+    Number.isFinite(latest.k) && Number.isFinite(latest.d) && Number.isFinite(prevK) && Number.isFinite(prevD)
+      ? (latest.k < 20 && latest.d < 20 && latest.k > latest.d ? 1 : latest.k > 80 && latest.d > 80 && latest.k < latest.d ? -1 : latest.k > latest.d ? 0.25 : -0.25)
+      : null,
+  ]);
+  const technicalVolumeScore = Number.isFinite(latest.volumeRatio)
+    ? (latest.volumeRatio >= 1.8 && close < latest.ma20 ? 30 : latest.volumeRatio >= 1.25 && close > latest.ma20 ? 78 : 55)
+    : null;
+  const volatilityPositionScore = Number.isFinite(latest.pctB)
+    ? (latest.pctB > 0.95 ? 32 : latest.pctB > 0.8 ? 48 : latest.pctB >= 0.2 ? 66 : 44)
+    : null;
+  const technicalTrendParts = [
+    { score: trendSignalScore, weight: 40 },
+    { score: oscillatorSignalScore, weight: 30 },
+    { score: technicalVolumeScore, weight: 15 },
+    { score: volatilityPositionScore, weight: 15 },
+  ];
+  const technicalTrendComponent: ScoreComponent = {
+    score: strictWeightedScore(technicalTrendParts),
+    label: scoreLabel(strictWeightedScore(technicalTrendParts), "technical trend strong", "technical trend neutral", "technical trend weak"),
+    weight: 10,
+    evidence: [
+      `MA confluence ${scoreTextValue(trendSignalScore)}`,
+      `oscillator confluence ${scoreTextValue(oscillatorSignalScore)}`,
+      Number.isFinite(latest.volumeRatio) ? `volume ratio ${fmt(latest.volumeRatio, 2)}` : "",
+      Number.isFinite(latest.pctB) ? `Bollinger %B ${fmt(latest.pctB, 2)}` : "",
+    ].filter(Boolean),
+    missing: [
+      trendSignalScore === null ? "moving averages" : "",
+      oscillatorSignalScore === null ? "oscillators" : "",
+      technicalVolumeScore === null ? "volume ratio" : "",
+      volatilityPositionScore === null ? "Bollinger position" : "",
+    ].filter(Boolean),
+  };
+  const trendRisk = technicalTrendComponent.score === null ? null : 100 - technicalTrendComponent.score;
+  const oscillatorRisk = strictWeightedScore([
+    { score: Number.isFinite(latest.rsi14) ? Math.max(10, Math.min(95, Math.round((latest.rsi14 - 35) * 1.45))) : null, weight: 50 },
+    { score: Number.isFinite(latest.k) && Number.isFinite(latest.d) ? Math.max(10, Math.min(95, Math.round(((latest.k + latest.d) / 2 - 35) * 1.35))) : null, weight: 25 },
+    { score: Number.isFinite(latest.pctB) ? Math.max(10, Math.min(95, Math.round(latest.pctB * 95))) : null, weight: 25 },
+  ]);
+  const volumeRisk = Number.isFinite(latest.volumeRatio)
+    ? (latest.volumeRatio >= 1.8 ? 78 : latest.volumeRatio >= 1.25 ? 62 : 38)
+    : null;
+  const extensionRisk = Number.isFinite(distanceFromSupport)
+    ? Math.max(15, Math.min(95, Math.round((distanceFromSupport as number) * 4)))
+    : null;
+  const chaseRiskV2Parts = [
+    { score: trendRisk, weight: 25 },
+    { score: oscillatorRisk, weight: 30 },
+    { score: volumeRisk, weight: 20 },
+    { score: extensionRisk, weight: 25 },
+  ];
+  const chaseRiskV2Component: ScoreComponent = {
+    score: strictWeightedScore(chaseRiskV2Parts),
+    label: scoreLabel(strictWeightedScore(chaseRiskV2Parts), "\u8FFD\u9AD8\u98A8\u96AA\u9AD8", "\u8FFD\u9AD8\u98A8\u96AA\u4E2D", "\u8FFD\u9AD8\u98A8\u96AA\u4F4E"),
+    weight: 10,
+    evidence: [
+      `trend risk ${scoreTextValue(trendRisk)}`,
+      `oscillator risk ${scoreTextValue(oscillatorRisk)}`,
+      Number.isFinite(volumeRisk) ? `volume risk ${volumeRisk}` : "",
+      Number.isFinite(extensionRisk) ? `extension risk ${extensionRisk}` : "",
+    ].filter(Boolean),
+    missing: [
+      trendRisk === null ? "trend group" : "",
+      oscillatorRisk === null ? "oscillator group" : "",
+      volumeRisk === null ? "volume group" : "",
+      extensionRisk === null ? "support distance" : "",
+    ].filter(Boolean),
+  };
+  const oneLotCost = Number.isFinite(close) ? close * 1000 : null;
+  const entryCostScore = Number.isFinite(oneLotCost)
+    ? ((oneLotCost as number) <= 50000 ? 90 : (oneLotCost as number) <= 100000 ? 76 : (oneLotCost as number) <= 300000 ? 58 : 42)
+    : null;
+  const liquidityV2Score = Number.isFinite(quote.volume)
+    ? (quote.volume >= 5000000 ? 88 : quote.volume >= 1000000 ? 74 : quote.volume >= 200000 ? 55 : quote.volume > 0 ? 38 : null)
+    : null;
+  const volatilityV2Score = Number.isFinite(latest.atrPct)
+    ? (latest.atrPct <= 2 ? 82 : latest.atrPct <= 4 ? 68 : latest.atrPct <= 7 ? 50 : 34)
+    : null;
+  const positionRiskV2Score = chaseRiskV2Component.score === null ? null : 100 - chaseRiskV2Component.score;
+  const financialQualityV2Score = strictWeightedScore([
+    { score: cashFlowV2Score, weight: 28 },
+    { score: growthV2Score, weight: 22 },
+    { score: profitabilityV2Score, weight: 25 },
+    { score: stabilityV2Score, weight: 25 },
+  ]);
+  const smallInvestorV2Parts = [
+    { score: entryCostScore, weight: 20 },
+    { score: liquidityV2Score, weight: 25 },
+    { score: volatilityV2Score, weight: 20 },
+    { score: positionRiskV2Score, weight: 15 },
+    { score: financialQualityV2Score, weight: 20 },
+  ];
+  const smallInvestorV2 = strictWeightedScore(smallInvestorV2Parts);
+  const hasQuoteV2 = Boolean(quote.quoteDate && Number.isFinite(close));
+  const hasEpsV2 = Number.isFinite(profit?.eps);
+  const hasCashFlowV2 = cashFlowV2Score !== null && weightedAvailability(cashFlowV2Parts) >= 50;
+  const criticalMissing = [
+    !hasQuoteV2 ? "quote" : "",
+    fundamentals.assetType === "stock" && !hasEpsV2 ? "EPS" : "",
+    fundamentals.assetType === "stock" && !hasCashFlowV2 ? "cash flow" : "",
+  ].filter(Boolean);
+  const dataConfidenceScore = Math.max(0, Math.min(100,
+    dataCoveragePct
+    - criticalMissing.length * 12
+    - fundamentals.cache.staleDatasets.length * 5
+  ));
+  const stockFairMethodsV2 = [
+    {
+      name: "industry earnings multiple",
+      value: Number.isFinite(profit?.eps) && (profit?.eps || 0) > 0 ? round((profit?.eps || 0) * 4 * industryFairPer) : null,
+      weight: isSemiconductorIndustry || !isFinancialIndustry ? 45 : 25,
+      note: `group ${industryGroup}; fair PER ${fmt(industryFairPer, 1)}`,
+    },
+    {
+      name: "industry book multiple",
+      value: Number.isFinite(valuation?.pbr) && (valuation?.pbr || 0) > 0 ? round((close / (valuation?.pbr || 1)) * industryTargetPbr) : null,
+      weight: isFinancialIndustry || isCyclicalIndustry ? 45 : 25,
+      note: `group ${industryGroup}; fair PBR ${fmt(industryTargetPbr, 2)}`,
+    },
+    {
+      name: "sector dividend support",
+      value: Number.isFinite(valuation?.dividendYield) && (valuation?.dividendYield || 0) > 0 && cashFlowV2Score !== null && cashFlowV2Score >= 55
+        ? round(close * ((valuation?.dividendYield || 0) / industryTargetYield))
+        : null,
+      weight: isDividendProfile || isFinancialIndustry ? 20 : 10,
+      note: `sector yield reference ${fmt(industryTargetYield, 1)}%; requires cash-flow support`,
+    },
+    {
+      name: "history and peer percentile",
+      value: null,
+      weight: 20,
+      note: "reserved for 3-5 year self percentile and same-industry percentile once the historical valuation store is connected",
+    },
+  ];
+  const etfFairMethodsV2 = [
+    {
+      name: "NAV fair value",
+      value: Number.isFinite(etf?.nav?.value) ? etf!.nav.value : null,
+      weight: 50,
+      note: "uses official ETF NAV when available",
+    },
+    {
+      name: "holdings quality support",
+      value: etfQualityScore !== null && Number.isFinite(etf?.nav?.marketPrice)
+        ? round((etf!.nav.marketPrice || close) * (0.75 + etfQualityScore / 200))
+        : null,
+      weight: 25,
+      note: "uses available major-holding quality proxy",
+    },
+    {
+      name: "distribution quality support",
+      value: null,
+      weight: 25,
+      note: "reserved for distribution continuity, payout volatility, and total-return history",
+    },
+  ];
+  const fairMethodsV2 = fundamentals.assetType === "etf" ? etfFairMethodsV2 : stockFairMethodsV2;
+  const fairMethodWeight = fairMethodsV2.reduce((sum, item) => sum + item.weight, 0);
+  const fairMethodAvailableWeight = fairMethodsV2
+    .filter(item => item.value !== null && Number.isFinite(item.value))
+    .reduce((sum, item) => sum + item.weight, 0);
+  const fairValueV2 = fairMethodAvailableWeight
+    ? round(fairMethodsV2.reduce((sum, item) => sum + (item.value !== null && Number.isFinite(item.value) ? item.value * item.weight : 0), 0) / fairMethodAvailableWeight)
+    : null;
+  const fairValueV2Confidence = fairMethodWeight ? Math.round((fairMethodAvailableWeight / fairMethodWeight) * 100) : 0;
+  const upsidePctV2 = fairValueV2 && close > 0 ? round(((fairValueV2 / close) - 1) * 100, 2) : null;
+  const upsideScoreV2 = Number.isFinite(upsidePctV2)
+    ? Math.max(5, Math.min(95, Math.round(50 + (upsidePctV2 as number))))
+    : null;
+  const downsideScoreV2 = Number.isFinite(upsidePctV2)
+    ? Math.max(5, Math.min(95, Math.round(50 - (upsidePctV2 as number))))
+    : null;
+  const undervaluedV2Parts = [
+    { score: valuationV2Component.score, weight: 25 },
+    { score: upsideScoreV2, weight: 20 },
+    { score: cashFlowV2Score, weight: 15 },
+    { score: stabilityV2Score, weight: 10 },
+    { score: profitabilityV2Score, weight: 10 },
+    { score: growthV2Score, weight: 10 },
+    { score: technicalTrendComponent.score, weight: 5 },
+    { score: dataConfidenceScore, weight: 5 },
+  ];
+  const undervaluedV2 = strictWeightedScore(undervaluedV2Parts);
+  const weakProfitCashFlowV2 = strictWeightedScore([
+    { score: profitabilityV2Score === null ? null : 100 - profitabilityV2Score, weight: 50 },
+    { score: cashFlowV2Score === null ? null : 100 - cashFlowV2Score, weight: 50 },
+  ]);
+  const overvaluedV2Parts = [
+    { score: valuationV2Component.score === null ? null : 100 - valuationV2Component.score, weight: 25 },
+    { score: downsideScoreV2, weight: 20 },
+    { score: growthV2Score === null ? null : 100 - growthV2Score, weight: 15 },
+    { score: weakProfitCashFlowV2, weight: 15 },
+    { score: stabilityV2Score === null ? null : 100 - stabilityV2Score, weight: 10 },
+    { score: chaseRiskV2Component.score, weight: 10 },
+    { score: 100 - dataConfidenceScore, weight: 5 },
+  ];
+  const overvaluedV2 = strictWeightedScore(overvaluedV2Parts);
+  const etfDistributionQualityParts = [
+    { score: null, weight: 30 },
+    { score: null, weight: 25 },
+    { score: Number.isFinite(etf?.componentSummary?.weightedDividendYield)
+      ? ((etf!.componentSummary!.weightedDividendYield || 0) >= 3 && (etf!.componentSummary!.weightedDividendYield || 0) <= 8 ? 72 : 45)
+      : null, weight: 15 },
+    { score: Number.isFinite(etf?.nav?.premiumDiscount) ? etfPremiumScore : null, weight: 15 },
+    { score: etfLiquidityScore, weight: 15 },
+  ];
+  const etfDistributionQualityScore = strictWeightedScore(etfDistributionQualityParts);
+  const professionalV2Components = fundamentals.assetType === "etf"
+    ? [
+        componentForProfessional("premiumNav", "\u6298\u6EA2\u50F9\u8207\u6DE8\u503C", etfPremiumScore, 20, etfProfessionalComponents[0].evidence, etfProfessionalComponents[0].missing, "ETF premium or NAV data is not attractive enough."),
+        componentForProfessional("holdingsQuality", "\u6210\u5206\u80A1\u54C1\u8CEA\u8207\u96C6\u4E2D\u5EA6", etfQualityScore, 20, etfProfessionalComponents[1].evidence, etfProfessionalComponents[1].missing, "ETF holdings quality or concentration needs review."),
+        componentForProfessional("distributionQuality", "\u914D\u606F\u54C1\u8CEA", etfDistributionQualityScore, 20, [
+          Number.isFinite(etf?.componentSummary?.weightedDividendYield) ? `weighted yield ${fmt(etf?.componentSummary?.weightedDividendYield || NaN, 2)}%` : "",
+          "continuity and payout volatility reserved for dividend history",
+        ].filter(Boolean), [
+          "distribution continuity",
+          "distribution volatility",
+          etfDistributionQualityScore === null ? "distribution quality inputs" : "",
+        ].filter(Boolean), "High yield is not enough without continuity and NAV/total-return support."),
+        componentForProfessional("liquidity", "\u898F\u6A21\u8207\u6D41\u52D5\u6027", etfLiquidityScore, 15, etfProfessionalComponents[2].evidence, etfProfessionalComponents[2].missing, "Liquidity data is weak or missing."),
+        componentForProfessional("technicalTrend", "\u6280\u8853\u8DA8\u52E2", technicalTrendComponent.score, 15, technicalTrendComponent.evidence, technicalTrendComponent.missing, "Technical trend is weak or incomplete."),
+        componentForProfessional("singleRisk", "\u55AE\u4E00\u7522\u696D\u6216\u6210\u5206\u98A8\u96AA", etfSingleRiskScore, 10, etfProfessionalComponents[5].evidence, etfProfessionalComponents[5].missing, "Top holding concentration is high or unavailable."),
+      ]
+    : [
+        componentForProfessional("valuation", "\u4F30\u503C\u4FBF\u5B9C\u5EA6", valuationV2Component.score, 20, valuationV2Component.evidence, valuationV2Component.missing, "\u4F30\u503C\u6216 PEG \u4E0D\u5920\u6709\u5438\u5F15\u529B\u3002"),
+        componentForProfessional("cashflow", "\u73FE\u91D1\u6D41", cashFlowV2Score, 15, cashFlowComponent.evidence, cashFlowComponent.missing, "\u73FE\u91D1\u6D41\u5F31\u6216\u7F3A\u95DC\u9375\u6B04\u4F4D\u3002"),
+        componentForProfessional("stability", "\u8CA1\u52D9\u7A69\u5065", stabilityV2Score, 15, financialStabilityComponent.evidence, financialStabilityComponent.missing, "\u8CA1\u52D9\u7A69\u5065\u5EA6\u4E0D\u8DB3\u3002"),
+        componentForProfessional("growth", "\u6210\u9577\u54C1\u8CEA", growthV2Score, 15, growthComponent.evidence, growthComponent.missing, "\u6210\u9577\u8CC7\u6599\u504F\u5F31\u6216\u4E0D\u5B8C\u6574\u3002"),
+        componentForProfessional("profitability", "\u7372\u5229\u80FD\u529B", profitabilityV2Score, 10, profitabilityComponent.evidence, profitabilityComponent.missing, "\u7372\u5229\u80FD\u529B\u4E0D\u8DB3\u6216 EPS \u7F3A\u6F0F\u3002"),
+        componentForProfessional("capitalConfidence", "\u7C4C\u78BC\u4FE1\u5FC3", capitalConfidenceComponent.score, 10, capitalConfidenceComponent.evidence, capitalConfidenceComponent.missing, "\u6CD5\u4EBA\u3001\u5916\u8CC7\u6216\u878D\u8CC7\u8A0A\u865F\u4E0D\u7406\u60F3\u3002"),
+        componentForProfessional("technicalTrend", "\u6280\u8853\u8DA8\u52E2", technicalTrendComponent.score, 10, technicalTrendComponent.evidence, technicalTrendComponent.missing, "\u8DA8\u52E2\u6216\u9707\u76EA\u6307\u6A19\u4E0D\u652F\u6301\u3002"),
+        componentForProfessional("smallBudget", "\u5C0F\u8CC7\u53CB\u5584", smallInvestorV2, 10, [
+          Number.isFinite(oneLotCost) ? `one lot cost ${fmt(oneLotCost || NaN, 0)}` : "",
+          Number.isFinite(quote.volume) ? `volume ${fmt(quote.volume, 0)}` : "",
+          Number.isFinite(latest.atrPct) ? `ATR 14 ${fmt(latest.atrPct, 2)}%` : "",
+          Number.isFinite(latest.bandwidth) ? `Bollinger bandwidth ${fmt(latest.bandwidth, 2)}%` : "",
+        ].filter(Boolean), [
+          entryCostScore === null ? "entry cost" : "",
+          liquidityV2Score === null ? "liquidity" : "",
+          volatilityV2Score === null ? "ATR volatility" : "",
+        ].filter(Boolean), "\u96F6\u80A1\u6210\u672C\u3001\u6D41\u52D5\u6027\u3001\u6CE2\u52D5\u6216\u55AE\u7B46\u90E8\u4F4D\u98A8\u96AA\u4E0D\u5920\u7406\u60F3\u3002"),
+      ];
+  const professionalV2Total = strictWeightedScore(professionalV2Components.map(item => ({ score: item.score, weight: item.weight })));
+  const professionalV2Grade = gradeFromScoreV2(professionalV2Total, dataConfidenceScore);
+  const rankingEligibility = {
+    undervalued: hasQuoteV2 && valuationV2Component.score !== null && fairValueV2 !== null && fairValueV2Confidence >= 40 && (fundamentals.assetType === "etf" || (hasEpsV2 && hasCashFlowV2)) && dataCoveragePct >= 55,
+    overvalued: hasQuoteV2 && valuationV2Component.score !== null && fairValueV2 !== null && fairValueV2Confidence >= 40 && dataCoveragePct >= 55,
+    cashflow: hasCashFlowV2,
+    growth: growthV2Score !== null && weightedAvailability(growthV2Parts) >= 50,
+    smallInvestor: smallInvestorV2 !== null && hasQuoteV2 && dataCoveragePct >= 55,
+    chaseRisk: chaseRiskV2Component.score !== null && weightedAvailability(chaseRiskV2Parts) >= 60,
+    todayWatch: professionalV2Total !== null && professionalV2Total >= 65 && (chaseRiskV2Component.score || 100) < 72 && dataConfidenceScore >= 70,
+    watchlist: ["A", "B", "C"].includes(professionalV2Grade) && dataConfidenceScore >= 55,
+  };
+  const scoreV2 = {
+    modelVersion: fundamentals.assetType === "etf" ? "etf-v2-parallel-2026-07" : "stock-v2-parallel-2026-07",
+    status: "parallel_only",
+    clientActive: false,
+    sourceMethod: "Score v2 uses fixed-weight scoring, data confidence caps, separated capital confidence and technical trend modules, and TradingView-style grouped technical signals.",
+    comparison: {
+      v1Total: professionalTotal,
+      v2Total: professionalV2Total,
+      delta: professionalTotal !== null && professionalV2Total !== null ? professionalV2Total - professionalTotal : null,
+      v1Grade: professionalGrade,
+      v2Grade: professionalV2Grade,
+    },
+    confidence: {
+      score: dataConfidenceScore,
+      coveragePercent: dataCoveragePct,
+      criticalMissing,
+      fairValueMethodCoverage: fairValueV2Confidence,
+      caps: [
+        "coverage >=85 normal",
+        "coverage 70-84 max grade B",
+        "coverage 55-69 max grade C",
+        "coverage 45-54 max grade D",
+        "coverage <45 grade X",
+      ],
+    },
+    fairValue: {
+      value: fairValueV2,
+      upsidePct: upsidePctV2,
+      methodCoverage: fairValueV2Confidence,
+      industryGroup,
+      methods: fairMethodsV2,
+      note: "Fixed PBR 1.8 and fixed 4% target yield are removed in v2; industry-group references are used where available, while 3-5 year self percentile and same-industry percentile remain reserved until the historical valuation store is connected.",
+    },
+    scores: {
+      undervalued: undervaluedV2,
+      overvalued: overvaluedV2,
+      smallInvestor: smallInvestorV2,
+      valuation: valuationV2Component,
+      cashFlow: { ...cashFlowComponent, score: cashFlowV2Score },
+      growth: { ...growthComponent, score: growthV2Score },
+      profitability: { ...profitabilityComponent, score: profitabilityV2Score },
+      financialStability: { ...financialStabilityComponent, score: stabilityV2Score },
+      capitalConfidence: capitalConfidenceComponent,
+      technicalTrend: technicalTrendComponent,
+      chaseRisk: chaseRiskV2Component,
+      etfDistributionQuality: etfDistributionQualityScore,
+    },
+    weights: {
+      undervalued: { valuation: 25, upside: 20, cashFlow: 15, financialStability: 10, profitability: 10, growth: 10, technicalPosition: 5, dataConfidence: 5 },
+      overvalued: { expensiveValuation: 25, downside: 20, weakGrowth: 15, weakProfitCashFlow: 15, financialRisk: 10, chaseRisk: 10, dataConfidenceRisk: 5 },
+      smallInvestor: { entryCost: 20, liquidity: 25, volatility: 20, positionRisk: 15, financialQuality: 20 },
+    },
+    rankingEligibility,
+    professionalRating: {
+      total: professionalV2Total,
+      grade: professionalV2Grade,
+      gradeLabel: gradeLabel(professionalV2Grade),
+      components: professionalV2Components,
+      note: "Score v2 is visible for internal comparison only and does not replace customer-facing v1 scores yet.",
+    },
+    pendingCalibration: [
+      "3-5 year self valuation percentile store",
+      "same-industry valuation percentile store",
+      "dividend continuity and payout volatility history",
+      "5/10/20 day pullback outcome backtest for RSI, extension, volume, and Bollinger weights",
+    ],
+  };
 
   return {
     ok: true,
@@ -1697,6 +2188,7 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
       ],
     },
     cfoGuide,
+    scoreV2,
     warnings,
     fundamentals,
   };
@@ -1898,6 +2390,62 @@ async function loadWorkbench() {
     smallInvestor: topItems(items, item => item.scores.smallInvestor !== null, item => item.scores.smallInvestor),
     etf: topItems(items, item => item.professionalRating.assetModel === "etf", item => item.professionalRating.total),
   };
+  const rankedV2 = {
+    observationPool: topItems(items, item => item.scoreV2?.professionalRating?.total !== null, item => item.scoreV2?.professionalRating?.total, 16),
+    todayWatch: topItems(items, item => Boolean(item.scoreV2?.rankingEligibility?.todayWatch), item => item.scoreV2?.professionalRating?.total),
+    watchlist: topItems(items, item => Boolean(item.scoreV2?.rankingEligibility?.watchlist), item => item.scoreV2?.scores?.smallInvestor),
+    chaseRisk: topItems(items, item => Boolean(item.scoreV2?.rankingEligibility?.chaseRisk) && (item.scoreV2?.scores?.chaseRisk?.score || 0) >= 72, item => item.scoreV2?.scores?.chaseRisk?.score),
+    undervalued: topItems(items, item => Boolean(item.scoreV2?.rankingEligibility?.undervalued), item => item.scoreV2?.scores?.undervalued),
+    overvalued: topItems(items, item => Boolean(item.scoreV2?.rankingEligibility?.overvalued), item => item.scoreV2?.scores?.overvalued),
+    cashflow: topItems(items, item => Boolean(item.scoreV2?.rankingEligibility?.cashflow), item => item.scoreV2?.scores?.cashFlow?.score),
+    growth: topItems(items, item => Boolean(item.scoreV2?.rankingEligibility?.growth), item => item.scoreV2?.scores?.growth?.score),
+    smallInvestor: topItems(items, item => Boolean(item.scoreV2?.rankingEligibility?.smallInvestor), item => item.scoreV2?.scores?.smallInvestor),
+    etf: topItems(items, item => item.professionalRating.assetModel === "etf" && item.scoreV2?.professionalRating?.total !== null, item => item.scoreV2?.professionalRating?.total),
+  };
+  const scoreV2Comparisons = items.map(item => ({
+    code: item.code,
+    name: item.name,
+    assetModel: item.professionalRating.assetModel,
+    v1Total: item.professionalRating.total,
+    v1Grade: item.professionalRating.grade,
+    v2Total: item.scoreV2?.professionalRating?.total ?? null,
+    v2Grade: item.scoreV2?.professionalRating?.grade ?? "X",
+    delta: item.scoreV2?.comparison?.delta ?? null,
+    confidence: item.scoreV2?.confidence?.score ?? null,
+    criticalMissing: item.scoreV2?.confidence?.criticalMissing || [],
+    eligible: item.scoreV2?.rankingEligibility || {},
+  })).sort((a, b) => Math.abs(b.delta ?? 0) - Math.abs(a.delta ?? 0));
+  const rankingChangeModes = ["todayWatch", "watchlist", "chaseRisk", "undervalued", "overvalued", "cashflow", "growth", "smallInvestor", "etf"] as const;
+  const itemNames = new Map(items.map(item => [item.code, item.name]));
+  const rankingChanges = rankingChangeModes.map(mode => {
+    const v1List = ranked[mode] || [];
+    const v2List = rankedV2[mode] || [];
+    const v1Ranks = new Map(v1List.map((item, index) => [item.code, index + 1]));
+    const v2Ranks = new Map(v2List.map((item, index) => [item.code, index + 1]));
+    const codes = [...new Set([...v1List.map(item => item.code), ...v2List.map(item => item.code)])];
+    return {
+      mode,
+      v1Top: v1List.slice(0, 5).map(item => item.code),
+      v2Top: v2List.slice(0, 5).map(item => item.code),
+      changes: codes.map(code => {
+        const v1Rank = v1Ranks.get(code) || null;
+        const v2Rank = v2Ranks.get(code) || null;
+        const rankDelta = v1Rank !== null && v2Rank !== null ? v1Rank - v2Rank : null;
+        return {
+          code,
+          name: itemNames.get(code) || code,
+          v1Rank,
+          v2Rank,
+          rankDelta,
+          status: v1Rank === null ? "new" : v2Rank === null ? "dropped" : rankDelta === 0 ? "unchanged" : "changed",
+        };
+      }).sort((a, b) => {
+        const aMoved = Math.abs(a.rankDelta ?? 99);
+        const bMoved = Math.abs(b.rankDelta ?? 99);
+        return bMoved - aMoved;
+      }).slice(0, 8),
+    };
+  });
   const backtestCodes = ["0050", "2330", "2317", "2454"];
   const backtests = await settleWithLimit(backtestCodes, 2, async code => runTechnicalBacktest(await loadQuote(code)));
   return {
@@ -1911,6 +2459,27 @@ async function loadWorkbench() {
     },
     marketState: summarizeMarket(items),
     ranked,
+    rankedV2,
+    scoreV2Summary: {
+      modelVersion: "score-v2-parallel-2026-07",
+      clientActive: false,
+      status: "parallel_only",
+      comparedCount: scoreV2Comparisons.length,
+      eligibleCounts: {
+        undervalued: items.filter(item => item.scoreV2?.rankingEligibility?.undervalued).length,
+        overvalued: items.filter(item => item.scoreV2?.rankingEligibility?.overvalued).length,
+        cashflow: items.filter(item => item.scoreV2?.rankingEligibility?.cashflow).length,
+        growth: items.filter(item => item.scoreV2?.rankingEligibility?.growth).length,
+        smallInvestor: items.filter(item => item.scoreV2?.rankingEligibility?.smallInvestor).length,
+        chaseRisk: items.filter(item => item.scoreV2?.rankingEligibility?.chaseRisk).length,
+      },
+      averageConfidence: items.length
+        ? Math.round(items.reduce((sum, item) => sum + (item.scoreV2?.confidence?.score || 0), 0) / items.length)
+        : null,
+      largestDeltas: scoreV2Comparisons.slice(0, 10),
+      rankingChanges,
+      note: "Score v2 rankings are returned for internal comparison only; v1 remains the customer-facing ranking until an explicit cutover.",
+    },
     rankingModes: ["undervalued", "overvalued", "cashflow", "growth", "smallInvestor", "etf"],
     cfo: {
       portfolioTemplate: "0050 40%, 2330 30%, 2454 10%, cash 20%",
@@ -2348,6 +2917,21 @@ function boll(data: number[], n = 20, mult = 2) {
   return { mid, up, low, pctB, bw };
 }
 
+function atr(highs: number[], lows: number[], closes: number[], n = 14) {
+  const trueRanges = highs.map((high, i) => {
+    if (i === 0) return high - lows[i];
+    return Math.max(
+      high - lows[i],
+      Math.abs(high - closes[i - 1]),
+      Math.abs(lows[i] - closes[i - 1])
+    );
+  });
+  return trueRanges.map((_, i) => {
+    if (i + 1 < n) return NaN;
+    return round(trueRanges.slice(i + 1 - n, i + 1).reduce((sum, value) => sum + value, 0) / n);
+  });
+}
+
 function rsi(data: number[], n = 14) {
   return data.map((_, i) => {
     if (i < n) return NaN;
@@ -2408,6 +2992,7 @@ function buildAnalysis(series: DailyBar[], week52High: number, week52Low: number
   const hist = dif.map((v, i) => round((v - dea[i]) * 2, 4));
   const rsi14 = rsi(closes);
   const kdData = kd(closes, highs, lows);
+  const atr14 = atr(highs, lows, closes, 14);
   const close = closes[closes.length - 1];
   const avgVol20 = volumes.slice(-20).reduce((a, b) => a + b, 0) / Math.max(1, Math.min(20, volumes.length));
   const volumeRatio = avgVol20 > 0 ? round(volumes[volumes.length - 1] / avgVol20) : 1;
@@ -2419,6 +3004,8 @@ function buildAnalysis(series: DailyBar[], week52High: number, week52Low: number
   const kNow = lastFinite(kdData.k);
   const dNow = lastFinite(kdData.d);
   const pctBNow = lastFinite(bb.pctB);
+  const atrNow = lastFinite(atr14);
+  const atrPctNow = Number.isFinite(atrNow) && close > 0 ? round((atrNow / close) * 100, 2) : NaN;
   const ma20Now = lastFinite(ma20);
   const ma60Now = lastFinite(ma60);
   const ma120Now = lastFinite(ma120);
@@ -2448,6 +3035,7 @@ function buildAnalysis(series: DailyBar[], week52High: number, week52Low: number
     macd: { dif, dea, hist },
     rsi14,
     kd: kdData,
+    atr14,
     levels: {
       supportShort: round(supportShort),
       supportMid: round(supportMid),
@@ -2470,6 +3058,8 @@ function buildAnalysis(series: DailyBar[], week52High: number, week52Low: number
       hist: lastFinite(hist),
       pctB: pctBNow,
       bandwidth: lastFinite(bb.bw),
+      atr14: atrNow,
+      atrPct: atrPctNow,
       volumeRatio,
       week52High: Number.isFinite(week52High) ? week52High : Math.max(...highs),
       week52Low: Number.isFinite(week52Low) ? week52Low : Math.min(...lows),
