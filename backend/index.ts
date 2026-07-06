@@ -158,7 +158,7 @@ function finMindStartDate(dataset: string) {
     "TaiwanStockCashFlowsStatement",
   ].includes(dataset)) return isoDateDaysAgo(900);
   if (dataset === "TaiwanStockMonthRevenue") return isoDateDaysAgo(760);
-  if (dataset === "TaiwanStockPER") return isoDateDaysAgo(120);
+  if (dataset === "TaiwanStockPER") return isoDateDaysAgo(365 * 5 + 30);
   return isoDateDaysAgo(90);
 }
 
@@ -399,14 +399,65 @@ function buildRevenueSummary(rows: FinMindRow[]) {
   };
 }
 
+function numericSeries(rows: FinMindRow[], key: string) {
+  return rows
+    .map(row => finiteOrNull(row[key]))
+    .filter((value): value is number => value !== null && Number.isFinite(value) && value > 0);
+}
+
+function percentileRank(values: number[], current: number | null | undefined) {
+  if (!Number.isFinite(current) || !values.length) return null;
+  const valid = values.filter(value => Number.isFinite(value)).sort((a, b) => a - b);
+  if (!valid.length) return null;
+  const below = valid.filter(value => value < (current as number)).length;
+  const equal = valid.filter(value => value === (current as number)).length;
+  return round(((below + equal * 0.5) / valid.length) * 100, 1);
+}
+
+function median(values: number[]) {
+  const valid = values.filter(value => Number.isFinite(value)).sort((a, b) => a - b);
+  if (!valid.length) return null;
+  const mid = Math.floor(valid.length / 2);
+  return valid.length % 2 ? valid[mid] : round((valid[mid - 1] + valid[mid]) / 2, 4);
+}
+
 function buildValuationSummary(rows: FinMindRow[]) {
   const latest = latestRow(rows);
   if (!latest) return null;
+  const datedRows = rows
+    .filter(row => row.date)
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const perSeries = numericSeries(datedRows, "PER");
+  const pbrSeries = numericSeries(datedRows, "PBR");
+  const dividendYieldSeries = numericSeries(datedRows, "dividend_yield");
+  const per = finiteOrNull(latest.PER);
+  const pbr = finiteOrNull(latest.PBR);
+  const dividendYield = finiteOrNull(latest.dividend_yield);
+  const perPercentile = percentileRank(perSeries, per);
+  const pbrPercentile = percentileRank(pbrSeries, pbr);
+  const dividendYieldPercentile = percentileRank(dividendYieldSeries, dividendYield);
+  const selfCheapnessScore = strictWeightedScore([
+    { score: perPercentile === null ? null : 100 - perPercentile, weight: 40 },
+    { score: pbrPercentile === null ? null : 100 - pbrPercentile, weight: 35 },
+    { score: dividendYieldPercentile, weight: 25 },
+  ]);
   return {
     date: latest.date,
-    per: finiteOrNull(latest.PER),
-    pbr: finiteOrNull(latest.PBR),
-    dividendYield: finiteOrNull(latest.dividend_yield),
+    per,
+    pbr,
+    dividendYield,
+    history: {
+      startDate: datedRows[0]?.date || null,
+      endDate: datedRows[datedRows.length - 1]?.date || null,
+      observations: datedRows.length,
+      perPercentile,
+      pbrPercentile,
+      dividendYieldPercentile,
+      perMedian: median(perSeries),
+      pbrMedian: median(pbrSeries),
+      dividendYieldMedian: median(dividendYieldSeries),
+      cheapnessScore: selfCheapnessScore,
+    },
   };
 }
 
@@ -1700,12 +1751,21 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
     ? round((valuation?.per || 0) / normalizedGrowth, 2)
     : null;
   const pegScore = scoreFromRange(peg, [[0.75, 90], [1, 78], [1.5, 62], [2, 45], [999, 22]]);
+  const valuationHistory = valuation?.history || null;
+  const selfHistoryScore = valuationHistory?.cheapnessScore ?? null;
+  const selfPerPercentile = valuationHistory?.perPercentile ?? null;
+  const selfPbrPercentile = valuationHistory?.pbrPercentile ?? null;
+  const selfYieldPercentile = valuationHistory?.dividendYieldPercentile ?? null;
+  const selfPerMedian = valuationHistory?.perMedian ?? null;
+  const selfPbrMedian = valuationHistory?.pbrMedian ?? null;
+  const selfYieldMedian = valuationHistory?.dividendYieldMedian ?? null;
   const valuationV2Parts = [
-    { score: perScore, weight: 25 },
-    { score: pbrScore, weight: 20 },
+    { score: perScore, weight: 20 },
+    { score: pbrScore, weight: 15 },
     { score: yieldScore, weight: 10 },
-    { score: rangeScore, weight: 20 },
-    { score: pegScore, weight: 25 },
+    { score: rangeScore, weight: 15 },
+    { score: pegScore, weight: 20 },
+    { score: selfHistoryScore, weight: 20 },
   ];
   const valuationV2Component: ScoreComponent = {
     score: strictWeightedScore(valuationV2Parts),
@@ -1714,11 +1774,16 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
     evidence: [
       ...valuationComponent.evidence,
       peg !== null ? `PEG ${fmt(peg, 2)}` : "",
+      valuationHistory?.observations ? `self valuation history ${valuationHistory.observations} rows` : "",
+      Number.isFinite(selfPerPercentile) ? `PER self percentile ${fmt(selfPerPercentile as number, 1)}` : "",
+      Number.isFinite(selfPbrPercentile) ? `PBR self percentile ${fmt(selfPbrPercentile as number, 1)}` : "",
+      Number.isFinite(selfYieldPercentile) ? `yield self percentile ${fmt(selfYieldPercentile as number, 1)}` : "",
       `industry group ${industryGroup}`,
     ].filter(Boolean),
     missing: [
       ...valuationComponent.missing,
       pegScore === null ? "PEG or positive growth" : "",
+      selfHistoryScore === null ? "3-5 year self valuation history" : "",
     ].filter(Boolean),
   };
   const cashFlowV2Parts = [
@@ -1932,17 +1997,52 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
     - criticalMissing.length * 12
     - fundamentals.cache.staleDatasets.length * 5
   ));
+  const historicalFairCandidates = [
+    {
+      value: Number.isFinite(valuation?.per) && (valuation?.per || 0) > 0 && Number.isFinite(selfPerMedian)
+        ? round((close / (valuation?.per || 1)) * (selfPerMedian as number))
+        : null,
+      weight: 40,
+    },
+    {
+      value: Number.isFinite(valuation?.pbr) && (valuation?.pbr || 0) > 0 && Number.isFinite(selfPbrMedian)
+        ? round((close / (valuation?.pbr || 1)) * (selfPbrMedian as number))
+        : null,
+      weight: 35,
+    },
+    {
+      value: Number.isFinite(valuation?.dividendYield) && (valuation?.dividendYield || 0) > 0 && Number.isFinite(selfYieldMedian) && (selfYieldMedian || 0) > 0
+        ? round(close * ((valuation?.dividendYield || 0) / (selfYieldMedian as number)))
+        : null,
+      weight: 25,
+    },
+  ];
+  const historicalFairWeight = historicalFairCandidates
+    .filter(item => item.value !== null && Number.isFinite(item.value))
+    .reduce((sum, item) => sum + item.weight, 0);
+  const historicalFairValue = historicalFairWeight
+    ? round(historicalFairCandidates.reduce((sum, item) => sum + (item.value !== null && Number.isFinite(item.value) ? item.value * item.weight : 0), 0) / historicalFairWeight)
+    : null;
+  const stockFairWeights = isFinancialIndustry
+    ? { earnings: 25, book: 40, dividend: 15, history: 20 }
+    : isSemiconductorIndustry
+      ? { earnings: 45, book: 20, dividend: 10, history: 25 }
+      : isCyclicalIndustry
+        ? { earnings: 25, book: 40, dividend: 10, history: 25 }
+        : isDividendProfile
+          ? { earnings: 25, book: 20, dividend: 25, history: 30 }
+          : { earnings: 35, book: 25, dividend: 10, history: 30 };
   const stockFairMethodsV2 = [
     {
       name: "industry earnings multiple",
       value: Number.isFinite(profit?.eps) && (profit?.eps || 0) > 0 ? round((profit?.eps || 0) * 4 * industryFairPer) : null,
-      weight: isSemiconductorIndustry || !isFinancialIndustry ? 45 : 25,
+      weight: stockFairWeights.earnings,
       note: `group ${industryGroup}; fair PER ${fmt(industryFairPer, 1)}`,
     },
     {
       name: "industry book multiple",
       value: Number.isFinite(valuation?.pbr) && (valuation?.pbr || 0) > 0 ? round((close / (valuation?.pbr || 1)) * industryTargetPbr) : null,
-      weight: isFinancialIndustry || isCyclicalIndustry ? 45 : 25,
+      weight: stockFairWeights.book,
       note: `group ${industryGroup}; fair PBR ${fmt(industryTargetPbr, 2)}`,
     },
     {
@@ -1950,14 +2050,14 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
       value: Number.isFinite(valuation?.dividendYield) && (valuation?.dividendYield || 0) > 0 && cashFlowV2Score !== null && cashFlowV2Score >= 55
         ? round(close * ((valuation?.dividendYield || 0) / industryTargetYield))
         : null,
-      weight: isDividendProfile || isFinancialIndustry ? 20 : 10,
+      weight: stockFairWeights.dividend,
       note: `sector yield reference ${fmt(industryTargetYield, 1)}%; requires cash-flow support`,
     },
     {
-      name: "history and peer percentile",
-      value: null,
-      weight: 20,
-      note: "reserved for 3-5 year self percentile and same-industry percentile once the historical valuation store is connected",
+      name: "3-5 year self valuation percentile",
+      value: historicalFairValue,
+      weight: stockFairWeights.history,
+      note: `self medians PER ${scoreTextValue(selfPerMedian)}, PBR ${scoreTextValue(selfPbrMedian)}, yield ${scoreTextValue(selfYieldMedian)}; workbench adds same-industry peer percentile when a peer batch is available`,
     },
   ];
   const etfFairMethodsV2 = [
@@ -2111,7 +2211,8 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
       methodCoverage: fairValueV2Confidence,
       industryGroup,
       methods: fairMethodsV2,
-      note: "Fixed PBR 1.8 and fixed 4% target yield are removed in v2; industry-group references are used where available, while 3-5 year self percentile and same-industry percentile remain reserved until the historical valuation store is connected.",
+      history: valuation?.history || null,
+      note: "Fixed PBR 1.8 and fixed 4% target yield are removed in v2; stock fair value now blends industry-group references with the stock's own 3-5 year valuation medians. Workbench-level same-industry peer percentiles are added when a peer batch has enough comparable stocks.",
     },
     scores: {
       undervalued: undervaluedV2,
@@ -2153,7 +2254,6 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
       note: "Score v2 is visible for internal comparison only and does not replace customer-facing v1 scores yet.",
     },
     pendingCalibration: [
-      "3-5 year self valuation percentile store",
       "same-industry valuation percentile store",
       "dividend continuity and payout volatility history",
       "5/10/20 day pullback outcome backtest for RSI, extension, volume, and Bollinger weights",
@@ -2331,6 +2431,128 @@ function topItems(items: ValueScore[], predicate: (item: ValueScore) => boolean,
     .slice(0, limit);
 }
 
+function valuationMetric(item: ValueScore, key: "per" | "pbr" | "dividendYield") {
+  const value = item.fundamentals?.data?.valuation?.[key];
+  return Number.isFinite(value) && (value as number) > 0 ? value as number : null;
+}
+
+function fairValueFromPeerMedians(item: ValueScore, medians: { per: number | null; pbr: number | null; dividendYield: number | null }) {
+  const close = item.close;
+  const per = valuationMetric(item, "per");
+  const pbr = valuationMetric(item, "pbr");
+  const dividendYield = valuationMetric(item, "dividendYield");
+  const candidates = [
+    { value: per !== null && medians.per !== null ? round((close / per) * medians.per) : null, weight: 40 },
+    { value: pbr !== null && medians.pbr !== null ? round((close / pbr) * medians.pbr) : null, weight: 35 },
+    { value: dividendYield !== null && medians.dividendYield !== null ? round(close * (dividendYield / medians.dividendYield)) : null, weight: 25 },
+  ];
+  const availableWeight = candidates
+    .filter(item => item.value !== null && Number.isFinite(item.value))
+    .reduce((sum, item) => sum + item.weight, 0);
+  return availableWeight
+    ? round(candidates.reduce((sum, item) => sum + (item.value !== null && Number.isFinite(item.value) ? item.value * item.weight : 0), 0) / availableWeight)
+    : null;
+}
+
+function applyPeerValuationPercentiles(items: ValueScore[]) {
+  const groups = new Map<string, ValueScore[]>();
+  items.forEach(item => {
+    const group = item.scoreV2?.fairValue?.industryGroup || TAIWAN_SCREENING_UNIVERSE.find(entry => entry.code === item.code)?.group || "unclassified";
+    if (item.professionalRating.assetModel !== "stock" || group === "unclassified") return;
+    groups.set(group, [...(groups.get(group) || []), item]);
+  });
+  const summary: Array<{ group: string; peerCount: number; appliedCount: number }> = [];
+  groups.forEach((groupItems, group) => {
+    if (groupItems.length < 2) return;
+    const perValues = groupItems.map(item => valuationMetric(item, "per")).filter((value): value is number => value !== null);
+    const pbrValues = groupItems.map(item => valuationMetric(item, "pbr")).filter((value): value is number => value !== null);
+    const dividendYieldValues = groupItems.map(item => valuationMetric(item, "dividendYield")).filter((value): value is number => value !== null);
+    const medians = {
+      per: median(perValues),
+      pbr: median(pbrValues),
+      dividendYield: median(dividendYieldValues),
+    };
+    let appliedCount = 0;
+    groupItems.forEach(item => {
+      const perPercentile = percentileRank(perValues, valuationMetric(item, "per"));
+      const pbrPercentile = percentileRank(pbrValues, valuationMetric(item, "pbr"));
+      const dividendYieldPercentile = percentileRank(dividendYieldValues, valuationMetric(item, "dividendYield"));
+      const peerScore = strictWeightedScore([
+        { score: perPercentile === null ? null : 100 - perPercentile, weight: 40 },
+        { score: pbrPercentile === null ? null : 100 - pbrPercentile, weight: 35 },
+        { score: dividendYieldPercentile, weight: 25 },
+      ]);
+      if (peerScore === null) return;
+      appliedCount += 1;
+      const peerFairValue = fairValueFromPeerMedians(item, medians);
+      item.scoreV2.fairValue.peer = {
+        group,
+        peerCount: groupItems.length,
+        perPercentile,
+        pbrPercentile,
+        dividendYieldPercentile,
+        medians,
+        cheapnessScore: peerScore,
+        fairValue: peerFairValue,
+        note: "same-industry percentile is calculated inside the current controlled workbench batch; it does not compare across unrelated industries.",
+      };
+      item.scoreV2.scores.peerValuation = {
+        score: peerScore,
+        label: scoreLabel(peerScore, "same-industry valuation cheap", "same-industry valuation neutral", "same-industry valuation expensive"),
+        weight: 30,
+        evidence: [
+          `peer group ${group}`,
+          `peer count ${groupItems.length}`,
+          Number.isFinite(perPercentile) ? `PER peer percentile ${fmt(perPercentile as number, 1)}` : "",
+          Number.isFinite(pbrPercentile) ? `PBR peer percentile ${fmt(pbrPercentile as number, 1)}` : "",
+          Number.isFinite(dividendYieldPercentile) ? `yield peer percentile ${fmt(dividendYieldPercentile as number, 1)}` : "",
+        ].filter(Boolean),
+        missing: [],
+      };
+      const valuationComponent = item.scoreV2.scores.valuation;
+      if (valuationComponent) {
+        const blendedValuation = strictWeightedScore([
+          { score: valuationComponent.score, weight: 70 },
+          { score: peerScore, weight: 30 },
+        ]);
+        valuationComponent.groups = {
+          ...(valuationComponent.groups || {}),
+          sameIndustryPeer: {
+            score: peerScore,
+            weight: 30,
+            evidence: item.scoreV2.scores.peerValuation.evidence,
+            missing: [],
+          },
+        };
+        valuationComponent.score = blendedValuation;
+        valuationComponent.evidence = [...(valuationComponent.evidence || []), `same-industry peer valuation ${scoreTextValue(peerScore)}`];
+        item.scoreV2.scores.undervalued = strictWeightedScore([
+          { score: item.scoreV2.scores.undervalued, weight: 75 },
+          { score: peerScore, weight: 25 },
+        ]);
+        item.scoreV2.scores.overvalued = strictWeightedScore([
+          { score: item.scoreV2.scores.overvalued, weight: 75 },
+          { score: 100 - peerScore, weight: 25 },
+        ]);
+        const valuationProfessional = item.scoreV2.professionalRating?.components?.find((component: any) => component.key === "valuation");
+        if (valuationProfessional) {
+          valuationProfessional.score = blendedValuation;
+          valuationProfessional.evidence = [...(valuationProfessional.evidence || []), `same-industry peer valuation ${scoreTextValue(peerScore)}`];
+        }
+        const total = strictWeightedScore((item.scoreV2.professionalRating?.components || []).map((component: any) => ({ score: component.score, weight: component.weight })));
+        item.scoreV2.professionalRating.total = total;
+        item.scoreV2.professionalRating.grade = gradeFromScoreV2(total, item.scoreV2.confidence?.score ?? 0);
+        item.scoreV2.professionalRating.gradeLabel = gradeLabel(item.scoreV2.professionalRating.grade);
+        item.scoreV2.comparison.v2Total = total;
+        item.scoreV2.comparison.v2Grade = item.scoreV2.professionalRating.grade;
+        item.scoreV2.comparison.delta = item.professionalRating.total !== null && total !== null ? total - item.professionalRating.total : null;
+      }
+    });
+    if (appliedCount) summary.push({ group, peerCount: groupItems.length, appliedCount });
+  });
+  return summary;
+}
+
 function summarizeMarket(items: ValueScore[]) {
   const usable = items.filter(item => item.professionalRating.total !== null);
   const avgScore = usable.length
@@ -2414,6 +2636,7 @@ function runTechnicalBacktest(quote: QuoteInfo) {
 async function loadWorkbench() {
   const screener = await loadScreener("undervalued", undefined);
   const items = screener.items;
+  const peerValuationSummary = applyPeerValuationPercentiles(items);
   const ranked = {
     observationPool: topItems(items, item => item.professionalRating.total !== null, item => item.professionalRating.total, 16),
     todayWatch: topItems(items, item =>
@@ -2520,6 +2743,11 @@ async function loadWorkbench() {
       averageConfidence: items.length
         ? Math.round(items.reduce((sum, item) => sum + (item.scoreV2?.confidence?.score || 0), 0) / items.length)
         : null,
+      peerValuation: {
+        status: peerValuationSummary.length ? "applied" : "insufficient_peers",
+        groups: peerValuationSummary,
+        note: "Same-industry peer percentiles are calculated only within the controlled workbench batch and are used to adjust v2 valuation, undervalued, overvalued, and professional totals before ranking.",
+      },
       largestDeltas: scoreV2Comparisons.slice(0, 10),
       rankingChanges,
       note: "Score v2 rankings are returned for internal comparison only; v1 remains the customer-facing ranking until an explicit cutover.",
