@@ -1472,9 +1472,13 @@
             </tbody>
           </table>
         </div>`;
+      const fallbackSourceLink = payload?.fallbackSourceUrl
+        ? ` / <a href="${escapeHtml(payload.fallbackSourceUrl)}" target="_blank" rel="noreferrer">MOPS</a>`
+        : "";
       $("plainFundamentals").innerHTML = financialSummaryHtml + rows.join("") + `
         <div class="fund-meta">
           \u8cc7\u6599\u4f86\u6e90\uff1a<a href="${escapeHtml(payload?.sourceUrl || "https://finmind.github.io/")}" target="_blank" rel="noreferrer">FinMind</a>\u3002
+          ${fallbackSourceLink}
           \u66f4\u65b0\u6642\u9593\uff1a${escapeHtml(payload?.fetchedAt ? new Date(payload.fetchedAt).toLocaleString("zh-TW") : "\u6642\u9593\u4e0d\u8db3")}\u3002
           ${escapeHtml(cacheText)}
           ${payload?.partial ? "\u90e8\u5206\u4f86\u6e90\u8cc7\u6599\u66ab\u6642\u4e0d\u53ef\u7528\uff0c\u5df2\u986f\u793a\u76ee\u524d\u53ef\u53d6\u5f97\u6b04\u4f4d\u3002" : ""}

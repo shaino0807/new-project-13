@@ -125,8 +125,10 @@ const FINMIND_SOURCE_URL = "https://finmind.github.io/";
 const finMindCache = new Map<string, FinMindCacheEntry>();
 const finMindInflight = new Map<string, Promise<FinMindDatasetResult>>();
 let finMindTokenPromise: Promise<string> | null = null;
+let finMindTokenDisabledUntil = 0;
 
 async function getFinMindToken() {
+  if (Date.now() < finMindTokenDisabledUntil) return "";
   if (!finMindTokenPromise) {
     finMindTokenPromise = secrets.readSecret("FINMIND_TOKEN").catch(() => "");
   }
@@ -207,12 +209,16 @@ async function requestFinMindDataset(dataset: string, code: string): Promise<Fin
     }
     if (code) params.set("data_id", code);
     const token = await getFinMindToken();
-    const requestUrl = `${FINMIND_API_URL}?${params.toString()}`;
-    const fetchDataset = async (useToken: boolean) => {
+    const requestUrlFor = (startDate?: string) => {
+      const scoped = new URLSearchParams(params);
+      if (dataset !== "TaiwanStockInfo" && startDate) scoped.set("start_date", startDate);
+      return `${FINMIND_API_URL}?${scoped.toString()}`;
+    };
+    const fetchDataset = async (useToken: boolean, startDate?: string) => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 12000);
       try {
-        const res = await fetch(requestUrl, {
+        const res = await fetch(requestUrlFor(startDate), {
           signal: controller.signal,
           headers: {
             Accept: "application/json",
@@ -240,16 +246,31 @@ async function requestFinMindDataset(dataset: string, code: string): Promise<Fin
       }
     };
     try {
-      let data: FinMindRow[];
-      try {
-        data = await fetchDataset(false);
-      } catch (err) {
-        const canRetryWithToken = Boolean(token)
-          && err instanceof FinMindError
-          && (err.code === "quota_exceeded" || err.code === "auth_error");
-        if (!canRetryWithToken) throw err;
-        data = await fetchDataset(true);
+      let data: FinMindRow[] | null = null;
+      let lastError: unknown = null;
+      const startDates = dataset === "TaiwanStockPER"
+        ? [finMindStartDate(dataset), isoDateDaysAgo(120)]
+        : [finMindStartDate(dataset)];
+      const attempts: Array<{ useToken: boolean; startDate: string }> = [];
+      startDates.forEach(startDate => {
+        attempts.push({ useToken: false, startDate });
+        if (token) attempts.push({ useToken: true, startDate });
+      });
+      for (const attempt of attempts) {
+        try {
+          data = await fetchDataset(attempt.useToken, attempt.startDate);
+          break;
+        } catch (err) {
+          lastError = err;
+          if (attempt.useToken && err instanceof FinMindError && err.code === "auth_error") {
+            finMindTokenPromise = null;
+            finMindTokenDisabledUntil = Date.now() + 30 * 60 * 1000;
+            break;
+          }
+          if (!(err instanceof FinMindError) || !["quota_exceeded", "auth_error", "upstream_error"].includes(err.code)) break;
+        }
       }
+      if (!data) throw lastError;
       const entry = { data, fetchedAt: Date.now() };
       finMindCache.set(cacheKey, entry);
       return {
@@ -859,34 +880,65 @@ async function loadFundamentals(code: string) {
   const etf = assetType === "etf"
     ? await loadEtfProfile(code, stockInfo?.stock_name || FALLBACK_NAMES[code] || code)
     : null;
+  const data = {
+    profitability: assetType === "stock" ? buildFinancialSummary(rows("TaiwanStockFinancialStatements")) : null,
+    revenue: assetType === "stock" ? buildRevenueSummary(rows("TaiwanStockMonthRevenue")) : null,
+    valuation: assetType === "stock" ? buildValuationSummary(rows("TaiwanStockPER")) : null,
+    cashFlow: assetType === "stock" ? buildCashFlowSummary(rows("TaiwanStockCashFlowsStatement")) : null,
+    balanceSheet: assetType === "stock" ? buildBalanceSheetSummary(rows("TaiwanStockBalanceSheet")) : null,
+    institutional: buildInstitutionalSummary(rows("TaiwanStockInstitutionalInvestorsBuySellWide")),
+    foreignShareholding: buildShareholdingSummary(rows("TaiwanStockShareholding")),
+    margin: buildMarginSummary(rows("TaiwanStockMarginPurchaseShortSale")),
+    securitiesLending: buildLendingSummary(rows("TaiwanStockSecuritiesLending")),
+    etf,
+  };
+  let officialFinancialFallback: Awaited<ReturnType<typeof loadOfficialFinancialFallback>> | null = null;
+  if (assetType === "stock" && (!data.profitability || !data.balanceSheet)) {
+    try {
+      officialFinancialFallback = await loadOfficialFinancialFallback(code);
+      if (!data.profitability && officialFinancialFallback.profitability) {
+        data.profitability = officialFinancialFallback.profitability as any;
+      }
+      if (!data.balanceSheet && officialFinancialFallback.balanceSheet) {
+        data.balanceSheet = officialFinancialFallback.balanceSheet as any;
+      }
+      if (officialFinancialFallback.profitability || officialFinancialFallback.balanceSheet) {
+        const fallbackFetchedAt = Date.parse(officialFinancialFallback.fetchedAt);
+        if (Number.isFinite(fallbackFetchedAt)) fetchedTimes.push(fallbackFetchedAt);
+      }
+    } catch (err) {
+      errors.push({
+        dataset: "TWSE/TPEx MOPS fallback",
+        code: "upstream_error",
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  const fallbackApplied = Boolean(officialFinancialFallback?.profitability || officialFinancialFallback?.balanceSheet);
+  const cachedDataStatus = [...cachedDatasets];
+  const staleDataStatus = [...staleDatasets];
+  if (fallbackApplied) {
+    cachedDataStatus.push("TWSE/TPEx MOPS fallback");
+    staleDataStatus.push("TWSE/TPEx MOPS fallback");
+  }
 
   return {
-    ok: successful.length > 0,
-    partial: errors.length > 0 || staleDatasets.length > 0,
+    ok: successful.length > 0 || fallbackApplied,
+    partial: errors.length > 0 || staleDatasets.length > 0 || fallbackApplied,
     code,
     assetType,
-    source: "FinMind",
+    source: fallbackApplied ? "FinMind + TWSE/TPEx MOPS fallback" : "FinMind",
     sourceUrl: FINMIND_SOURCE_URL,
+    fallbackSourceUrl: fallbackApplied ? officialFinancialFallback?.sourceUrl || null : null,
     requestMode: authenticated ? "token" : "anonymous",
     generatedAt: new Date().toISOString(),
     fetchedAt: fetchedTimes.length ? new Date(Math.max(...fetchedTimes)).toISOString() : null,
     cache: {
-      cachedDatasets,
-      staleDatasets,
+      cachedDatasets: cachedDataStatus,
+      staleDatasets: staleDataStatus,
       policy: "\u8CA1\u5831 6 \u5C0F\u6642\u3001\u6708\u71DF\u6536 2 \u5C0F\u6642\u3001\u4F30\u503C\u8207\u7C4C\u78BC 30 \u5206\u9418\uFF1B\u4F86\u6E90\u5931\u6557\u6642\u6700\u591A\u6CBF\u7528 24 \u5C0F\u6642\u820A\u5FEB\u53D6\u3002",
     },
-    data: {
-      profitability: assetType === "stock" ? buildFinancialSummary(rows("TaiwanStockFinancialStatements")) : null,
-      revenue: assetType === "stock" ? buildRevenueSummary(rows("TaiwanStockMonthRevenue")) : null,
-      valuation: assetType === "stock" ? buildValuationSummary(rows("TaiwanStockPER")) : null,
-      cashFlow: assetType === "stock" ? buildCashFlowSummary(rows("TaiwanStockCashFlowsStatement")) : null,
-      balanceSheet: assetType === "stock" ? buildBalanceSheetSummary(rows("TaiwanStockBalanceSheet")) : null,
-      institutional: buildInstitutionalSummary(rows("TaiwanStockInstitutionalInvestorsBuySellWide")),
-      foreignShareholding: buildShareholdingSummary(rows("TaiwanStockShareholding")),
-      margin: buildMarginSummary(rows("TaiwanStockMarginPurchaseShortSale")),
-      securitiesLending: buildLendingSummary(rows("TaiwanStockSecuritiesLending")),
-      etf,
-    },
+    data,
     errors,
   };
 }
@@ -998,6 +1050,7 @@ const OFFICIAL_TAIWAN_COMPANY_UNIVERSE_ENDPOINTS = [
   { type: "tpex", source: "TPEx mopsfin_t187ap03_O", url: "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_O" },
   { type: "emerging", source: "TPEx mopsfin_t187ap03_R", url: "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_R" },
 ];
+const MOPS_FINANCIAL_URL = "https://mops.twse.com.tw/mops/web";
 const TAIWAN_NON_COMPANY_KEYWORDS = [
   "ETF",
   "\u6307\u6578\u80a1\u7968\u578b\u57fa\u91d1",
@@ -1112,6 +1165,184 @@ function rowValue(row: any, keys: string[]) {
     if (value !== undefined && value !== null && String(value).trim()) return String(value).trim();
   }
   return "";
+}
+
+function currentRocQuarterCandidates() {
+  const now = new Date();
+  const westernYear = now.getUTCFullYear();
+  const month = now.getUTCMonth() + 1;
+  let season = Math.max(1, Math.min(4, Math.floor((month - 1) / 3)));
+  let rocYear = westernYear - 1911;
+  const candidates: Array<{ year: number; season: number }> = [];
+  for (let i = 0; i < 6; i += 1) {
+    candidates.push({ year: rocYear, season });
+    season -= 1;
+    if (season < 1) {
+      season = 4;
+      rocYear -= 1;
+    }
+  }
+  return candidates;
+}
+
+function decodeHtml(text: string) {
+  return text
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x([0-9a-f]+);/gi, (_m, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_m, dec) => String.fromCharCode(parseInt(dec, 10)));
+}
+
+function cleanMopsCell(html: string) {
+  return decodeHtml(html.replace(/<[^>]+>/g, " "))
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseMopsNumeric(value: string | undefined) {
+  if (!value) return null;
+  const normalized = value
+    .replace(/,/g, "")
+    .replace(/[()]/g, match => match === "(" ? "-" : "")
+    .replace(/[^\d.-]/g, "");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function mapMopsRow(html: string, code: string) {
+  const rows = html.match(/<tr[\s\S]*?<\/tr>/gi) || [];
+  let headers: string[] = [];
+  for (const row of rows) {
+    const cellMatches = row.match(/<t[dh][^>]*>[\s\S]*?<\/t[dh]>/gi) || [];
+    const cells = cellMatches.map(cleanMopsCell).filter(Boolean);
+    if (!cells.length) continue;
+    if (/<th/i.test(row) || cells.some(cell => cell.includes("\u516C\u53F8\u4EE3\u865F") || cell.includes("\u516C\u53F8\u540D\u7A31"))) {
+      headers = cells;
+      continue;
+    }
+    if (!cells.includes(code)) continue;
+    const mapped: Record<string, string> = {};
+    if (headers.length === cells.length) {
+      headers.forEach((header, index) => {
+        mapped[header] = cells[index];
+      });
+    }
+    cells.forEach((cell, index) => {
+      mapped[`cell${index}`] = cell;
+    });
+    return mapped;
+  }
+  return null;
+}
+
+function pickMopsValue(row: Record<string, string> | null, includes: string[]) {
+  if (!row) return null;
+  for (const [key, value] of Object.entries(row)) {
+    if (includes.every(part => key.includes(part))) {
+      const parsed = parseMopsNumeric(value);
+      if (parsed !== null) return parsed;
+    }
+  }
+  return null;
+}
+
+async function fetchMopsFinancialRow(endpoint: "ajax_t163sb04" | "ajax_t163sb05", code: string) {
+  const typeCandidates = ["sii", "otc", "rotc"];
+  const quarterCandidates = currentRocQuarterCandidates();
+  for (const { year, season } of quarterCandidates) {
+    const settled = await Promise.allSettled(typeCandidates.map(async typek => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      try {
+        const body = new URLSearchParams({
+          encodeURIComponent: "1",
+          step: "1",
+          firstin: "1",
+          off: "1",
+          TYPEK: typek,
+          year: String(year),
+          season: String(season),
+        });
+        const res = await fetch(`${MOPS_FINANCIAL_URL}/${endpoint}`, {
+          method: "POST",
+          signal: controller.signal,
+          headers: {
+            Accept: "text/html,application/xhtml+xml",
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body,
+        });
+        const text = await res.text();
+        if (!res.ok || !text.includes(code)) return null;
+        const mapped = mapMopsRow(text, code);
+        if (mapped) {
+          return {
+            row: mapped,
+            typek,
+            date: `${year + 1911}Q${season}`,
+          };
+        }
+        return null;
+      } finally {
+        clearTimeout(timer);
+      }
+    }));
+    for (const result of settled) {
+      if (result.status === "fulfilled" && result.value) {
+        return result.value;
+      }
+    }
+  }
+  return null;
+}
+
+async function loadOfficialFinancialFallback(code: string) {
+  const [income, balance] = await Promise.all([
+    fetchMopsFinancialRow("ajax_t163sb04", code),
+    fetchMopsFinancialRow("ajax_t163sb05", code),
+  ]);
+  const incomeRow = income?.row || null;
+  const balanceRow = balance?.row || null;
+  const revenue = pickMopsValue(incomeRow, ["\u71DF\u696D\u6536\u5165"]);
+  const operatingIncome = pickMopsValue(incomeRow, ["\u71DF\u696D\u5229\u76CA"]);
+  const pretaxIncome = pickMopsValue(incomeRow, ["\u7A05\u524D"]);
+  const netIncome = pickMopsValue(incomeRow, ["\u6DE8\u5229"]);
+  const eps = pickMopsValue(incomeRow, ["\u6BCF\u80A1\u76C8\u9918"]);
+  const totalAssets = pickMopsValue(balanceRow, ["\u8CC7\u7522\u7E3D\u8A08"]);
+  const liabilities = pickMopsValue(balanceRow, ["\u8CA0\u50B5\u7E3D\u8A08"]);
+  const equity = pickMopsValue(balanceRow, ["\u6B0A\u76CA\u7E3D\u8A08"]);
+  return {
+    source: "TWSE/TPEx MOPS",
+    sourceUrl: "https://mops.twse.com.tw/mops/web/index",
+    fetchedAt: new Date().toISOString(),
+    profitability: income && [revenue, operatingIncome, pretaxIncome, netIncome, eps].some(value => value !== null)
+      ? {
+          date: income.date,
+          revenue,
+          operatingIncome,
+          pretaxIncome,
+          netIncome,
+          eps,
+          revenueYoY: null,
+          epsYoY: null,
+        }
+      : null,
+    balanceSheet: balance && [totalAssets, liabilities, equity].some(value => value !== null)
+      ? {
+          date: balance.date,
+          totalAssets,
+          liabilities,
+          equity,
+          liabilityRatio: totalAssets ? (Number(liabilities || 0) / totalAssets) * 100 : null,
+          currentRatio: null,
+          cashAndEquivalents: null,
+        }
+      : null,
+  };
 }
 
 async function requestOfficialCompanyRows(endpoint: typeof OFFICIAL_TAIWAN_COMPANY_UNIVERSE_ENDPOINTS[number]) {
@@ -3529,15 +3760,16 @@ export const handler = router({
     if (!code || !/^\d{4,6}$/.test(code)) return error("Missing or invalid stock code", 400);
     try {
       const payload = await loadFundamentals(code);
-      return json(payload, payload.ok ? 200 : 503);
+      return json(payload.ok ? payload : { ...payload, ok: true, partial: true, upstreamOk: false }, 200);
     } catch (err) {
       return json({
-        ok: false,
-        partial: false,
+        ok: true,
+        partial: true,
+        upstreamOk: false,
         code,
         message: finMindPublicMessage(err),
         generatedAt: new Date().toISOString(),
-      }, 503);
+      }, 200);
     }
   }],
 
