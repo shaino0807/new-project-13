@@ -2032,11 +2032,14 @@
         return;
       }
       const counts = summary.eligibleCounts || {};
+      const calibration = summary.chaseRiskCalibration || {};
+      const calibrationStatus = calibration.status === "parallel_observation_only" ? "\u89c0\u5bdf\u4e2d" : calibration.status === "insufficient_history" ? "\u6b77\u53f2\u4e0d\u8db3" : "\u672a\u7522\u751f";
       target.innerHTML = [
         valueCard("Score v2", summary.clientActive ? "\u5df2\u555f\u7528" : "\u5e73\u884c\u6e2c\u8a66", summary.modelVersion || "", summary.clientActive ? "bull" : "warn"),
         valueCard("\u5e73\u5747\u4fe1\u5fc3\u5ea6", scoreText(summary.averageConfidence), "\u542b\u8cc7\u6599\u8986\u84cb\u8207\u95dc\u9375\u7f3a\u6f0f\u6263\u5206", scoreTone(summary.averageConfidence)),
         valueCard("\u4f4e\u4f30\u53ef\u6392\u540d", `${counts.undervalued || 0} \u6a94`, "\u7121 EPS\u3001\u7121\u73fe\u91d1\u6d41\u6216\u4f30\u503c\u65b9\u6cd5\u4e0d\u8db3\u6703\u88ab\u6392\u9664", "neut"),
         valueCard("\u8ffd\u9ad8\u53ef\u8a55\u5206", `${counts.chaseRisk || 0} \u6a94`, "\u8da8\u52e2\u3001\u9707\u76ea\u3001\u91cf\u80fd\u3001\u4e56\u96e2\u5206\u7d44", "neut"),
+        valueCard("\u8ffd\u9ad8\u6821\u6e96", calibrationStatus, "\u50c5\u5f8c\u81fa\u89c0\u5bdf\uff0c\u5c1a\u672a\u5207\u5165\u5ba2\u6236\u5206\u6578", calibration.status === "parallel_observation_only" ? "warn" : "neut"),
       ].join("");
       const rows = (summary.largestDeltas || []).slice(0, 10).map((item) => `
         <tr>
@@ -2071,6 +2074,29 @@
             <td>${escapeHtml(status)}</td>
           </tr>`;
       })).join("");
+      const signalLabels = {
+        trend: "\u8da8\u52e2",
+        oscillator: "\u9707\u76ea",
+        volume: "\u91cf\u80fd",
+        extension: "\u4e56\u96e2",
+      };
+      const weightText = (weights) => ["trend", "oscillator", "volume", "extension"]
+        .map((key) => `${signalLabels[key]} ${Number.isFinite(Number(weights?.[key])) ? Math.round(Number(weights[key])) : "--"}`)
+        .join(" / ");
+      const liftText = (value) => Number.isFinite(Number(value)) ? `${fmt(Number(value), 2)}x` : "--";
+      const calibrationRows = (calibration.results || [])
+        .filter((item) => item && item.ok)
+        .flatMap((item) => (item.signals || []).map((signal) => `
+          <tr>
+            <td>${escapeHtml(item.code)} ${escapeHtml(item.name || "")}</td>
+            <td>${escapeHtml(item.period?.start || "--")} - ${escapeHtml(item.period?.end || "--")}</td>
+            <td>${escapeHtml(signalLabels[signal.key] || signal.label || signal.key || "--")}</td>
+            <td>${signal.sampleSize || 0}</td>
+            <td>${Number.isFinite(Number(signal.sampleRate)) ? fmt(Number(signal.sampleRate), 1) + "%" : "--"}</td>
+            <td>${liftText(signal.averageLift)}</td>
+            <td>${escapeHtml(weightText(item.recommendedWeights || {}))}</td>
+          </tr>`))
+        .join("");
       detail.innerHTML = `
         <div class="table-wrap">
           <table>
@@ -2084,6 +2110,13 @@
             <tbody>${rankingRows || `<tr><td colspan="6">\u5c1a\u7121\u6392\u540d\u8b8a\u5316\u8cc7\u6599\u3002</td></tr>`}</tbody>
           </table>
         </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>\u80a1\u7968</th><th>\u56de\u6e2c\u671f\u9593</th><th>\u8a0a\u865f</th><th>\u6a23\u672c</th><th>\u6a23\u672c\u7387</th><th>\u5e73\u5747 lift</th><th>\u5efa\u8b70\u6b0a\u91cd</th></tr></thead>
+            <tbody>${calibrationRows || `<tr><td colspan="7">\u5c1a\u7121\u8ffd\u9ad8\u56de\u6e2c\u6821\u6e96\u8cc7\u6599\u3002</td></tr>`}</tbody>
+          </table>
+        </div>
+        <p class="note">${escapeHtml(calibration.note || "\u8ffd\u9ad8\u6b0a\u91cd\u76ee\u524d\u50c5\u4f9b\u5f8c\u81fa\u89c0\u5bdf\uff0c\u4e0d\u6703\u5f71\u97ff\u5ba2\u6236\u7aef\u5206\u6578\u3002")}</p>
         <p class="note">${escapeHtml(summary.note || "\u5e73\u884c\u6e2c\u8a66\uff0c\u5ba2\u6236\u7aef\u5c1a\u672a\u5207\u63db\u3002")}</p>`;
     }
 

@@ -2487,7 +2487,7 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
     pendingCalibration: [
       "same-industry valuation percentile store",
       "dividend continuity and payout volatility history",
-      "5/10/20 day pullback outcome backtest for RSI, extension, volume, and Bollinger weights",
+      "review /api/workbench scoreV2Summary.chaseRiskCalibration before cutting suggested weights into live scoring",
     ],
   };
 
@@ -2864,6 +2864,163 @@ function runTechnicalBacktest(quote: QuoteInfo) {
   };
 }
 
+function maxFutureDrawdownPct(series: DailyBar[], index: number, horizon: number) {
+  const entry = series[index]?.close;
+  if (!Number.isFinite(entry) || entry <= 0) return null;
+  const future = series.slice(index + 1, index + 1 + horizon);
+  if (!future.length) return null;
+  const minLow = Math.min(...future.map(row => Number.isFinite(row.low) ? row.low : row.close));
+  return round(Math.max(0, (1 - minLow / entry) * 100), 2);
+}
+
+function liftWeight(lift: number | null, sampleSize: number, totalSamples: number) {
+  if (lift === null || !Number.isFinite(lift) || sampleSize < 8 || !totalSamples) return 0;
+  const sampleConfidence = Math.min(1, sampleSize / Math.max(20, totalSamples * 0.35));
+  return Math.max(0, lift - 1) * sampleConfidence;
+}
+
+function normalizeCalibrationWeights(raw: Record<string, number>, fallback: Record<string, number>) {
+  const total = Object.values(raw).reduce((sum, value) => sum + value, 0);
+  if (!total) return fallback;
+  const entries = Object.entries(raw).map(([key, value]) => [key, Math.round((value / total) * 100)] as const);
+  const drift = 100 - entries.reduce((sum, [, value]) => sum + value, 0);
+  if (entries.length) entries[0] = [entries[0][0], entries[0][1] + drift];
+  return Object.fromEntries(entries);
+}
+
+function calibrateChaseRiskFromHistory(quote: QuoteInfo) {
+  const series = quote.series || [];
+  if (series.length < 140) {
+    return {
+      ok: false,
+      code: quote.code,
+      message: "Not enough price history for chase-risk calibration.",
+    };
+  }
+  const closes = series.map(row => row.close);
+  const lows = series.map(row => row.low);
+  const volumes = series.map(row => row.volume || 0);
+  const ma20 = sma(closes, 20);
+  const ma60 = sma(closes, 60);
+  const ma120 = sma(closes, 120);
+  const rsi14 = rsi(closes, 14);
+  const bb = boll(closes);
+  const horizons = [
+    { days: 5, threshold: 5 },
+    { days: 10, threshold: 8 },
+    { days: 20, threshold: 10 },
+  ];
+  const signalDefs = [
+    {
+      key: "trend",
+      label: "trend extension",
+      test: (i: number) => Number.isFinite(ma20[i]) && Number.isFinite(ma60[i]) && Number.isFinite(ma120[i])
+        && closes[i] > ma20[i] && ma20[i] > ma60[i] && ma60[i] > ma120[i],
+    },
+    {
+      key: "oscillator",
+      label: "RSI/Stochastic overheating proxy",
+      test: (i: number) => Number.isFinite(rsi14[i]) && rsi14[i] >= 70,
+    },
+    {
+      key: "volume",
+      label: "volume expansion",
+      test: (i: number) => {
+        if (i < 20) return false;
+        const avgVol = volumes.slice(i - 19, i + 1).reduce((sum, value) => sum + value, 0) / 20;
+        return avgVol > 0 && volumes[i] / avgVol >= 1.8;
+      },
+    },
+    {
+      key: "extension",
+      label: "Bollinger/support extension",
+      test: (i: number) => {
+        const support20 = Math.min(...lows.slice(Math.max(0, i - 19), i + 1));
+        const supportDistance = support20 > 0 ? ((closes[i] / support20) - 1) * 100 : null;
+        return (Number.isFinite(bb.pctB[i]) && bb.pctB[i] >= 0.9)
+          || (supportDistance !== null && supportDistance >= 12);
+      },
+    },
+  ];
+  const start = series.length >= 220 ? 120 : 60;
+  const end = series.length - Math.max(...horizons.map(item => item.days)) - 1;
+  const totalSamples = Math.max(0, end - start + 1);
+  if (totalSamples < 30) {
+    return {
+      ok: false,
+      code: quote.code,
+      message: "Not enough forward windows for chase-risk calibration.",
+    };
+  }
+  const baseRates = horizons.map(horizon => {
+    let events = 0;
+    for (let i = start; i <= end; i += 1) {
+      const drawdown = maxFutureDrawdownPct(series, i, horizon.days);
+      if (drawdown !== null && drawdown >= horizon.threshold) events += 1;
+    }
+    return {
+      days: horizon.days,
+      threshold: horizon.threshold,
+      samples: totalSamples,
+      eventRate: round((events / totalSamples) * 100, 1),
+    };
+  });
+  const signals = signalDefs.map(signal => {
+    const matched: number[] = [];
+    for (let i = start; i <= end; i += 1) {
+      if (signal.test(i)) matched.push(i);
+    }
+    const outcomes = horizons.map((horizon, horizonIndex) => {
+      const events = matched.filter(index => {
+        const drawdown = maxFutureDrawdownPct(series, index, horizon.days);
+        return drawdown !== null && drawdown >= horizon.threshold;
+      }).length;
+      const eventRate = matched.length ? round((events / matched.length) * 100, 1) : null;
+      const baseRate = baseRates[horizonIndex].eventRate;
+      const lift = eventRate !== null && baseRate > 0 ? round(eventRate / baseRate, 2) : null;
+      return {
+        days: horizon.days,
+        threshold: horizon.threshold,
+        events,
+        eventRate,
+        lift,
+      };
+    });
+    const averageLift = outcomes.some(item => item.lift !== null)
+      ? round(outcomes.reduce((sum, item) => sum + (item.lift || 0), 0) / outcomes.filter(item => item.lift !== null).length, 2)
+      : null;
+    return {
+      key: signal.key,
+      label: signal.label,
+      sampleSize: matched.length,
+      sampleRate: round((matched.length / totalSamples) * 100, 1),
+      averageLift,
+      outcomes,
+    };
+  });
+  const rawWeights = Object.fromEntries(signals.map(signal => [
+    signal.key,
+    liftWeight(signal.averageLift, signal.sampleSize, totalSamples),
+  ]));
+  return {
+    ok: true,
+    code: quote.code,
+    name: quote.name,
+    rule: "For each historical bar, test whether RSI, trend, volume, or Bollinger/support extension preceded a 5/8/10% max drawdown within 5/10/20 trading days.",
+    period: {
+      start: series[start]?.date || null,
+      end: series[end]?.date || null,
+      bars: series.length,
+      samples: totalSamples,
+    },
+    baseRates,
+    signals,
+    recommendedWeights: normalizeCalibrationWeights(rawWeights, { trend: 25, oscillator: 30, volume: 20, extension: 25 }),
+    currentWeights: { trend: 25, oscillator: 30, volume: 20, extension: 25 },
+    status: "parallel_observation_only",
+  };
+}
+
 async function loadWorkbench() {
   const screener = await loadScreener("undervalued", undefined);
   const items = screener.items;
@@ -2945,7 +3102,18 @@ async function loadWorkbench() {
     };
   });
   const backtestCodes = ["0050", "2330", "2317", "2454"];
-  const backtests = await settleWithLimit(backtestCodes, 2, async code => runTechnicalBacktest(await loadQuote(code)));
+  const backtestQuotes = await settleWithLimit(backtestCodes, 2, async code => loadQuote(code));
+  const backtests = backtestQuotes.map((result, index) => result.status === "fulfilled" ? runTechnicalBacktest(result.value) : {
+    ok: false,
+    code: backtestCodes[index],
+    trades: 0,
+    message: result.reason instanceof Error ? result.reason.message : String(result.reason),
+  });
+  const calibrationResults = backtestQuotes.map((result, index) => result.status === "fulfilled" ? calibrateChaseRiskFromHistory(result.value) : {
+    ok: false,
+    code: backtestCodes[index],
+    message: result.reason instanceof Error ? result.reason.message : String(result.reason),
+  });
   return {
     ok: true,
     generatedAt: new Date().toISOString(),
@@ -2979,6 +3147,11 @@ async function loadWorkbench() {
         groups: peerValuationSummary,
         note: "Same-industry peer percentiles are calculated only within the controlled workbench batch and are used to adjust v2 valuation, undervalued, overvalued, and professional totals before ranking.",
       },
+      chaseRiskCalibration: {
+        status: calibrationResults.some((item: any) => item.ok) ? "parallel_observation_only" : "insufficient_history",
+        results: calibrationResults,
+        note: "Historical pullback calibration is visible in the admin/workbench layer only; live customer-facing v1 and v2 chase-risk weights are not cut over from these suggested weights yet.",
+      },
       largestDeltas: scoreV2Comparisons.slice(0, 10),
       rankingChanges,
       note: "Score v2 rankings are returned for internal comparison only; v1 remains the customer-facing ranking until an explicit cutover.",
@@ -2994,11 +3167,7 @@ async function loadWorkbench() {
     },
     backtest: {
       modelVersion: "technical-entry-v1",
-      results: backtests.map((result, index) => result.status === "fulfilled" ? result.value : {
-        ok: false,
-        code: backtestCodes[index],
-        message: result.reason instanceof Error ? result.reason.message : String(result.reason),
-      }),
+      results: backtests,
     },
   };
 }
