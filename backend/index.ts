@@ -143,6 +143,7 @@ function isoDateDaysAgo(days: number) {
 
 function finMindCacheTtl(dataset: string) {
   if (dataset === "TaiwanStockInfo") return 24 * 60 * 60 * 1000;
+  if (dataset === "TaiwanStockDividend") return 6 * 60 * 60 * 1000;
   if ([
     "TaiwanStockFinancialStatements",
     "TaiwanStockBalanceSheet",
@@ -160,6 +161,7 @@ function finMindStartDate(dataset: string) {
     "TaiwanStockCashFlowsStatement",
   ].includes(dataset)) return isoDateDaysAgo(900);
   if (dataset === "TaiwanStockMonthRevenue") return isoDateDaysAgo(760);
+  if (dataset === "TaiwanStockDividend") return isoDateDaysAgo(365 * 6 + 30);
   if (dataset === "TaiwanStockPER") return isoDateDaysAgo(365 * 5 + 30);
   return isoDateDaysAgo(90);
 }
@@ -181,8 +183,26 @@ function finMindPublicMessage(err: unknown) {
   return err instanceof Error ? err.message : String(err);
 }
 
-async function requestFinMindDataset(dataset: string, code: string): Promise<FinMindDatasetResult> {
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  return new Promise<T>((resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise.then(
+      value => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      err => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
+async function requestFinMindDataset(dataset: string, code: string, timeoutMs = 12000): Promise<FinMindDatasetResult> {
   const cacheKey = `${dataset}:${code}`;
+  const inflightKey = timeoutMs >= 12000 ? cacheKey : `${cacheKey}:timeout:${timeoutMs}`;
   const now = Date.now();
   const cached = finMindCache.get(cacheKey);
   const ttl = finMindCacheTtl(dataset);
@@ -196,7 +216,7 @@ async function requestFinMindDataset(dataset: string, code: string): Promise<Fin
     };
   }
 
-  const activeRequest = finMindInflight.get(cacheKey);
+  const activeRequest = finMindInflight.get(inflightKey);
   if (activeRequest) return activeRequest;
 
   const request = (async () => {
@@ -216,7 +236,7 @@ async function requestFinMindDataset(dataset: string, code: string): Promise<Fin
     };
     const fetchDataset = async (useToken: boolean, startDate?: string) => {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 12000);
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
         const res = await fetch(requestUrlFor(startDate), {
           signal: controller.signal,
@@ -254,7 +274,7 @@ async function requestFinMindDataset(dataset: string, code: string): Promise<Fin
       const attempts: Array<{ useToken: boolean; startDate: string }> = [];
       startDates.forEach(startDate => {
         attempts.push({ useToken: false, startDate });
-        if (token) attempts.push({ useToken: true, startDate });
+        if (token && dataset !== "TaiwanStockDividend") attempts.push({ useToken: true, startDate });
       });
       for (const attempt of attempts) {
         try {
@@ -300,11 +320,11 @@ async function requestFinMindDataset(dataset: string, code: string): Promise<Fin
     }
   })();
 
-  finMindInflight.set(cacheKey, request);
+  finMindInflight.set(inflightKey, request);
   try {
     return await request;
   } finally {
-    finMindInflight.delete(cacheKey);
+    finMindInflight.delete(inflightKey);
   }
 }
 
@@ -642,6 +662,22 @@ type EtfProfile = {
     weightedDividendYield: number | null;
     availableComponents: number;
   } | null;
+  distribution: {
+    source: string;
+    sourceUrl: string;
+    latestDate: string | null;
+    observations: number;
+    annualCashDistributions: Array<{ year: number; cash: number }>;
+    trailingTwelveMonthCash: number | null;
+    trailingYieldPct: number | null;
+    continuityYears: number | null;
+    missingYears: number[];
+    continuityScore: number | null;
+    payoutVolatilityScore: number | null;
+    yieldReasonablenessScore: number | null;
+    evidence: string[];
+    missing: string[];
+  } | null;
   warnings: string[];
 };
 
@@ -689,6 +725,184 @@ function parseYuantaNav(html: string) {
   return {
     date: normalizeDate(match?.[1]),
     value: finiteOrNull(match?.[2]),
+  };
+}
+
+function firstFinite(...values: unknown[]) {
+  for (const value of values) {
+    const n = finiteOrNull(value);
+    if (n !== null) return n;
+  }
+  return null;
+}
+
+function dividendRowDate(row: FinMindRow) {
+  return normalizeDate(
+    row.CashExDividendTradingDate
+    || row.CashDividendPaymentDate
+    || row.StockExDividendTradingDate
+    || row.date,
+  );
+}
+
+function cashDistributionFromRow(row: FinMindRow) {
+  const direct = firstFinite(
+    row.CashDividend,
+    row.cash_dividend,
+    row.dividend,
+    row.CashDistribution,
+    row.TotalCashDividend,
+  );
+  if (direct !== null) return direct;
+  const parts = [
+    row.CashEarningsDistribution,
+    row.CashStatutorySurplus,
+    row.CashCapitalReserve,
+  ].map(value => finiteOrNull(value)).filter((value): value is number => value !== null && Number.isFinite(value) && value > 0);
+  const total = parts.reduce((sum, value) => sum + value, 0);
+  return total > 0 ? round(total, 4) : null;
+}
+
+function continuityScoreFromYears(count: number | null) {
+  if (count === null) return null;
+  if (count >= 5) return 92;
+  if (count === 4) return 78;
+  if (count === 3) return 62;
+  if (count === 2) return 45;
+  if (count === 1) return 28;
+  return 12;
+}
+
+function volatilityScoreFromAnnual(values: number[]) {
+  const usable = values.filter(value => Number.isFinite(value) && value > 0);
+  if (usable.length < 3) return null;
+  const mean = usable.reduce((sum, value) => sum + value, 0) / usable.length;
+  if (!mean) return null;
+  const cv = std(usable) / mean;
+  if (cv <= 0.15) return 90;
+  if (cv <= 0.3) return 78;
+  if (cv <= 0.5) return 60;
+  if (cv <= 0.8) return 42;
+  return 25;
+}
+
+function distributionYieldScore(yieldPct: number | null) {
+  if (yieldPct === null) return null;
+  if (yieldPct >= 3 && yieldPct <= 8) return 82;
+  if (yieldPct >= 2 && yieldPct <= 10) return 68;
+  if (yieldPct > 10 && yieldPct <= 12) return 45;
+  if (yieldPct > 12) return 25;
+  if (yieldPct >= 0.5) return 42;
+  return 20;
+}
+
+function buildEtfDistributionHistory(rows: FinMindRow[], close: number | null) {
+  const events = rows
+    .map(row => {
+      const date = dividendRowDate(row);
+      const cash = cashDistributionFromRow(row);
+      return date && cash !== null && cash > 0 ? { date, year: Number(date.slice(0, 4)), cash } : null;
+    })
+    .filter((row): row is { date: string; year: number; cash: number } => Boolean(row))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  if (!events.length) {
+    return {
+      source: "FinMind TaiwanStockDividend",
+      sourceUrl: FINMIND_SOURCE_URL,
+      latestDate: null,
+      observations: 0,
+      annualCashDistributions: [],
+      trailingTwelveMonthCash: null,
+      trailingYieldPct: null,
+      continuityYears: null,
+      missingYears: [],
+      continuityScore: null,
+      payoutVolatilityScore: null,
+      yieldReasonablenessScore: null,
+      evidence: [],
+      missing: ["distribution history"],
+    };
+  }
+  const annual = new Map<number, number>();
+  events.forEach(event => annual.set(event.year, round((annual.get(event.year) || 0) + event.cash, 4)));
+  const latestDate = events[events.length - 1].date;
+  const latestTime = Date.parse(latestDate);
+  const trailingEvents = Number.isFinite(latestTime)
+    ? events.filter(event => Date.parse(event.date) >= latestTime - 370 * 86400000)
+    : events.slice(-4);
+  const trailingCash = trailingEvents.length
+    ? round(trailingEvents.reduce((sum, event) => sum + event.cash, 0), 4)
+    : null;
+  const latestYear = events[events.length - 1].year;
+  const windowYears = Array.from({ length: 5 }, (_, index) => latestYear - 4 + index);
+  const annualCashDistributions = windowYears.map(year => ({ year, cash: round(annual.get(year) || 0, 4) }));
+  const continuityYears = annualCashDistributions.filter(item => item.cash > 0).length;
+  const missingYears = annualCashDistributions.filter(item => item.cash <= 0).map(item => item.year);
+  const trailingYieldPct = trailingCash !== null && close !== null && close > 0
+    ? round((trailingCash / close) * 100, 2)
+    : null;
+  const volatilityScore = volatilityScoreFromAnnual(annualCashDistributions.map(item => item.cash));
+  return {
+    source: "FinMind TaiwanStockDividend",
+    sourceUrl: FINMIND_SOURCE_URL,
+    latestDate,
+    observations: events.length,
+    annualCashDistributions,
+    trailingTwelveMonthCash: trailingCash,
+    trailingYieldPct,
+    continuityYears,
+    missingYears,
+    continuityScore: continuityScoreFromYears(continuityYears),
+    payoutVolatilityScore: volatilityScore,
+    yieldReasonablenessScore: distributionYieldScore(trailingYieldPct),
+    evidence: [
+      `distribution observations ${events.length}`,
+      `latest distribution ${latestDate}`,
+      trailingCash !== null ? `TTM cash distribution ${fmt(trailingCash, 4)}` : "",
+      trailingYieldPct !== null ? `TTM distribution yield ${fmt(trailingYieldPct, 2)}%` : "",
+      `paid years ${continuityYears}/5`,
+      volatilityScore !== null ? `payout volatility score ${volatilityScore}` : "",
+    ].filter(Boolean),
+    missing: [
+      trailingYieldPct === null ? "trailing distribution yield" : "",
+      volatilityScore === null ? "3+ annual distribution observations" : "",
+      continuityYears < 5 ? `missing distribution years ${missingYears.join(", ")}` : "",
+    ].filter(Boolean),
+  };
+}
+
+function buildEtfNavReturnStability(quote: QuoteInfo, distributionYieldPct: number | null, premiumDiscount: number | null) {
+  const series = (quote.series || []).filter(row => Number.isFinite(row.close) && row.close > 0);
+  if (series.length < 60) {
+    return {
+      score: Number.isFinite(premiumDiscount) ? Math.max(25, Math.min(80, Math.round(82 - Math.abs(premiumDiscount as number) * 12))) : null,
+      evidence: [Number.isFinite(premiumDiscount) ? `premium/discount ${fmt(premiumDiscount as number, 2)}%` : ""].filter(Boolean),
+      missing: ["price total-return history"],
+    };
+  }
+  const first = series[0].close;
+  const last = series[series.length - 1].close;
+  const priceReturnPct = round(((last / first) - 1) * 100, 2);
+  const maxClose = Math.max(...series.map(row => row.close));
+  const drawdownPct = maxClose > 0 ? round((1 - last / maxClose) * 100, 2) : null;
+  const totalReturnProxy = distributionYieldPct !== null ? round(priceReturnPct + distributionYieldPct, 2) : priceReturnPct;
+  let score = totalReturnProxy >= 12 && (drawdownPct ?? 99) <= 12 ? 88
+    : totalReturnProxy >= 5 && (drawdownPct ?? 99) <= 18 ? 76
+      : totalReturnProxy >= 0 ? 62
+        : totalReturnProxy >= -8 ? 42
+          : 24;
+  if (distributionYieldPct !== null && distributionYieldPct >= 8 && priceReturnPct < -5) score = Math.min(score, 45);
+  if (premiumDiscount !== null && Number.isFinite(premiumDiscount) && Math.abs(premiumDiscount) > 3) score = Math.min(score, 55);
+  return {
+    score,
+    evidence: [
+      `1y price return ${fmt(priceReturnPct, 2)}%`,
+      distributionYieldPct !== null ? `TTM distribution yield ${fmt(distributionYieldPct, 2)}%` : "",
+      `total-return proxy ${fmt(totalReturnProxy, 2)}%`,
+      drawdownPct !== null ? `drawdown from 1y high ${fmt(drawdownPct, 2)}%` : "",
+      premiumDiscount !== null ? `premium/discount ${fmt(premiumDiscount, 2)}%` : "",
+    ].filter(Boolean),
+    missing: distributionYieldPct === null ? ["trailing distribution yield"] : [],
   };
 }
 
@@ -762,8 +976,9 @@ async function buildEtfComponentSummary(holdings: EtfHolding[]) {
   };
 }
 
-async function loadEtfProfile(code: string, name: string): Promise<EtfProfile> {
-  const cached = etfProfileCache.get(code);
+async function loadEtfProfile(code: string, name: string, options: { fast?: boolean } = {}): Promise<EtfProfile> {
+  const cacheKey = `${code}:${options.fast ? "fast" : "full"}`;
+  const cached = etfProfileCache.get(cacheKey);
   if (cached && Date.now() - cached.fetchedAt < ETF_PROFILE_TTL_MS) return cached.data;
 
   const profile: EtfProfile = {
@@ -780,16 +995,27 @@ async function loadEtfProfile(code: string, name: string): Promise<EtfProfile> {
       sourceUrl: null,
     },
     componentSummary: null,
+    distribution: null,
     warnings: [],
   };
+
+  const distributionPromise = withTimeout(
+    requestFinMindDataset("TaiwanStockDividend", code, options.fast ? 2500 : 5000),
+    options.fast ? 2500 : 5000,
+    "ETF distribution history timed out",
+  ).then(dividendRows => {
+    profile.distribution = buildEtfDistributionHistory(dividendRows.data, null);
+  }).catch(err => {
+    profile.warnings.push(`ETF distribution history unavailable: ${finMindPublicMessage(err)}`);
+  });
 
   if (code === "0050") {
     const holdingsUrl = "https://www.yuantaetfs.com/product/detail/0050/ratio";
     const navUrl = "https://www.yuantaetfs.com/tradeInfo/pcf/0050";
     try {
       const [holdingsHtml, navHtml, quote] = await Promise.all([
-        fetchText(holdingsUrl, 18000),
-        fetchText(navUrl, 18000),
+        fetchText(holdingsUrl, options.fast ? 7000 : 18000),
+        fetchText(navUrl, options.fast ? 7000 : 18000),
         fetchTwseMis(code),
       ]);
       const holdingsResult = parseYuantaHoldings(holdingsHtml);
@@ -804,10 +1030,12 @@ async function loadEtfProfile(code: string, name: string): Promise<EtfProfile> {
         ? round(((profile.nav.marketPrice / profile.nav.value) - 1) * 100, 2)
         : null;
       profile.nav.sourceUrl = navUrl;
-      if (profile.holdings.length) {
+      if (profile.holdings.length && !options.fast) {
         const components = await buildEtfComponentSummary(profile.holdings);
         profile.holdings = components.holdings;
         profile.componentSummary = components.summary;
+      } else if (profile.holdings.length && options.fast) {
+        profile.warnings.push("ETF holdings component summary skipped in fast workbench mode.");
       } else {
         profile.warnings.push("\u5143\u5927\u6295\u4FE1\u6301\u80A1\u9801\u76EE\u524D\u6C92\u6709\u53EF\u89E3\u6790\u7684\u6210\u5206\u80A1\u3002");
       }
@@ -815,18 +1043,19 @@ async function loadEtfProfile(code: string, name: string): Promise<EtfProfile> {
       profile.warnings.push(`0050 ETF \u5B98\u65B9\u8CC7\u6599\u66AB\u6642\u7121\u6CD5\u53D6\u5F97\uFF1A${err instanceof Error ? err.message : String(err)}`);
     }
   } else {
-    profile.warnings.push("\u76EE\u524D\u5B8C\u6574\u6210\u5206\u80A1\u8207\u6DE8\u503C\u805A\u5408\u5148\u652F\u63F4 0050\uFF0C\u5176\u4ED6 ETF \u4ECD\u4FDD\u7559\u6CD5\u4EBA\u8207\u7C4C\u78BC\u8CC7\u6599\u3002");
+      profile.warnings.push("\u76EE\u524D\u5B8C\u6574\u6210\u5206\u80A1\u8207\u6DE8\u503C\u805A\u5408\u5148\u652F\u63F4 0050\uFF0C\u5176\u4ED6 ETF \u4ECD\u4FDD\u7559\u6CD5\u4EBA\u8207\u7C4C\u78BC\u8CC7\u6599\u3002");
   }
 
-  etfProfileCache.set(code, { data: profile, fetchedAt: Date.now() });
+  await distributionPromise;
+  etfProfileCache.set(cacheKey, { data: profile, fetchedAt: Date.now() });
   return profile;
 }
 
-async function loadFundamentals(code: string) {
+async function loadFundamentals(code: string, options: { fast?: boolean } = {}) {
   const authenticated = Boolean(await getFinMindToken());
   let infoResult: FinMindDatasetResult | null = null;
   try {
-    infoResult = await requestFinMindDataset("TaiwanStockInfo", code);
+    infoResult = await requestFinMindDataset("TaiwanStockInfo", code, options.fast ? 5000 : 12000);
   } catch {
     infoResult = null;
   }
@@ -836,7 +1065,20 @@ async function loadFundamentals(code: string) {
     String(row?.industry_category || "").trim().toUpperCase().includes("ETF")
   ) || code === "0050";
   const assetType = isEtf ? "etf" : "stock";
-  const datasets = assetType === "etf"
+  const datasets = options.fast
+    ? assetType === "etf"
+      ? [
+          "TaiwanStockInstitutionalInvestorsBuySellWide",
+        ]
+      : [
+          "TaiwanStockFinancialStatements",
+          "TaiwanStockBalanceSheet",
+          "TaiwanStockCashFlowsStatement",
+          "TaiwanStockMonthRevenue",
+          "TaiwanStockPER",
+          "TaiwanStockInstitutionalInvestorsBuySellWide",
+        ]
+    : assetType === "etf"
     ? [
         "TaiwanStockInstitutionalInvestorsBuySellWide",
         "TaiwanStockShareholding",
@@ -854,7 +1096,7 @@ async function loadFundamentals(code: string) {
         "TaiwanStockMarginPurchaseShortSale",
         "TaiwanStockSecuritiesLending",
       ];
-  const results = await Promise.allSettled(datasets.map(dataset => requestFinMindDataset(dataset, code)));
+  const results = await Promise.allSettled(datasets.map(dataset => requestFinMindDataset(dataset, code, options.fast ? 5000 : 12000)));
   const available = new Map<string, FinMindDatasetResult>();
   if (infoResult) available.set("TaiwanStockInfo", infoResult);
   const errors: Array<{ dataset: string; code: string; message: string }> = [];
@@ -878,7 +1120,7 @@ async function loadFundamentals(code: string) {
   const cachedDatasets = successful.filter(result => result.cached).map(result => result.dataset);
   const fetchedTimes = successful.map(result => Date.parse(result.fetchedAt)).filter(Number.isFinite);
   const etf = assetType === "etf"
-    ? await loadEtfProfile(code, stockInfo?.stock_name || FALLBACK_NAMES[code] || code)
+    ? await loadEtfProfile(code, stockInfo?.stock_name || FALLBACK_NAMES[code] || code, options)
     : null;
   const data = {
     profitability: assetType === "stock" ? buildFinancialSummary(rows("TaiwanStockFinancialStatements")) : null,
@@ -893,7 +1135,8 @@ async function loadFundamentals(code: string) {
     etf,
   };
   let officialFinancialFallback: Awaited<ReturnType<typeof loadOfficialFinancialFallback>> | null = null;
-  if (assetType === "stock" && (!data.profitability || !data.balanceSheet)) {
+  let officialRevenueFallback: Awaited<ReturnType<typeof loadOfficialRevenueFallback>> | null = null;
+  if (!options.fast && assetType === "stock" && (!data.profitability || !data.balanceSheet)) {
     try {
       officialFinancialFallback = await loadOfficialFinancialFallback(code);
       if (!data.profitability && officialFinancialFallback.profitability) {
@@ -914,22 +1157,56 @@ async function loadFundamentals(code: string) {
       });
     }
   }
-  const fallbackApplied = Boolean(officialFinancialFallback?.profitability || officialFinancialFallback?.balanceSheet);
+  if (!options.fast && assetType === "stock" && !data.revenue) {
+    try {
+      officialRevenueFallback = await loadOfficialRevenueFallback(code);
+      if (officialRevenueFallback?.revenue) {
+        data.revenue = officialRevenueFallback.revenue as any;
+        const revenueFetchedAt = Date.parse(officialRevenueFallback.fetchedAt);
+        if (Number.isFinite(revenueFetchedAt)) fetchedTimes.push(revenueFetchedAt);
+      }
+    } catch (err) {
+      errors.push({
+        dataset: "TWSE monthly revenue fallback",
+        code: "upstream_error",
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  const fallbackApplied = Boolean(officialFinancialFallback?.profitability || officialFinancialFallback?.balanceSheet || officialRevenueFallback?.revenue);
   const cachedDataStatus = [...cachedDatasets];
   const staleDataStatus = [...staleDatasets];
   if (fallbackApplied) {
-    cachedDataStatus.push("TWSE/TPEx MOPS fallback");
-    staleDataStatus.push("TWSE/TPEx MOPS fallback");
+    if (officialFinancialFallback?.profitability || officialFinancialFallback?.balanceSheet) {
+      cachedDataStatus.push("TWSE/TPEx MOPS fallback");
+      staleDataStatus.push("TWSE/TPEx MOPS fallback");
+    }
+    if (officialRevenueFallback?.revenue) {
+      cachedDataStatus.push("TWSE monthly revenue fallback");
+      staleDataStatus.push("TWSE monthly revenue fallback");
+    }
   }
+  const hasActualData = Boolean(
+    data.profitability ||
+    data.revenue ||
+    data.valuation ||
+    data.cashFlow ||
+    data.balanceSheet ||
+    data.institutional ||
+    data.foreignShareholding ||
+    data.margin ||
+    data.securitiesLending ||
+    data.etf
+  );
 
   return {
-    ok: successful.length > 0 || fallbackApplied,
+    ok: hasActualData,
     partial: errors.length > 0 || staleDatasets.length > 0 || fallbackApplied,
     code,
     assetType,
-    source: fallbackApplied ? "FinMind + TWSE/TPEx MOPS fallback" : "FinMind",
+    source: fallbackApplied ? "FinMind + official fallback" : "FinMind",
     sourceUrl: FINMIND_SOURCE_URL,
-    fallbackSourceUrl: fallbackApplied ? officialFinancialFallback?.sourceUrl || null : null,
+    fallbackSourceUrl: fallbackApplied ? officialFinancialFallback?.sourceUrl || officialRevenueFallback?.sourceUrl || null : null,
     requestMode: authenticated ? "token" : "anonymous",
     generatedAt: new Date().toISOString(),
     fetchedAt: fetchedTimes.length ? new Date(Math.max(...fetchedTimes)).toISOString() : null,
@@ -1342,6 +1619,65 @@ async function loadOfficialFinancialFallback(code: string) {
           cashAndEquivalents: null,
         }
       : null,
+  };
+}
+
+async function requestOfficialMonthlyRevenueRows() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 7000);
+  try {
+    const res = await fetch("https://openapi.twse.com.tw/v1/opendata/t187ap05_L", {
+      signal: controller.signal,
+      headers: { Accept: "application/json" },
+    });
+    const text = await res.text();
+    if (!res.ok) throw new Error(`TWSE monthly revenue HTTP ${res.status}: ${text.slice(0, 120)}`);
+    const rows = JSON.parse(text);
+    if (!Array.isArray(rows)) throw new Error("TWSE monthly revenue returned a non-array payload");
+    return rows as Array<Record<string, string>>;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function officialRevenueDate(value: unknown) {
+  const raw = String(value || "").replace(/[^0-9]/g, "");
+  if (raw.length < 5) return new Date().toISOString().slice(0, 10);
+  const year = Number(raw.slice(0, raw.length - 2)) + 1911;
+  const month = raw.slice(-2);
+  return `${year}-${month}-01`;
+}
+
+async function loadOfficialRevenueFallback(code: string) {
+  const rows = await requestOfficialMonthlyRevenueRows();
+  const row = rows.find(item => cleanCode(String(item["\u516C\u53F8\u4EE3\u865F"] || "")) === code) || null;
+  if (!row) return null;
+  const revenue = parseMopsNumeric(row["\u71DF\u696D\u6536\u5165-\u7576\u6708\u71DF\u6536"]);
+  const previousYearRevenue = parseMopsNumeric(row["\u71DF\u696D\u6536\u5165-\u53BB\u5E74\u7576\u6708\u71DF\u6536"]);
+  const yoy = parseMopsNumeric(row["\u71DF\u696D\u6536\u5165-\u53BB\u5E74\u540C\u6708\u589E\u6E1B(%)"]);
+  if (revenue === null && yoy === null) return null;
+  const date = officialRevenueDate(row["\u8CC7\u6599\u5E74\u6708"]);
+  return {
+    source: "TWSE OpenAPI monthly revenue",
+    sourceUrl: "https://openapi.twse.com.tw/v1/opendata/t187ap05_L",
+    fetchedAt: new Date().toISOString(),
+    revenue: {
+      date,
+      createTime: row["\u51FA\u8868\u65E5\u671F"] || null,
+      revenue,
+      yoy,
+      recent: [{
+        date,
+        year: Number(date.slice(0, 4)),
+        month: Number(date.slice(5, 7)),
+        revenue,
+        yoy,
+      }],
+      latestAverageYoY: yoy,
+      priorAverageYoY: null,
+      acceleration: null,
+      previousYearRevenue,
+    },
   };
 }
 
@@ -1892,6 +2228,15 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
     { score: financialStabilityComponent.score, weight: 15 },
   ]);
   const etf = data.etf;
+  if (etf?.distribution && etf.distribution.trailingTwelveMonthCash !== null && Number.isFinite(close) && close > 0) {
+    etf.distribution.trailingYieldPct = round((etf.distribution.trailingTwelveMonthCash / close) * 100, 2);
+    etf.distribution.yieldReasonablenessScore = distributionYieldScore(etf.distribution.trailingYieldPct);
+    etf.distribution.evidence = [
+      ...etf.distribution.evidence.filter(item => !item.startsWith("TTM distribution yield")),
+      `TTM distribution yield ${fmt(etf.distribution.trailingYieldPct, 2)}%`,
+    ];
+    etf.distribution.missing = etf.distribution.missing.filter(item => item !== "trailing distribution yield");
+  }
   const etfPremiumScore = Number.isFinite(etf?.nav?.premiumDiscount)
     ? Math.max(15, Math.min(95, Math.round(85 - Math.abs(etf!.nav.premiumDiscount as number) * 18)))
     : null;
@@ -1930,7 +2275,7 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
     componentForProfessional("liquidity", "\u898F\u6A21\u8207\u6D41\u52D5\u6027", etfLiquidityScore, 15, [
       Number.isFinite(quote.volume) ? `\u6210\u4EA4\u91CF ${fmt(quote.volume, 0)}` : "",
     ].filter(Boolean), etfLiquidityScore === null ? ["\u6210\u4EA4\u91CF"] : [], "\u6D41\u52D5\u6027\u8A0A\u865F\u504F\u5F31\u6216\u7F3A\u6F0F\u3002"),
-    componentForProfessional("distribution", "\u914D\u606F\u7A69\u5B9A\u5EA6", etfDividendScore, 15, [
+    componentForProfessional("distribution", "\u914D\u606F\u54C1\u8CEA", etfDividendScore, 15, [
       Number.isFinite(etf?.componentSummary?.weightedDividendYield) ? `\u52A0\u6B0A\u6B96\u5229\u7387 ${fmt(etf?.componentSummary?.weightedDividendYield || NaN, 2)}%` : "",
     ].filter(Boolean), etfDividendScore === null ? ["\u914D\u606F\u7D00\u9304"] : [], "\u914D\u606F\u8CC7\u6599\u7F3A\u6F0F\u6216\u5F37\u5EA6\u4E0D\u8DB3\u3002"),
     componentForProfessional("technical", "\u6280\u8853\u4F4D\u7F6E", technicalPositionScore, 10, chaseRiskComponent.evidence, chaseRiskComponent.missing, "\u9032\u5834\u6642\u9EDE\u6709\u8F03\u9AD8\u8FFD\u9AD8\u98A8\u96AA\u3002"),
@@ -2291,6 +2636,19 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
       note: `self medians PER ${scoreTextValue(selfPerMedian)}, PBR ${scoreTextValue(selfPbrMedian)}, yield ${scoreTextValue(selfYieldMedian)}; workbench adds same-industry peer percentile when a peer batch is available`,
     },
   ];
+  const etfNavReturnStability = buildEtfNavReturnStability(
+    quote,
+    etf?.distribution?.trailingYieldPct ?? null,
+    etf?.nav?.premiumDiscount ?? null,
+  );
+  const etfDistributionQualityParts = [
+    { score: etf?.distribution?.continuityScore ?? null, weight: 30 },
+    { score: etf?.distribution?.payoutVolatilityScore ?? null, weight: 25 },
+    { score: etf?.distribution?.yieldReasonablenessScore ?? null, weight: 15 },
+    { score: etfNavReturnStability.score, weight: 15 },
+    { score: etfLiquidityScore, weight: 15 },
+  ];
+  const etfDistributionQualityScore = strictWeightedScore(etfDistributionQualityParts);
   const etfFairMethodsV2 = [
     {
       name: "NAV fair value",
@@ -2308,9 +2666,11 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
     },
     {
       name: "distribution quality support",
-      value: null,
+      value: etfDistributionQualityScore !== null && Number.isFinite(etf?.nav?.marketPrice)
+        ? round((etf!.nav.marketPrice || close) * (0.65 + etfDistributionQualityScore / 200))
+        : null,
       weight: 25,
-      note: "reserved for distribution continuity, payout volatility, and total-return history",
+      note: "uses distribution continuity, payout volatility, yield reasonableness, total-return proxy, and liquidity",
     },
   ];
   const fairMethodsV2 = fundamentals.assetType === "etf" ? etfFairMethodsV2 : stockFairMethodsV2;
@@ -2354,26 +2714,16 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
     { score: 100 - dataConfidenceScore, weight: 5 },
   ];
   const overvaluedV2 = strictWeightedScore(overvaluedV2Parts);
-  const etfDistributionQualityParts = [
-    { score: null, weight: 30 },
-    { score: null, weight: 25 },
-    { score: Number.isFinite(etf?.componentSummary?.weightedDividendYield)
-      ? ((etf!.componentSummary!.weightedDividendYield || 0) >= 3 && (etf!.componentSummary!.weightedDividendYield || 0) <= 8 ? 72 : 45)
-      : null, weight: 15 },
-    { score: Number.isFinite(etf?.nav?.premiumDiscount) ? etfPremiumScore : null, weight: 15 },
-    { score: etfLiquidityScore, weight: 15 },
-  ];
-  const etfDistributionQualityScore = strictWeightedScore(etfDistributionQualityParts);
   const professionalV2Components = fundamentals.assetType === "etf"
     ? [
         componentForProfessional("premiumNav", "\u6298\u6EA2\u50F9\u8207\u6DE8\u503C", etfPremiumScore, 20, etfProfessionalComponents[0].evidence, etfProfessionalComponents[0].missing, "ETF premium or NAV data is not attractive enough."),
         componentForProfessional("holdingsQuality", "\u6210\u5206\u80A1\u54C1\u8CEA\u8207\u96C6\u4E2D\u5EA6", etfQualityScore, 20, etfProfessionalComponents[1].evidence, etfProfessionalComponents[1].missing, "ETF holdings quality or concentration needs review."),
         componentForProfessional("distributionQuality", "\u914D\u606F\u54C1\u8CEA", etfDistributionQualityScore, 20, [
-          Number.isFinite(etf?.componentSummary?.weightedDividendYield) ? `weighted yield ${fmt(etf?.componentSummary?.weightedDividendYield || NaN, 2)}%` : "",
-          "continuity and payout volatility reserved for dividend history",
+          ...(etf?.distribution?.evidence || []),
+          ...etfNavReturnStability.evidence,
         ].filter(Boolean), [
-          "distribution continuity",
-          "distribution volatility",
+          ...(etf?.distribution?.missing || []),
+          ...etfNavReturnStability.missing,
           etfDistributionQualityScore === null ? "distribution quality inputs" : "",
         ].filter(Boolean), "High yield is not enough without continuity and NAV/total-return support."),
         componentForProfessional("liquidity", "\u898F\u6A21\u8207\u6D41\u52D5\u6027", etfLiquidityScore, 15, etfProfessionalComponents[2].evidence, etfProfessionalComponents[2].missing, "Liquidity data is weak or missing."),
@@ -2486,7 +2836,7 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
     },
     pendingCalibration: [
       "same-industry valuation percentile store",
-      "dividend continuity and payout volatility history",
+      "official ETF NAV total-return history beyond the current market-price proxy",
       "review /api/workbench scoreV2Summary.chaseRiskCalibration before cutting suggested weights into live scoring",
     ],
   };
@@ -2569,10 +2919,10 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
   };
 }
 
-async function loadValueScore(code: string) {
+async function loadValueScore(code: string, options: { fast?: boolean } = {}) {
   const [quote, fundamentals] = await Promise.all([
     loadQuote(code),
-    loadFundamentals(code),
+    loadFundamentals(code, options),
   ]);
   return buildValueScores(quote, fundamentals);
 }
@@ -2613,14 +2963,16 @@ async function settleWithLimit<T, R>(items: T[], limit: number, fn: (item: T, in
   return results;
 }
 
-async function loadScreener(mode: string, universeValue: unknown) {
+async function loadScreener(mode: string, universeValue: unknown, options: { fast?: boolean } = {}) {
   const universe = parseScreenerUniverse(universeValue);
+  const isDefaultUniverse = !universeValue && universe.length === DEFAULT_SCREENER_UNIVERSE.length;
+  const scoreLimit = isDefaultUniverse ? Math.max(1, universe.length) : 4;
   const [marketUniverseResult, results] = await Promise.all([
-    loadTaiwanCompanyUniverse().catch(err => ({
+    withTimeout(loadTaiwanCompanyUniverse(), 12000, "Taiwan company universe timed out").catch(err => ({
       ok: false,
       message: err instanceof Error ? err.message : String(err),
     })),
-    settleWithLimit(universe, 4, code => loadValueScore(code)),
+    settleWithLimit(universe, scoreLimit, code => loadValueScore(code, options)),
   ]);
   const items: ValueScore[] = [];
   const errors: Array<{ code: string; message: string }> = [];
@@ -3021,8 +3373,10 @@ function calibrateChaseRiskFromHistory(quote: QuoteInfo) {
   };
 }
 
+let workbenchCache: { data: any; fetchedAt: number } | null = null;
+
 async function loadWorkbench() {
-  const screener = await loadScreener("undervalued", undefined);
+  const screener = await loadScreener("undervalued", undefined, { fast: true });
   const items = screener.items;
   const peerValuationSummary = applyPeerValuationPercentiles(items);
   const ranked = {
@@ -3102,7 +3456,7 @@ async function loadWorkbench() {
     };
   });
   const backtestCodes = ["0050", "2330", "2317", "2454"];
-  const backtestQuotes = await settleWithLimit(backtestCodes, 2, async code => loadQuote(code));
+  const backtestQuotes = await settleWithLimit(backtestCodes, 4, async code => withTimeout(loadQuote(code), 12000, `quote timed out for ${code}`));
   const backtests = backtestQuotes.map((result, index) => result.status === "fulfilled" ? runTechnicalBacktest(result.value) : {
     ok: false,
     code: backtestCodes[index],
@@ -3114,7 +3468,7 @@ async function loadWorkbench() {
     code: backtestCodes[index],
     message: result.reason instanceof Error ? result.reason.message : String(result.reason),
   });
-  return {
+  const payload = {
     ok: true,
     generatedAt: new Date().toISOString(),
     source: SCORE_SOURCE_NOTE,
@@ -3170,6 +3524,8 @@ async function loadWorkbench() {
       results: backtests,
     },
   };
+  workbenchCache = { data: payload, fetchedAt: Date.now() };
+  return payload;
 }
 
 async function fetchYahooChart(code: string) {
@@ -3981,8 +4337,21 @@ export const handler = router({
 
   "GET /api/workbench": [async () => {
     try {
-      return json(await loadWorkbench(), 200);
+      return json(await withTimeout(loadWorkbench(), 65000, "workbench timed out"), 200);
     } catch (err) {
+      if (workbenchCache) {
+        return json({
+          ...workbenchCache.data,
+          ok: true,
+          partial: true,
+          cache: {
+            status: "stale",
+            fetchedAt: new Date(workbenchCache.fetchedAt).toISOString(),
+            ageSeconds: Math.round((Date.now() - workbenchCache.fetchedAt) / 1000),
+          },
+          warning: `Workbench is serving the latest cached snapshot because refresh failed: ${err instanceof Error ? err.message : String(err)}`,
+        }, 200);
+      }
       return json({
         ok: false,
         message: `Unable to build workbench: ${err instanceof Error ? err.message : String(err)}`,

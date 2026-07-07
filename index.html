@@ -1686,7 +1686,11 @@
         premiumNav:"ETF \u6298\u6ea2\u50f9",
         holdingsQuality:"\u6210\u5206\u80a1\u54c1\u8cea",
         liquidity:"\u898f\u6a21\u8207\u6d41\u52d5\u6027",
-        distribution:"\u914d\u606f\u7a69\u5b9a",
+        distribution:"\u914d\u606f\u54c1\u8cea",
+        distributionQuality:"\u914d\u606f\u54c1\u8cea",
+        capitalConfidence:"\u7c4c\u78bc\u4fe1\u5fc3",
+        technicalTrend:"\u6280\u8853\u8da8\u52e2",
+        profitability:"\u7372\u5229\u80fd\u529b",
         singleRisk:"\u96c6\u4e2d\u98a8\u96aa"
       })[key] || fallback || key;
     }
@@ -2148,6 +2152,15 @@
       const cmp = v2.comparison || {};
       const confidence = v2.confidence || {};
       const fair = v2.fairValue || {};
+      const listText = (value) => Array.isArray(value) ? value.join("\uff1b") : value ? String(value) : "";
+      const componentRows = (v2.professionalRating?.components || []).map((item) => `
+        <tr>
+          <td>${escapeHtml(componentLabel(item.key, item.label))}</td>
+          <td>${item.weight || 0}%</td>
+          <td>${scoreText(item.score)}</td>
+          <td>${escapeHtml(listText(item.evidence) || "\u8cc7\u6599\u4e0d\u8db3")}</td>
+          <td>${escapeHtml(listText(item.missing) || "\u7121")}</td>
+        </tr>`).join("");
       target.innerHTML = `
         <div class="data-status">
           <h3>\u76ee\u524d\u500b\u80a1 Score v2 ${badge(v2.clientActive ? "\u5df2\u555f\u7528" : "\u5e73\u884c\u6e2c\u8a66", v2.clientActive ? "bull" : "warn")}</h3>
@@ -2159,6 +2172,12 @@
           </div>
           <p class="note">\u95dc\u9375\u7f3a\u6f0f\uff1a${escapeHtml((confidence.criticalMissing || []).join(", ") || "\u7121")}\u3002\u516c\u5141\u50f9 v2\uff1a${fair.value ? fmt(fair.value) : "--"}\uff0c\u65b9\u6cd5\u8986\u84cb ${fair.methodCoverage || 0}%\uff0c\u7522\u696d\u7d44 ${escapeHtml(fair.industryGroup || "--")}\u3002</p>
           <p class="note">${escapeHtml(v2.professionalRating?.note || "")}</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>\u6a21\u7d44</th><th>\u6b0a\u91cd</th><th>\u5206\u6578</th><th>\u4f7f\u7528\u8cc7\u6599</th><th>\u7f3a\u8cc7\u6599</th></tr></thead>
+              <tbody>${componentRows || `<tr><td colspan="5">\u5c1a\u7121 Score v2 \u6a21\u7d44\u8cc7\u6599\u3002</td></tr>`}</tbody>
+            </table>
+          </div>
         </div>`;
     }
 
