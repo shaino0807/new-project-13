@@ -28,6 +28,8 @@ type QuoteInfo = {
   analysis: ReturnType<typeof buildAnalysis>;
 };
 
+type YahooChartRange = "1y" | "5y";
+
 const FALLBACK_NAMES: Record<string, string> = {
   "0050": "\u5143\u5927\u53F0\u706350",
   "2303": "\u806F\u96FB",
@@ -3358,12 +3360,15 @@ function calibrateChaseRiskFromHistory(quote: QuoteInfo) {
     ok: true,
     code: quote.code,
     name: quote.name,
+    source: quote.source,
+    sourceUrl: quote.sourceUrls.yahoo || null,
     rule: "For each historical bar, test whether RSI, trend, volume, or Bollinger/support extension preceded a 5/8/10% max drawdown within 5/10/20 trading days.",
     period: {
       start: series[start]?.date || null,
       end: series[end]?.date || null,
       bars: series.length,
       samples: totalSamples,
+      lookbackYears: round(series.length / 252, 1),
     },
     baseRates,
     signals,
@@ -3457,13 +3462,14 @@ async function loadWorkbench() {
   });
   const backtestCodes = ["0050", "2330", "2317", "2454"];
   const backtestQuotes = await settleWithLimit(backtestCodes, 4, async code => withTimeout(loadQuote(code), 12000, `quote timed out for ${code}`));
+  const calibrationQuotes = await settleWithLimit(backtestCodes, 2, async code => withTimeout(loadHistoricalQuoteForCalibration(code), 22000, `5y calibration quote timed out for ${code}`));
   const backtests = backtestQuotes.map((result, index) => result.status === "fulfilled" ? runTechnicalBacktest(result.value) : {
     ok: false,
     code: backtestCodes[index],
     trades: 0,
     message: result.reason instanceof Error ? result.reason.message : String(result.reason),
   });
-  const calibrationResults = backtestQuotes.map((result, index) => result.status === "fulfilled" ? calibrateChaseRiskFromHistory(result.value) : {
+  const calibrationResults = calibrationQuotes.map((result, index) => result.status === "fulfilled" ? calibrateChaseRiskFromHistory(result.value) : {
     ok: false,
     code: backtestCodes[index],
     message: result.reason instanceof Error ? result.reason.message : String(result.reason),
@@ -3528,7 +3534,7 @@ async function loadWorkbench() {
   return payload;
 }
 
-async function fetchYahooChart(code: string) {
+async function fetchYahooChart(code: string, range: YahooChartRange = "1y") {
   const suffixes = code.includes(".") ? [""] : [".TW", ".TWO"];
   const hosts = ["query1.finance.yahoo.com", "query2.finance.yahoo.com"];
   const errors: string[] = [];
@@ -3536,7 +3542,7 @@ async function fetchYahooChart(code: string) {
   for (const suffix of suffixes) {
     for (const host of hosts) {
       const symbol = `${code}${suffix}`;
-      const url = `https://${host}/v8/finance/chart/${encodeURIComponent(symbol)}?range=1y&interval=1d&includePrePost=false&events=history`;
+      const url = `https://${host}/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d&includePrePost=false&events=history`;
       try {
         const data = await fetchJson(url);
         const result = data?.chart?.result?.[0];
@@ -3641,6 +3647,39 @@ async function fetchExchangeSnapshot(code: string) {
   }
 
   throw new Error(errors.join("; "));
+}
+
+async function loadHistoricalQuoteForCalibration(code: string): Promise<QuoteInfo> {
+  const chart = await fetchYahooChart(code, "5y");
+  const series = chart.bars;
+  const week52Slice = series.slice(-252);
+  const week52High = week52Slice.length ? Math.max(...week52Slice.map(row => row.high)) : chart.week52High;
+  const week52Low = week52Slice.length ? Math.min(...week52Slice.map(row => row.low)) : chart.week52Low;
+  const analysis = buildAnalysis(series, Number.isFinite(week52High) ? week52High : chart.week52High, Number.isFinite(week52Low) ? week52Low : chart.week52Low);
+  const last = series[series.length - 1];
+  const previous = series[series.length - 2];
+  return {
+    code,
+    symbol: chart.symbol,
+    name: chart.name,
+    market: chart.market,
+    currency: chart.currency,
+    close: last.close,
+    quoteDate: last.date,
+    open: last.open,
+    high: last.high,
+    low: last.low,
+    change: previous && Number.isFinite(previous.close) ? round(last.close - previous.close) : null,
+    volume: last.volume,
+    source: "Yahoo Finance 5y daily OHLCV for admin calibration",
+    sourceUrls: {
+      yahoo: chart.sourceUrl,
+      twseMis: null,
+      exchange: null,
+    },
+    series,
+    analysis,
+  };
 }
 
 type NewsItem = {

@@ -2093,7 +2093,7 @@
         .flatMap((item) => (item.signals || []).map((signal) => `
           <tr>
             <td>${escapeHtml(item.code)} ${escapeHtml(item.name || "")}</td>
-            <td>${escapeHtml(item.period?.start || "--")} - ${escapeHtml(item.period?.end || "--")}</td>
+            <td>${escapeHtml(item.period?.start || "--")} - ${escapeHtml(item.period?.end || "--")}<br><span class="note">${Number.isFinite(Number(item.period?.lookbackYears)) ? fmt(Number(item.period.lookbackYears), 1) + "y" : "--"} / ${item.period?.bars || 0} bars</span></td>
             <td>${escapeHtml(signalLabels[signal.key] || signal.label || signal.key || "--")}</td>
             <td>${signal.sampleSize || 0}</td>
             <td>${Number.isFinite(Number(signal.sampleRate)) ? fmt(Number(signal.sampleRate), 1) + "%" : "--"}</td>
