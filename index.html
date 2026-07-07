@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>台股技術分析 Agent</title>
+  <title>&#x53f0;&#x80a1;&#x6280;&#x8853;&#x5206;&#x6790; Agent</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <style>
     :root {
@@ -208,29 +208,29 @@
     <section class="hero">
       <div class="hero-top">
         <div>
-          <h1 id="headline">台股技術分析 Agent</h1>
-          <p id="subtitle">輸入台股代碼後，頁面會產生互動式技術分析、回檔機率、Dow Theory、Chan/Wave 訊號與交易策略。</p>
+          <h1 id="headline">&#x53f0;&#x80a1;&#x6280;&#x8853;&#x5206;&#x6790; Agent</h1>
+          <p id="subtitle">&#x8f38;&#x5165;&#x53f0;&#x80a1;&#x4ee3;&#x78bc;&#x5f8c;&#xff0c;&#x9801;&#x9762;&#x6703;&#x7522;&#x751f;&#x4e92;&#x52d5;&#x5f0f;&#x6280;&#x8853;&#x5206;&#x6790;&#x3001;&#x56de;&#x6a94;&#x6a5f;&#x7387;&#x3001;Dow Theory&#x3001;Chan/Wave &#x8a0a;&#x865f;&#x8207;&#x4ea4;&#x6613;&#x7b56;&#x7565;&#x3002;</p>
           <div class="hero-facts" id="heroFacts"></div>
           <div class="hero-facts" id="valueRadarHeroBadge"></div>
         </div>
         <form class="form" id="stockForm">
-          <input id="stockInput" autocomplete="off" placeholder="例如 2330、台積電、華邦電" aria-label="股票代碼或名稱">
-          <button type="submit">分析</button>
-          <button class="secondary" type="button" id="resetBtn">重跑</button>
+          <input id="stockInput" autocomplete="off" placeholder="&#x4f8b;&#x5982; 2330&#x3001;&#x53f0;&#x7a4d;&#x96fb;&#x3001;&#x83ef;&#x90a6;&#x96fb;" aria-label="&#x80a1;&#x7968;&#x4ee3;&#x78bc;&#x6216;&#x540d;&#x7a31;">
+          <button type="submit">&#x5206;&#x6790;</button>
+          <button class="secondary" type="button" id="resetBtn">&#x91cd;&#x8dd1;</button>
         </form>
       </div>
       <div class="chips" id="quickCodes">
-        <button class="chip" data-code="2330" type="button">2330 台積電</button>
-        <button class="chip" data-code="2344" type="button">2344 華邦電</button>
-        <button class="chip" data-code="2454" type="button">2454 聯發科</button>
-        <button class="chip" data-code="0050" type="button">0050 台灣50</button>
+        <button class="chip" data-code="2330" type="button">2330 &#x53f0;&#x7a4d;&#x96fb;</button>
+        <button class="chip" data-code="2344" type="button">2344 &#x83ef;&#x90a6;&#x96fb;</button>
+        <button class="chip" data-code="2454" type="button">2454 &#x806f;&#x767c;&#x79d1;</button>
+        <button class="chip" data-code="0050" type="button">0050 &#x53f0;&#x7063;50</button>
       </div>
       <div class="view-tabs" id="viewTabs" aria-label="page switch">
         <button class="view-tab active" type="button" data-view="stock">&#x80a1;&#x7968;&#x6df1;&#x5ea6;&#x9801;</button>
         <button class="view-tab" type="button" data-view="client">&#x5ba2;&#x6236;&#x5de5;&#x4f5c;&#x53f0;</button>
         <button class="view-tab" type="button" data-view="admin" id="adminTab" hidden>&#x5f8c;&#x81fa;&#x8cc7;&#x6599;&#x6aa2;&#x67e5;</button>
       </div>
-      <div class="status" id="status">準備載入最新資料。</div>
+      <div class="status" id="status">&#x6e96;&#x5099;&#x8f09;&#x5165;&#x6700;&#x65b0;&#x8cc7;&#x6599;&#x3002;</div>
     </section>
 
     <div id="stockPage" class="page-view">
@@ -238,13 +238,13 @@
 
     <section class="panel">
       <div class="control-row">
-        <h2>小資決策卡</h2>
-        <label>每月可投入
-          <input id="monthlyBudget" type="number" min="1000" step="500" value="10000" aria-label="每月可投入金額">
+        <h2>&#x5c0f;&#x8cc7;&#x6c7a;&#x7b56;&#x5361;</h2>
+        <label>&#x6bcf;&#x6708;&#x53ef;&#x6295;&#x5165;
+          <input id="monthlyBudget" type="number" min="1000" step="500" value="10000" aria-label="&#x6bcf;&#x6708;&#x53ef;&#x6295;&#x5165;&#x91d1;&#x984d;">
         </label>
       </div>
       <div class="decision-grid" id="retailDecision"></div>
-      <p class="note">金額只用來估算分批與停損承受度，不會送出或儲存。</p>
+      <p class="note">&#x91d1;&#x984d;&#x53ea;&#x7528;&#x4f86;&#x4f30;&#x7b97;&#x5206;&#x6279;&#x8207;&#x505c;&#x640d;&#x627f;&#x53d7;&#x5ea6;&#xff0c;&#x4e0d;&#x6703;&#x9001;&#x51fa;&#x6216;&#x5132;&#x5b58;&#x3002;</p>
     </section>
 
     <section class="panel">
@@ -315,30 +315,30 @@
 
     <section class="grid two">
       <section class="panel">
-        <h2>買點好壞判斷</h2>
+        <h2>&#x8cb7;&#x9ede;&#x597d;&#x58de;&#x5224;&#x65b7;</h2>
         <div id="entryQuality"></div>
         <div id="entryPlanPanel"></div>
         <div id="entryChecklistPanel"></div>
       </section>
       <section class="panel">
-        <h2>基本面白話化</h2>
+        <h2>&#x57fa;&#x672c;&#x9762;&#x767d;&#x8a71;&#x5316;</h2>
         <div id="plainFundamentals"></div>
       </section>
     </section>
 
     <section class="panel">
-      <h2>短中長線分層</h2>
+      <h2>&#x77ed;&#x4e2d;&#x9577;&#x7dda;&#x5206;&#x5c64;</h2>
       <div class="horizon-grid" id="horizonRows"></div>
     </section>
 
     <section class="panel">
-      <h2>新聞關聯分析</h2>
+      <h2>&#x65b0;&#x805e;&#x95dc;&#x806f;&#x5206;&#x6790;</h2>
       <div id="newsRows" class="news-list"></div>
-      <p class="note" id="newsNote">輸入股票後會搜尋外部新聞來源，並判讀關聯性與影響方向。</p>
+      <p class="note" id="newsNote">&#x8f38;&#x5165;&#x80a1;&#x7968;&#x5f8c;&#x6703;&#x641c;&#x5c0b;&#x5916;&#x90e8;&#x65b0;&#x805e;&#x4f86;&#x6e90;&#xff0c;&#x4e26;&#x5224;&#x8b80;&#x95dc;&#x806f;&#x6027;&#x8207;&#x5f71;&#x97ff;&#x65b9;&#x5411;&#x3002;</p>
     </section>
 
     <section class="panel">
-      <h2>價格、均線與布林通道</h2>
+      <h2>&#x50f9;&#x683c;&#x3001;&#x5747;&#x7dda;&#x8207;&#x5e03;&#x6797;&#x901a;&#x9053;</h2>
       <div class="chartbox"><canvas id="priceChart"></canvas></div>
     </section>
 
@@ -348,18 +348,18 @@
     </section>
 
     <section class="grid two">
-      <section class="panel"><h2>成交量</h2><div class="chartbox sm"><canvas id="volChart"></canvas></div></section>
+      <section class="panel"><h2>&#x6210;&#x4ea4;&#x91cf;</h2><div class="chartbox sm"><canvas id="volChart"></canvas></div></section>
       <section class="panel"><h2>Bollinger %B / Bandwidth</h2><div class="chartbox sm"><canvas id="bollChart"></canvas></div></section>
     </section>
 
     <section class="grid two">
       <section class="panel">
-        <h2>支撐 / 壓力</h2>
+        <h2>&#x652f;&#x6490; / &#x58d3;&#x529b;</h2>
         <div class="chartbox sm"><canvas id="suppChart"></canvas></div>
         <div class="level-list" id="levelRows"></div>
       </section>
       <section class="panel">
-        <h2>Elliott Wave / Chan 結構</h2>
+        <h2>Elliott Wave / Chan &#x7d50;&#x69cb;</h2>
         <div class="wave" id="wave"></div>
         <div class="wave-legend" id="waveLegend"></div>
         <div id="structureRows"></div>
@@ -367,12 +367,12 @@
     </section>
 
     <section class="panel">
-      <h2>葛蘭威爾八大法則當前位置</h2>
+      <h2>&#x845b;&#x862d;&#x5a01;&#x723e;&#x516b;&#x5927;&#x6cd5;&#x5247;&#x7576;&#x524d;&#x4f4d;&#x7f6e;</h2>
       <div id="granvilleRows"></div>
     </section>
 
     <section class="panel">
-      <h2>道氏理論三期趨勢</h2>
+      <h2>&#x9053;&#x6c0f;&#x7406;&#x8ad6;&#x4e09;&#x671f;&#x8da8;&#x52e2;</h2>
       <div class="dow-grid" id="dowRows"></div>
       <div class="grid two" style="margin-top:.75rem">
         <div class="summary-box" id="dowConfirm"></div>
@@ -381,39 +381,39 @@
     </section>
 
     <section class="panel">
-      <h2>互動分析 Agent</h2>
+      <h2>&#x4e92;&#x52d5;&#x5206;&#x6790; Agent</h2>
       <div class="agent-head">
-        <div class="agent-meta" id="agentMeta">載入股票後可直接提問風險、支撐壓力、指標與進出場計畫。</div>
-        <span class="badge neut" id="agentStance">待命</span>
+        <div class="agent-meta" id="agentMeta">&#x8f09;&#x5165;&#x80a1;&#x7968;&#x5f8c;&#x53ef;&#x76f4;&#x63a5;&#x63d0;&#x554f;&#x98a8;&#x96aa;&#x3001;&#x652f;&#x6490;&#x58d3;&#x529b;&#x3001;&#x6307;&#x6a19;&#x8207;&#x9032;&#x51fa;&#x5834;&#x8a08;&#x756b;&#x3002;</div>
+        <span class="badge neut" id="agentStance">&#x5f85;&#x547d;</span>
       </div>
       <div class="agent-log" id="agentLog" aria-live="polite"></div>
       <form class="agent-form" id="agentForm">
-        <input id="agentInput" autocomplete="off" placeholder="例如：現在可以追嗎？停損要放哪裡？" aria-label="詢問股票分析 Agent">
-        <button type="submit" id="agentAskBtn">提問</button>
+        <input id="agentInput" autocomplete="off" placeholder="&#x4f8b;&#x5982;&#xff1a;&#x73fe;&#x5728;&#x53ef;&#x4ee5;&#x8ffd;&#x55ce;&#xff1f;&#x505c;&#x640d;&#x8981;&#x653e;&#x54ea;&#x88e1;&#xff1f;" aria-label="&#x8a62;&#x554f;&#x80a1;&#x7968;&#x5206;&#x6790; Agent">
+        <button type="submit" id="agentAskBtn">&#x63d0;&#x554f;</button>
       </form>
       <div class="chips" id="agentPrompts">
-        <button class="chip" type="button" data-question="支撐壓力在哪？">支撐壓力</button>
-        <button class="chip" type="button" data-question="回檔風險高嗎？">回檔風險</button>
-        <button class="chip" type="button" data-question="現在可以追嗎？">能不能追</button>
+        <button class="chip" type="button" data-question="&#x652f;&#x6490;&#x58d3;&#x529b;&#x5728;&#x54ea;&#xff1f;">&#x652f;&#x6490;&#x58d3;&#x529b;</button>
+        <button class="chip" type="button" data-question="&#x56de;&#x6a94;&#x98a8;&#x96aa;&#x9ad8;&#x55ce;&#xff1f;">&#x56de;&#x6a94;&#x98a8;&#x96aa;</button>
+        <button class="chip" type="button" data-question="&#x73fe;&#x5728;&#x53ef;&#x4ee5;&#x8ffd;&#x55ce;&#xff1f;">&#x80fd;&#x4e0d;&#x80fd;&#x8ffd;</button>
       </div>
     </section>
 
     <section class="panel">
-      <h2>十二維訊號判讀</h2>
+      <h2>&#x5341;&#x4e8c;&#x7dad;&#x8a0a;&#x865f;&#x5224;&#x8b80;</h2>
       <div id="signalRows"></div>
     </section>
 
     <section class="panel">
-      <h2>回檔機率</h2>
+      <h2>&#x56de;&#x6a94;&#x6a5f;&#x7387;</h2>
       <div id="probRows"></div>
       <div id="probSummary"></div>
     </section>
 
     <section class="panel">
-      <h2>交易策略</h2>
+      <h2>&#x4ea4;&#x6613;&#x7b56;&#x7565;</h2>
       <div id="strategy"></div>
       <div id="rrCompare"></div>
-      <p class="note">本頁為技術分析與情境推估工具，不構成任何買賣建議。實際交易仍需搭配風險控管、成交量、籌碼與重大新聞驗證。</p>
+      <p class="note">&#x672c;&#x9801;&#x70ba;&#x6280;&#x8853;&#x5206;&#x6790;&#x8207;&#x60c5;&#x5883;&#x63a8;&#x4f30;&#x5de5;&#x5177;&#xff0c;&#x4e0d;&#x69cb;&#x6210;&#x4efb;&#x4f55;&#x8cb7;&#x8ce3;&#x5efa;&#x8b70;&#x3002;&#x5be6;&#x969b;&#x4ea4;&#x6613;&#x4ecd;&#x9700;&#x642d;&#x914d;&#x98a8;&#x96aa;&#x63a7;&#x7ba1;&#x3001;&#x6210;&#x4ea4;&#x91cf;&#x3001;&#x7c4c;&#x78bc;&#x8207;&#x91cd;&#x5927;&#x65b0;&#x805e;&#x9a57;&#x8b49;&#x3002;</p>
     </section>
     </div>
 
@@ -455,11 +455,11 @@
           </table>
         </div>
         <div class="scope-grid">
-          <div class="scope-item"><b>全臺股公司 universe</b><p>後臺已接 FinMind TaiwanStockInfo，範圍含上市、上櫃與興櫃公司，並排除 ETF、ETN、DR 與基金型商品。</p></div>
-          <div class="scope-item"><b>目前排行榜</b><p>目前仍採可控批次評分，避免即時請求數千檔造成配額用完或超時。要實現全市場排名，需再加批次評分與持久化資料表。</p></div>
-          <div class="scope-item"><b>ETF 獨立榜</b><p>ETF 使用獨立模型，不與個股財報模型混排。</p></div>
+          <div class="scope-item"><b>&#x5168;&#x81fa;&#x80a1;&#x516c;&#x53f8; universe</b><p>&#x5f8c;&#x81fa;&#x5df2;&#x63a5; FinMind TaiwanStockInfo&#xff0c;&#x7bc4;&#x570d;&#x542b;&#x4e0a;&#x5e02;&#x3001;&#x4e0a;&#x6ac3;&#x8207;&#x8208;&#x6ac3;&#x516c;&#x53f8;&#xff0c;&#x4e26;&#x6392;&#x9664; ETF&#x3001;ETN&#x3001;DR &#x8207;&#x57fa;&#x91d1;&#x578b;&#x5546;&#x54c1;&#x3002;</p></div>
+          <div class="scope-item"><b>&#x76ee;&#x524d;&#x6392;&#x884c;&#x699c;</b><p>&#x76ee;&#x524d;&#x4ecd;&#x63a1;&#x53ef;&#x63a7;&#x6279;&#x6b21;&#x8a55;&#x5206;&#xff0c;&#x907f;&#x514d;&#x5373;&#x6642;&#x8acb;&#x6c42;&#x6578;&#x5343;&#x6a94;&#x9020;&#x6210;&#x914d;&#x984d;&#x7528;&#x5b8c;&#x6216;&#x8d85;&#x6642;&#x3002;&#x8981;&#x5be6;&#x73fe;&#x5168;&#x5e02;&#x5834;&#x6392;&#x540d;&#xff0c;&#x9700;&#x518d;&#x52a0;&#x6279;&#x6b21;&#x8a55;&#x5206;&#x8207;&#x6301;&#x4e45;&#x5316;&#x8cc7;&#x6599;&#x8868;&#x3002;</p></div>
+          <div class="scope-item"><b>ETF &#x7368;&#x7acb;&#x699c;</b><p>ETF &#x4f7f;&#x7528;&#x7368;&#x7acb;&#x6a21;&#x578b;&#xff0c;&#x4e0d;&#x8207;&#x500b;&#x80a1;&#x8ca1;&#x5831;&#x6a21;&#x578b;&#x6df7;&#x6392;&#x3002;</p></div>
         </div>
-        <p class="note">能算的才給分；不能算的顯示資料不足。第三方網站只當介面與標準參考，不假裝我們有同等專有資料。</p>
+        <p class="note">&#x80fd;&#x7b97;&#x7684;&#x624d;&#x7d66;&#x5206;&#xff1b;&#x4e0d;&#x80fd;&#x7b97;&#x7684;&#x986f;&#x793a;&#x8cc7;&#x6599;&#x4e0d;&#x8db3;&#x3002;&#x7b2c;&#x4e09;&#x65b9;&#x7db2;&#x7ad9;&#x53ea;&#x7576;&#x4ecb;&#x9762;&#x8207;&#x6a19;&#x6e96;&#x53c3;&#x8003;&#xff0c;&#x4e0d;&#x5047;&#x88dd;&#x6211;&#x5011;&#x6709;&#x540c;&#x7b49;&#x5c08;&#x6709;&#x8cc7;&#x6599;&#x3002;</p>
       </section>
       <section class="grid two">
         <section class="panel"><h2>&#x5e02;&#x5834;&#x72c0;&#x614b;</h2><div id="marketStatePanel"></div></section>
@@ -469,7 +469,7 @@
         <h2>&#x6211;&#x7684;&#x6301;&#x80a1;&#x98a8;&#x96aa;</h2>
         <div class="client-form">
           <label>&#x6301;&#x80a1;&#x6e05;&#x55ae;
-            <textarea id="clientPortfolioInput" aria-label="客戶持股清單">0050 40%, 2330 30%, 2454 10%, cash 20%</textarea>
+            <textarea id="clientPortfolioInput" aria-label="&#x5ba2;&#x6236;&#x6301;&#x80a1;&#x6e05;&#x55ae;">0050 40%, 2330 30%, 2454 10%, cash 20%</textarea>
           </label>
           <button type="button" id="analyzeClientPortfolioBtn">&#x5206;&#x6790;&#x6301;&#x80a1;</button>
         </div>
@@ -533,8 +533,8 @@
     const $ = (id) => document.getElementById(id);
     const charts = {};
     const fallbackNames = {
-      "0050":"元大台灣50","2330":"台積電","2317":"鴻海","2454":"聯發科","2308":"台達電",
-      "2382":"廣達","3231":"緯創","2356":"英業達","2344":"華邦電","2303":"聯電"
+      "0050":"\u5143\u5927\u53f0\u706350","2330":"\u53f0\u7a4d\u96fb","2317":"\u9d3b\u6d77","2454":"\u806f\u767c\u79d1","2308":"\u53f0\u9054\u96fb",
+      "2382":"\u5ee3\u9054","3231":"\u7def\u5275","2356":"\u82f1\u696d\u9054","2344":"\u83ef\u90a6\u96fb","2303":"\u806f\u96fb"
     };
     let activeCode = "";
     let activeData = null;
@@ -590,7 +590,7 @@
     }
 
     function priceRange(low, high) {
-      return `${fmt(Math.min(low, high))} ~ ${fmt(Math.max(low, high))} 元`;
+      return `${fmt(Math.min(low, high))} ~ ${fmt(Math.max(low, high))} \u5143`;
     }
 
     function gapPct(price, base) {
@@ -598,20 +598,20 @@
     }
 
     function pullbackLabel(value) {
-      if (value >= 70) return ["高", "bear", "回檔機率偏高，先看確認訊號，不用急著追價。"];
-      if (value >= 55) return ["中高", "warn", "短線仍有熱度，但回撤風險已經需要列入計畫。"];
-      if (value >= 40) return ["中", "warn", "訊號混合，適合用支撐與量縮確認進退。"];
-      return ["低", "bull", "回撤壓力不高，但仍要防跌破關鍵均線。"];
+      if (value >= 70) return ["\u9ad8", "bear", "\u56de\u6a94\u6a5f\u7387\u504f\u9ad8\uff0c\u5148\u770b\u78ba\u8a8d\u8a0a\u865f\uff0c\u4e0d\u7528\u6025\u8457\u8ffd\u50f9\u3002"];
+      if (value >= 55) return ["\u4e2d\u9ad8", "warn", "\u77ed\u7dda\u4ecd\u6709\u71b1\u5ea6\uff0c\u4f46\u56de\u64a4\u98a8\u96aa\u5df2\u7d93\u9700\u8981\u5217\u5165\u8a08\u756b\u3002"];
+      if (value >= 40) return ["\u4e2d", "warn", "\u8a0a\u865f\u6df7\u5408\uff0c\u9069\u5408\u7528\u652f\u6490\u8207\u91cf\u7e2e\u78ba\u8a8d\u9032\u9000\u3002"];
+      return ["\u4f4e", "bull", "\u56de\u64a4\u58d3\u529b\u4e0d\u9ad8\uff0c\u4f46\u4ecd\u8981\u9632\u8dcc\u7834\u95dc\u9375\u5747\u7dda\u3002"];
     }
 
     function trendTone(data) {
       const ma20 = maNow(data, "ma20");
       const ma60 = maNow(data, "ma60");
       const ma120 = maNow(data, "ma120");
-      if (data.close > ma20 && ma20 > ma60 && ma60 > ma120) return ["多頭排列", "bull"];
-      if (data.close > ma20 && ma20 >= ma60) return ["偏多整理", "bull"];
-      if (data.close < ma60) return ["轉弱修復", "bear"];
-      return ["盤整觀察", "warn"];
+      if (data.close > ma20 && ma20 > ma60 && ma60 > ma120) return ["\u591a\u982d\u6392\u5217", "bull"];
+      if (data.close > ma20 && ma20 >= ma60) return ["\u504f\u591a\u6574\u7406", "bull"];
+      if (data.close < ma60) return ["\u8f49\u5f31\u4fee\u5fa9", "bear"];
+      return ["\u76e4\u6574\u89c0\u5bdf", "warn"];
     }
 
     function rrValue(entry, stop, target) {
@@ -619,10 +619,10 @@
     }
 
     function rrBadge(rr) {
-      if (rr >= 5) return badge("最佳", "bull");
-      if (rr >= 3) return badge("優質", "bull");
-      if (rr >= 1.8) return badge("可接受", "warn");
-      return badge("偏低", "bear");
+      if (rr >= 5) return badge("\u6700\u4f73", "bull");
+      if (rr >= 3) return badge("\u512a\u8cea", "bull");
+      if (rr >= 1.8) return badge("\u53ef\u63a5\u53d7", "warn");
+      return badge("\u504f\u4f4e", "bear");
     }
 
     function destroyCharts() {
@@ -643,7 +643,7 @@
           try {
             data = text ? JSON.parse(text) : null;
           } catch (err) {
-            throw new Error(`API 回傳格式不是 JSON：${text.slice(0, 120)}`);
+            throw new Error(`API \u56de\u50b3\u683c\u5f0f\u4e0d\u662f JSON\uff1a${text.slice(0, 120)}`);
           }
           if (!response.ok) {
             throw new Error(data?.message || `API HTTP ${response.status}`);
@@ -669,7 +669,7 @@
       const api = await waitForAppApi();
       const { data } = await api.get(`/api/quote?code=${encodeURIComponent(code)}`);
       if (!data || !data.ok || !data.quote) {
-        throw new Error(data?.message || "資料來源沒有回傳可用報價。");
+        throw new Error(data?.message || "\u8cc7\u6599\u4f86\u6e90\u6c92\u6709\u56de\u50b3\u53ef\u7528\u5831\u50f9\u3002");
       }
       return data.quote;
     }
@@ -710,12 +710,12 @@
       const assetModel = item.fundamentals?.assetType === "etf" ? "etf" : "stock";
       const technicalPosition = Number.isFinite(Number(item.scores?.chaseRisk?.score)) ? 100 - Number(item.scores.chaseRisk.score) : null;
       const components = [
-        { key:"valuation", label:"估值安全邊際", score:item.scores?.valuation?.score ?? null, weight:30, evidence:item.scores?.valuation?.evidence || [], missing:item.scores?.valuation?.missing || [], whyDeducted:[] },
-        { key:"stability", label:"財務穩健", score:item.scores?.financialStability?.score ?? null, weight:20, evidence:item.scores?.financialStability?.evidence || [], missing:item.scores?.financialStability?.missing || [], whyDeducted:[] },
-        { key:"growth", label:"成長品質", score:item.scores?.growth?.score ?? null, weight:15, evidence:item.scores?.growth?.evidence || [], missing:item.scores?.growth?.missing || [], whyDeducted:[] },
-        { key:"cashflow", label:"現金流與股利", score:item.scores?.cashFlow?.score ?? null, weight:15, evidence:item.scores?.cashFlow?.evidence || [], missing:item.scores?.cashFlow?.missing || [], whyDeducted:[] },
-        { key:"technical", label:"技術位置", score:technicalPosition, weight:10, evidence:item.scores?.chaseRisk?.evidence || [], missing:item.scores?.chaseRisk?.missing || [], whyDeducted:[] },
-        { key:"smallBudget", label:"小資友善", score:item.scores?.smallInvestor ?? null, weight:10, evidence:[], missing:[], whyDeducted:[] },
+        { key:"valuation", label:"\u4f30\u503c\u5b89\u5168\u908a\u969b", score:item.scores?.valuation?.score ?? null, weight:30, evidence:item.scores?.valuation?.evidence || [], missing:item.scores?.valuation?.missing || [], whyDeducted:[] },
+        { key:"stability", label:"\u8ca1\u52d9\u7a69\u5065", score:item.scores?.financialStability?.score ?? null, weight:20, evidence:item.scores?.financialStability?.evidence || [], missing:item.scores?.financialStability?.missing || [], whyDeducted:[] },
+        { key:"growth", label:"\u6210\u9577\u54c1\u8cea", score:item.scores?.growth?.score ?? null, weight:15, evidence:item.scores?.growth?.evidence || [], missing:item.scores?.growth?.missing || [], whyDeducted:[] },
+        { key:"cashflow", label:"\u73fe\u91d1\u6d41\u8207\u80a1\u5229", score:item.scores?.cashFlow?.score ?? null, weight:15, evidence:item.scores?.cashFlow?.evidence || [], missing:item.scores?.cashFlow?.missing || [], whyDeducted:[] },
+        { key:"technical", label:"\u6280\u8853\u4f4d\u7f6e", score:technicalPosition, weight:10, evidence:item.scores?.chaseRisk?.evidence || [], missing:item.scores?.chaseRisk?.missing || [], whyDeducted:[] },
+        { key:"smallBudget", label:"\u5c0f\u8cc7\u53cb\u5584", score:item.scores?.smallInvestor ?? null, weight:10, evidence:[], missing:[], whyDeducted:[] },
       ];
       const available = components.filter(row => row.score !== null && row.score !== undefined).length;
       const total = Number.isFinite(Number(item.scores?.smallInvestor))
@@ -812,7 +812,7 @@
     function analyze(code, quote) {
       const a = quote.analysis;
       if (!a || !Array.isArray(a.closes) || a.closes.length < 80) {
-        throw new Error("後端回傳的日線資料不足，無法建立穩定技術分析。");
+        throw new Error("\u5f8c\u7aef\u56de\u50b3\u7684\u65e5\u7dda\u8cc7\u6599\u4e0d\u8db3\uff0c\u7121\u6cd5\u5efa\u7acb\u7a69\u5b9a\u6280\u8853\u5206\u6790\u3002");
       }
       return {
         code,
@@ -883,21 +883,21 @@
     function decisionLabel(data) {
       const ma20 = maNow(data, "ma20");
       const ma60 = maNow(data, "ma60");
-      if (data.pullback >= 72 || data.rsiNow >= 72 || data.close > data.resistance * .98) return ["不要追", "bear", "價格接近壓力或指標偏熱，先等回檔比追價合理。"];
-      if (data.close <= data.support * 1.03 && data.pullback < 62) return ["偏低", "bull", "接近短線支撐，適合用小金額測試，不適合一次買滿。"];
-      if (data.close > ma20 && ma20 >= ma60) return ["合理", "bull", "趨勢仍在，但要用分批和停損控制回撤。"];
-      if (data.close < ma60) return ["偏高或轉弱", "warn", "價格結構未修復，先觀察是否站回中期均線。"];
-      return ["合理", "warn", "訊號混合，先用小部位觀察，等方向更清楚再加碼。"];
+      if (data.pullback >= 72 || data.rsiNow >= 72 || data.close > data.resistance * .98) return ["\u4e0d\u8981\u8ffd", "bear", "\u50f9\u683c\u63a5\u8fd1\u58d3\u529b\u6216\u6307\u6a19\u504f\u71b1\uff0c\u5148\u7b49\u56de\u6a94\u6bd4\u8ffd\u50f9\u5408\u7406\u3002"];
+      if (data.close <= data.support * 1.03 && data.pullback < 62) return ["\u504f\u4f4e", "bull", "\u63a5\u8fd1\u77ed\u7dda\u652f\u6490\uff0c\u9069\u5408\u7528\u5c0f\u91d1\u984d\u6e2c\u8a66\uff0c\u4e0d\u9069\u5408\u4e00\u6b21\u8cb7\u6eff\u3002"];
+      if (data.close > ma20 && ma20 >= ma60) return ["\u5408\u7406", "bull", "\u8da8\u52e2\u4ecd\u5728\uff0c\u4f46\u8981\u7528\u5206\u6279\u548c\u505c\u640d\u63a7\u5236\u56de\u64a4\u3002"];
+      if (data.close < ma60) return ["\u504f\u9ad8\u6216\u8f49\u5f31", "warn", "\u50f9\u683c\u7d50\u69cb\u672a\u4fee\u5fa9\uff0c\u5148\u89c0\u5bdf\u662f\u5426\u7ad9\u56de\u4e2d\u671f\u5747\u7dda\u3002"];
+      return ["\u5408\u7406", "warn", "\u8a0a\u865f\u6df7\u5408\uff0c\u5148\u7528\u5c0f\u90e8\u4f4d\u89c0\u5bdf\uff0c\u7b49\u65b9\u5411\u66f4\u6e05\u695a\u518d\u52a0\u78bc\u3002"];
     }
 
     function preferredHorizon(data) {
       const ma20 = maNow(data, "ma20");
       const ma60 = maNow(data, "ma60");
       const ma120 = maNow(data, "ma120");
-      if (data.close > ma120 && ma20 > ma60 && data.pullback < 55) return "中線 / 長期";
-      if (data.close > ma20 && data.volumeRatio < 1.8) return "短線 / 中線";
-      if (data.pullback >= 70) return "只適合觀察";
-      return "短線觀察";
+      if (data.close > ma120 && ma20 > ma60 && data.pullback < 55) return "\u4e2d\u7dda / \u9577\u671f";
+      if (data.close > ma20 && data.volumeRatio < 1.8) return "\u77ed\u7dda / \u4e2d\u7dda";
+      if (data.pullback >= 70) return "\u53ea\u9069\u5408\u89c0\u5bdf";
+      return "\u77ed\u7dda\u89c0\u5bdf";
     }
 
     function renderRetailDecision(data) {
@@ -909,10 +909,10 @@
       const lossPerShare = Math.max(0, data.close - stopPrice(data));
       const lossAtSingle = shares * lossPerShare;
       $("retailDecision").innerHTML = [
-        `<div class="decision-card"><b>現在位置</b><span>${badge(label, cls)}</span><p>${reason}</p></div>`,
-        `<div class="decision-card"><b>適合週期</b><span>${escapeHtml(preferredHorizon(data))}</span><p>用目前趨勢、回檔風險和均線排列判斷。</p></div>`,
-        `<div class="decision-card"><b>分批方式</b><span>${batches} 次</span><p>每月 ${fmt(budget, 0)} 元，單次上限約 ${fmt(maxSingle, 0)} 元。</p></div>`,
-        `<div class="decision-card"><b>停損承受</b><span>${fmt(lossAtSingle, 0)} 元</span><p>以 ${shares} 股、停損 ${fmt(stopPrice(data))} 估算。</p></div>`
+        `<div class="decision-card"><b>\u73fe\u5728\u4f4d\u7f6e</b><span>${badge(label, cls)}</span><p>${reason}</p></div>`,
+        `<div class="decision-card"><b>\u9069\u5408\u9031\u671f</b><span>${escapeHtml(preferredHorizon(data))}</span><p>\u7528\u76ee\u524d\u8da8\u52e2\u3001\u56de\u6a94\u98a8\u96aa\u548c\u5747\u7dda\u6392\u5217\u5224\u65b7\u3002</p></div>`,
+        `<div class="decision-card"><b>\u5206\u6279\u65b9\u5f0f</b><span>${batches} \u6b21</span><p>\u6bcf\u6708 ${fmt(budget, 0)} \u5143\uff0c\u55ae\u6b21\u4e0a\u9650\u7d04 ${fmt(maxSingle, 0)} \u5143\u3002</p></div>`,
+        `<div class="decision-card"><b>\u505c\u640d\u627f\u53d7</b><span>${fmt(lossAtSingle, 0)} \u5143</span><p>\u4ee5 ${shares} \u80a1\u3001\u505c\u640d ${fmt(stopPrice(data))} \u4f30\u7b97\u3002</p></div>`
       ].join("");
     }
 
@@ -923,21 +923,21 @@
       const ma20 = maNow(data, "ma20");
       const ma60 = maNow(data, "ma60");
       const mode = data.close > data.resistance * .98
-        ? ["追高", "bear", "靠近短線壓力，風險報酬不划算。"]
+        ? ["\u8ffd\u9ad8", "bear", "\u9760\u8fd1\u77ed\u7dda\u58d3\u529b\uff0c\u98a8\u96aa\u5831\u916c\u4e0d\u5212\u7b97\u3002"]
         : data.close <= data.support * 1.03
-          ? ["回檔低接", "bull", "接近短線支撐，可小量測試，但跌破要停損。"]
+          ? ["\u56de\u6a94\u4f4e\u63a5", "bull", "\u63a5\u8fd1\u77ed\u7dda\u652f\u6490\uff0c\u53ef\u5c0f\u91cf\u6e2c\u8a66\uff0c\u4f46\u8dcc\u7834\u8981\u505c\u640d\u3002"]
           : data.close > ma20 && ma20 >= ma60
-            ? ["趨勢轉強確認", "bull", "趨勢仍向上，適合等拉回或分批，不適合重壓。"]
-            : ["風險報酬不明", "warn", "方向不夠清楚，先等支撐或量價訊號。"];
+            ? ["\u8da8\u52e2\u8f49\u5f37\u78ba\u8a8d", "bull", "\u8da8\u52e2\u4ecd\u5411\u4e0a\uff0c\u9069\u5408\u7b49\u62c9\u56de\u6216\u5206\u6279\uff0c\u4e0d\u9069\u5408\u91cd\u58d3\u3002"]
+            : ["\u98a8\u96aa\u5831\u916c\u4e0d\u660e", "warn", "\u65b9\u5411\u4e0d\u5920\u6e05\u695a\uff0c\u5148\u7b49\u652f\u6490\u6216\u91cf\u50f9\u8a0a\u865f\u3002"];
       $("entryQuality").innerHTML = `
         <div class="sr"><div class="sl">${mode[2]}</div>${badge(mode[0], mode[1])}</div>
         <div class="table-wrap compact-table">
           <table>
-            <thead><tr><th>買法</th><th>估算停損損失</th><th>說明</th></tr></thead>
+            <thead><tr><th>\u8cb7\u6cd5</th><th>\u4f30\u7b97\u505c\u640d\u640d\u5931</th><th>\u8aaa\u660e</th></tr></thead>
             <tbody>
-              <tr><td>買 1 股</td><td>${fmt(lossPerShare, 0)} 元</td><td>用來理解單股風險。</td></tr>
-              <tr><td>買 10 股</td><td>${fmt(lossPerShare * 10, 0)} 元</td><td>小額測試時較容易控制情緒。</td></tr>
-              <tr><td>1000 元零股</td><td>${shares1000 ? `${fmt(lossPerShare * shares1000, 0)} 元` : "不足 1 股"}</td><td>${shares1000 ? `約 ${shares1000} 股。` : "金額低於目前股價，需提高金額或改看低價標的。"}</td></tr>
+              <tr><td>\u8cb7 1 \u80a1</td><td>${fmt(lossPerShare, 0)} \u5143</td><td>\u7528\u4f86\u7406\u89e3\u55ae\u80a1\u98a8\u96aa\u3002</td></tr>
+              <tr><td>\u8cb7 10 \u80a1</td><td>${fmt(lossPerShare * 10, 0)} \u5143</td><td>\u5c0f\u984d\u6e2c\u8a66\u6642\u8f03\u5bb9\u6613\u63a7\u5236\u60c5\u7dd2\u3002</td></tr>
+              <tr><td>1000 \u5143\u96f6\u80a1</td><td>${shares1000 ? `${fmt(lossPerShare * shares1000, 0)} \u5143` : "\u4e0d\u8db3 1 \u80a1"}</td><td>${shares1000 ? `\u7d04 ${shares1000} \u80a1\u3002` : "\u91d1\u984d\u4f4e\u65bc\u76ee\u524d\u80a1\u50f9\uff0c\u9700\u63d0\u9ad8\u91d1\u984d\u6216\u6539\u770b\u4f4e\u50f9\u6a19\u7684\u3002"}</td></tr>
             </tbody>
           </table>
         </div>`;
@@ -989,19 +989,19 @@
       const ma120 = maNow(data, "ma120");
       const rows = [
         {
-          title: "短線 1-4 週",
-          badge: data.close > ma5 && data.volumeRatio < 2 ? badge("可觀察", "bull") : badge("保守", "warn"),
-          body: `看量價、新聞與籌碼情緒。RSI ${fmt(data.rsiNow, 1)}，量能 ${fmt(data.volumeRatio, 2)} 倍。`
+          title: "\u77ed\u7dda 1-4 \u9031",
+          badge: data.close > ma5 && data.volumeRatio < 2 ? badge("\u53ef\u89c0\u5bdf", "bull") : badge("\u4fdd\u5b88", "warn"),
+          body: `\u770b\u91cf\u50f9\u3001\u65b0\u805e\u8207\u7c4c\u78bc\u60c5\u7dd2\u3002RSI ${fmt(data.rsiNow, 1)}\uff0c\u91cf\u80fd ${fmt(data.volumeRatio, 2)} \u500d\u3002`
         },
         {
-          title: "中線 1-6 個月",
-          badge: ma20 >= ma60 ? badge("趨勢向上", "bull") : badge("整理", "warn"),
-          body: `看月營收、趨勢與產業事件。目前 MA20 ${ma20 >= ma60 ? "高於" : "低於"} MA60。`
+          title: "\u4e2d\u7dda 1-6 \u500b\u6708",
+          badge: ma20 >= ma60 ? badge("\u8da8\u52e2\u5411\u4e0a", "bull") : badge("\u6574\u7406", "warn"),
+          body: `\u770b\u6708\u71df\u6536\u3001\u8da8\u52e2\u8207\u7522\u696d\u4e8b\u4ef6\u3002\u76ee\u524d MA20 ${ma20 >= ma60 ? "\u9ad8\u65bc" : "\u4f4e\u65bc"} MA60\u3002`
         },
         {
-          title: "長期 1 年以上",
-          badge: data.close > ma120 && data.pullback < 65 ? badge("可追蹤", "bull") : badge("需驗證", "warn"),
-          body: `看獲利能力、產業方向與估值是否過熱。目前與 52 週高點距離約 ${pct((data.close / data.high52 - 1) * 100)}。`
+          title: "\u9577\u671f 1 \u5e74\u4ee5\u4e0a",
+          badge: data.close > ma120 && data.pullback < 65 ? badge("\u53ef\u8ffd\u8e64", "bull") : badge("\u9700\u9a57\u8b49", "warn"),
+          body: `\u770b\u7372\u5229\u80fd\u529b\u3001\u7522\u696d\u65b9\u5411\u8207\u4f30\u503c\u662f\u5426\u904e\u71b1\u3002\u76ee\u524d\u8207 52 \u9031\u9ad8\u9ede\u8ddd\u96e2\u7d04 ${pct((data.close / data.high52 - 1) * 100)}\u3002`
         }
       ];
       $("horizonRows").innerHTML = rows.map((row) => `
@@ -1013,22 +1013,22 @@
     }
 
     function compactMoney(value) {
-      if (!Number.isFinite(value)) return "資料不足";
+      if (!Number.isFinite(value)) return "\u8cc7\u6599\u4e0d\u8db3";
       const abs = Math.abs(value);
-      if (abs >= 1e12) return `${fmt(value / 1e12, 2)} 兆元`;
-      if (abs >= 1e8) return `${fmt(value / 1e8, 2)} 億元`;
-      if (abs >= 1e4) return `${fmt(value / 1e4, 2)} 萬元`;
-      return `${fmt(value, 0)} 元`;
+      if (abs >= 1e12) return `${fmt(value / 1e12, 2)} \u5146\u5143`;
+      if (abs >= 1e8) return `${fmt(value / 1e8, 2)} \u5104\u5143`;
+      if (abs >= 1e4) return `${fmt(value / 1e4, 2)} \u842c\u5143`;
+      return `${fmt(value, 0)} \u5143`;
     }
 
     function signedNumber(value, suffix = "") {
-      if (!Number.isFinite(value)) return "資料不足";
+      if (!Number.isFinite(value)) return "\u8cc7\u6599\u4e0d\u8db3";
       return `${value > 0 ? "+" : ""}${fmt(value, 2)}${suffix}`;
     }
 
     function signedShares(value) {
-      if (!Number.isFinite(value)) return "資料不足";
-      return `${value > 0 ? "+" : ""}${fmt(value / 1000, 0)} 張`;
+      if (!Number.isFinite(value)) return "\u8cc7\u6599\u4e0d\u8db3";
+      return `${value > 0 ? "+" : ""}${fmt(value / 1000, 0)} \u5f35`;
     }
 
     function fundamentalRow(title, description, label, cls) {
@@ -1047,34 +1047,34 @@
       const nav = etf.nav || {};
       const rows = [];
       const holdingsText = holdings.length
-        ? holdings.map(item => `${item.code} ${item.name} ${fmt(item.weight, 2)}%`).join("、")
-        : "主要成分股資料暫時無法取得";
+        ? holdings.map(item => `${item.code} ${item.name} ${fmt(item.weight, 2)}%`).join("\u3001")
+        : "\u4e3b\u8981\u6210\u5206\u80a1\u8cc7\u6599\u66ab\u6642\u7121\u6cd5\u53d6\u5f97";
 
       if (components && components.availableComponents) {
         rows.push(fundamentalRow(
-          "主要成分股有沒有賺錢",
-          `以前五大成分股加權觀察，涵蓋 ETF 約 ${fmt(components.coverageWeight, 2)}%。其中有獲利的成分股權重約 ${fmt(components.profitableWeight, 2)}%。主要持股：${holdingsText}。`,
-          components.profitableWeight >= components.coverageWeight * .8 ? "多數有獲利" : "獲利需確認",
+          "\u4e3b\u8981\u6210\u5206\u80a1\u6709\u6c92\u6709\u8cfa\u9322",
+          `\u4ee5\u524d\u4e94\u5927\u6210\u5206\u80a1\u52a0\u6b0a\u89c0\u5bdf\uff0c\u6db5\u84cb ETF \u7d04 ${fmt(components.coverageWeight, 2)}%\u3002\u5176\u4e2d\u6709\u7372\u5229\u7684\u6210\u5206\u80a1\u6b0a\u91cd\u7d04 ${fmt(components.profitableWeight, 2)}%\u3002\u4e3b\u8981\u6301\u80a1\uff1a${holdingsText}\u3002`,
+          components.profitableWeight >= components.coverageWeight * .8 ? "\u591a\u6578\u6709\u7372\u5229" : "\u7372\u5229\u9700\u78ba\u8a8d",
           components.profitableWeight >= components.coverageWeight * .8 ? "bull" : "warn"
         ));
         const growthWeak = Number.isFinite(components.weightedRevenueYoY) && components.weightedRevenueYoY < 0;
         rows.push(fundamentalRow(
-          "成分股成長有沒有變慢",
-          `主要成分股加權營收年增 ${signedNumber(components.weightedRevenueYoY, "%")}，加權 EPS 年增 ${signedNumber(components.weightedEpsYoY, "%")}；EPS 正成長的成分股權重約 ${fmt(components.positiveEpsGrowthWeight, 2)}%。`,
-          growthWeak ? "成長轉弱" : "持續觀察",
+          "\u6210\u5206\u80a1\u6210\u9577\u6709\u6c92\u6709\u8b8a\u6162",
+          `\u4e3b\u8981\u6210\u5206\u80a1\u52a0\u6b0a\u71df\u6536\u5e74\u589e ${signedNumber(components.weightedRevenueYoY, "%")}\uff0c\u52a0\u6b0a EPS \u5e74\u589e ${signedNumber(components.weightedEpsYoY, "%")}\uff1bEPS \u6b63\u6210\u9577\u7684\u6210\u5206\u80a1\u6b0a\u91cd\u7d04 ${fmt(components.positiveEpsGrowthWeight, 2)}%\u3002`,
+          growthWeak ? "\u6210\u9577\u8f49\u5f31" : "\u6301\u7e8c\u89c0\u5bdf",
           growthWeak ? "bear" : "bull"
         ));
       } else {
         rows.push(fundamentalRow(
-          "主要成分股有沒有賺錢",
-          "ETF 本身沒有公司損益表。目前成分股資料來源暫時無法取得，不能用 ETF 代碼直接判斷 EPS。",
-          "成分股待更新",
+          "\u4e3b\u8981\u6210\u5206\u80a1\u6709\u6c92\u6709\u8cfa\u9322",
+          "ETF \u672c\u8eab\u6c92\u6709\u516c\u53f8\u640d\u76ca\u8868\u3002\u76ee\u524d\u6210\u5206\u80a1\u8cc7\u6599\u4f86\u6e90\u66ab\u6642\u7121\u6cd5\u53d6\u5f97\uff0c\u4e0d\u80fd\u7528 ETF \u4ee3\u78bc\u76f4\u63a5\u5224\u65b7 EPS\u3002",
+          "\u6210\u5206\u80a1\u5f85\u66f4\u65b0",
           "warn"
         ));
         rows.push(fundamentalRow(
-          "成分股成長有沒有變慢",
-          "ETF 本身沒有月營收。應以主要成分股的營收與 EPS 趨勢判斷，目前聚合資料暫時不足。",
-          "成分股待更新",
+          "\u6210\u5206\u80a1\u6210\u9577\u6709\u6c92\u6709\u8b8a\u6162",
+          "ETF \u672c\u8eab\u6c92\u6709\u6708\u71df\u6536\u3002\u61c9\u4ee5\u4e3b\u8981\u6210\u5206\u80a1\u7684\u71df\u6536\u8207 EPS \u8da8\u52e2\u5224\u65b7\uff0c\u76ee\u524d\u805a\u5408\u8cc7\u6599\u66ab\u6642\u4e0d\u8db3\u3002",
+          "\u6210\u5206\u80a1\u5f85\u66f4\u65b0",
           "warn"
         ));
       }
@@ -1082,55 +1082,55 @@
       if (components || Number.isFinite(nav.value)) {
         const premium = nav.premiumDiscount;
         const premiumText = Number.isFinite(premium)
-          ? `${premium >= 0 ? "溢價" : "折價"} ${fmt(Math.abs(premium), 2)}%`
-          : "折溢價資料不足";
+          ? `${premium >= 0 ? "\u6ea2\u50f9" : "\u6298\u50f9"} ${fmt(Math.abs(premium), 2)}%`
+          : "\u6298\u6ea2\u50f9\u8cc7\u6599\u4e0d\u8db3";
         const hot = Number.isFinite(premium) && premium > 1;
         rows.push(fundamentalRow(
-          "ETF 估值與折溢價",
-          `主要成分股加權本益比 ${fmt(components?.weightedPer, 2)} 倍、股價淨值比 ${fmt(components?.weightedPbr, 2)} 倍、殖利率 ${fmt(components?.weightedDividendYield, 2)}%。${nav.date || "日期不足"} 淨值 ${fmt(nav.value, 2)} 元，市場價格 ${fmt(nav.marketPrice, 2)} 元，${premiumText}。`,
-          hot ? "溢價偏高" : "估值已取得",
+          "ETF \u4f30\u503c\u8207\u6298\u6ea2\u50f9",
+          `\u4e3b\u8981\u6210\u5206\u80a1\u52a0\u6b0a\u672c\u76ca\u6bd4 ${fmt(components?.weightedPer, 2)} \u500d\u3001\u80a1\u50f9\u6de8\u503c\u6bd4 ${fmt(components?.weightedPbr, 2)} \u500d\u3001\u6b96\u5229\u7387 ${fmt(components?.weightedDividendYield, 2)}%\u3002${nav.date || "\u65e5\u671f\u4e0d\u8db3"} \u6de8\u503c ${fmt(nav.value, 2)} \u5143\uff0c\u5e02\u5834\u50f9\u683c ${fmt(nav.marketPrice, 2)} \u5143\uff0c${premiumText}\u3002`,
+          hot ? "\u6ea2\u50f9\u504f\u9ad8" : "\u4f30\u503c\u5df2\u53d6\u5f97",
           hot ? "warn" : "neut"
         ));
       } else {
-        rows.push(fundamentalRow("ETF 估值與折溢價", "目前沒有可用的成分股加權估值或基金淨值資料。", "資料不足", "warn"));
+        rows.push(fundamentalRow("ETF \u4f30\u503c\u8207\u6298\u6ea2\u50f9", "\u76ee\u524d\u6c92\u6709\u53ef\u7528\u7684\u6210\u5206\u80a1\u52a0\u6b0a\u4f30\u503c\u6216\u57fa\u91d1\u6de8\u503c\u8cc7\u6599\u3002", "\u8cc7\u6599\u4e0d\u8db3", "warn"));
       }
 
       rows.push(fundamentalRow(
-        "現金流是否健康",
-        "ETF 是投資組合，不適用單一公司的營業現金流與自由現金流判斷。應改看成分股獲利、基金淨值及資金流。",
-        "ETF 不適用",
+        "\u73fe\u91d1\u6d41\u662f\u5426\u5065\u5eb7",
+        "ETF \u662f\u6295\u8cc7\u7d44\u5408\uff0c\u4e0d\u9069\u7528\u55ae\u4e00\u516c\u53f8\u7684\u71df\u696d\u73fe\u91d1\u6d41\u8207\u81ea\u7531\u73fe\u91d1\u6d41\u5224\u65b7\u3002\u61c9\u6539\u770b\u6210\u5206\u80a1\u7372\u5229\u3001\u57fa\u91d1\u6de8\u503c\u53ca\u8cc7\u91d1\u6d41\u3002",
+        "ETF \u4e0d\u9069\u7528",
         "neut"
       ));
       rows.push(fundamentalRow(
-        "負債是否過高",
-        "ETF 不適用上市公司的負債比與流動比率判斷。此處不把成分股負債率混成單一公司負債。",
-        "ETF 不適用",
+        "\u8ca0\u50b5\u662f\u5426\u904e\u9ad8",
+        "ETF \u4e0d\u9069\u7528\u4e0a\u5e02\u516c\u53f8\u7684\u8ca0\u50b5\u6bd4\u8207\u6d41\u52d5\u6bd4\u7387\u5224\u65b7\u3002\u6b64\u8655\u4e0d\u628a\u6210\u5206\u80a1\u8ca0\u50b5\u7387\u6df7\u6210\u55ae\u4e00\u516c\u53f8\u8ca0\u50b5\u3002",
+        "ETF \u4e0d\u9069\u7528",
         "neut"
       ));
 
       if (institutional || foreign) {
         const net = institutional?.totalNet;
         rows.push(fundamentalRow(
-          "法人及資金是否支持",
-          `近 ${institutional?.days || 0} 個交易日三大法人合計 ${signedShares(net)}，外資 ${signedShares(institutional?.foreignNet)}；外資持有比率 ${fmt(foreign?.foreignRatio, 2)}%（${foreign?.date || institutional?.date || "日期不足"}）。`,
-          net > 0 ? "法人買超" : net < 0 ? "法人賣超" : "買賣平衡",
+          "\u6cd5\u4eba\u53ca\u8cc7\u91d1\u662f\u5426\u652f\u6301",
+          `\u8fd1 ${institutional?.days || 0} \u500b\u4ea4\u6613\u65e5\u4e09\u5927\u6cd5\u4eba\u5408\u8a08 ${signedShares(net)}\uff0c\u5916\u8cc7 ${signedShares(institutional?.foreignNet)}\uff1b\u5916\u8cc7\u6301\u6709\u6bd4\u7387 ${fmt(foreign?.foreignRatio, 2)}%\uff08${foreign?.date || institutional?.date || "\u65e5\u671f\u4e0d\u8db3"}\uff09\u3002`,
+          net > 0 ? "\u6cd5\u4eba\u8cb7\u8d85" : net < 0 ? "\u6cd5\u4eba\u8ce3\u8d85" : "\u8cb7\u8ce3\u5e73\u8861",
           net > 0 ? "bull" : net < 0 ? "bear" : "neut"
         ));
       } else {
-        rows.push(fundamentalRow("法人及資金是否支持", "FinMind 法人與外資持有資料目前無法使用。", "資料不足", "warn"));
+        rows.push(fundamentalRow("\u6cd5\u4eba\u53ca\u8cc7\u91d1\u662f\u5426\u652f\u6301", "FinMind \u6cd5\u4eba\u8207\u5916\u8cc7\u6301\u6709\u8cc7\u6599\u76ee\u524d\u7121\u6cd5\u4f7f\u7528\u3002", "\u8cc7\u6599\u4e0d\u8db3", "warn"));
       }
 
       if (margin || lending) {
         const marginHot = Number.isFinite(margin?.marginTwentyDayChange) && margin.marginTwentyDayChange >= 15;
         const lendingHot = Number.isFinite(lending?.volumeRatio) && lending.volumeRatio >= 1.5;
         rows.push(fundamentalRow(
-          "籌碼是否過熱",
-          `融資餘額 ${fmt(margin?.marginBalance, 0)} 張，20 日變化 ${signedNumber(margin?.marginTwentyDayChange, "%")}；最新借券成交量 ${fmt(lending?.volume, 0)} 股，約為 20 日均量 ${fmt(lending?.volumeRatio, 2)} 倍。`,
-          marginHot && lendingHot ? "籌碼偏熱" : marginHot || lendingHot ? "籌碼升溫" : "未見同步過熱",
+          "\u7c4c\u78bc\u662f\u5426\u904e\u71b1",
+          `\u878d\u8cc7\u9918\u984d ${fmt(margin?.marginBalance, 0)} \u5f35\uff0c20 \u65e5\u8b8a\u5316 ${signedNumber(margin?.marginTwentyDayChange, "%")}\uff1b\u6700\u65b0\u501f\u5238\u6210\u4ea4\u91cf ${fmt(lending?.volume, 0)} \u80a1\uff0c\u7d04\u70ba 20 \u65e5\u5747\u91cf ${fmt(lending?.volumeRatio, 2)} \u500d\u3002`,
+          marginHot && lendingHot ? "\u7c4c\u78bc\u504f\u71b1" : marginHot || lendingHot ? "\u7c4c\u78bc\u5347\u6eab" : "\u672a\u898b\u540c\u6b65\u904e\u71b1",
           marginHot && lendingHot ? "bear" : marginHot || lendingHot ? "warn" : "bull"
         ));
       } else {
-        rows.push(fundamentalRow("籌碼是否過熱", "FinMind 融資融券與借券資料目前無法使用。", "資料不足", "warn"));
+        rows.push(fundamentalRow("\u7c4c\u78bc\u662f\u5426\u904e\u71b1", "FinMind \u878d\u8cc7\u878d\u5238\u8207\u501f\u5238\u8cc7\u6599\u76ee\u524d\u7121\u6cd5\u4f7f\u7528\u3002", "\u8cc7\u6599\u4e0d\u8db3", "warn"));
       }
 
       const trendOk = data.close > maNow(data, "ma120") && maNow(data, "ma20") >= maNow(data, "ma60");
@@ -1138,34 +1138,34 @@
       const institutionOk = institutional?.totalNet > 0;
       const premiumOk = !Number.isFinite(nav.premiumDiscount) || nav.premiumDiscount <= 1;
       const directNews = Array.isArray(newsPayload?.items)
-        ? newsPayload.items.filter(item => item.relation === "直接相關").length
+        ? newsPayload.items.filter(item => item.relation === "\u76f4\u63a5\u76f8\u95dc").length
         : 0;
       const evidence = [
-        componentOk ? "主要成分股營收仍成長" : "",
-        institutionOk ? "法人近五日買超" : "",
-        premiumOk ? "折溢價未明顯偏高" : "",
-        trendOk ? "量價趨勢仍有支撐" : "",
-        directNews ? `有 ${directNews} 則直接相關新聞` : "",
+        componentOk ? "\u4e3b\u8981\u6210\u5206\u80a1\u71df\u6536\u4ecd\u6210\u9577" : "",
+        institutionOk ? "\u6cd5\u4eba\u8fd1\u4e94\u65e5\u8cb7\u8d85" : "",
+        premiumOk ? "\u6298\u6ea2\u50f9\u672a\u660e\u986f\u504f\u9ad8" : "",
+        trendOk ? "\u91cf\u50f9\u8da8\u52e2\u4ecd\u6709\u652f\u6490" : "",
+        directNews ? `\u6709 ${directNews} \u5247\u76f4\u63a5\u76f8\u95dc\u65b0\u805e` : "",
       ].filter(Boolean);
       rows.push(fundamentalRow(
-        "是否只靠題材",
+        "\u662f\u5426\u53ea\u9760\u984c\u6750",
         evidence.length
-          ? `目前可核對的支撐包括：${evidence.join("、")}。ETF 應持續核對成分股基本面、資金流、折溢價與量價。`
-          : "目前未同時看到成分股基本面、資金流、折溢價與量價支撐，需防題材退燒。",
-        evidence.length >= 3 ? "有資料支撐" : evidence.length ? "需交叉驗證" : "題材風險",
+          ? `\u76ee\u524d\u53ef\u6838\u5c0d\u7684\u652f\u6490\u5305\u62ec\uff1a${evidence.join("\u3001")}\u3002ETF \u61c9\u6301\u7e8c\u6838\u5c0d\u6210\u5206\u80a1\u57fa\u672c\u9762\u3001\u8cc7\u91d1\u6d41\u3001\u6298\u6ea2\u50f9\u8207\u91cf\u50f9\u3002`
+          : "\u76ee\u524d\u672a\u540c\u6642\u770b\u5230\u6210\u5206\u80a1\u57fa\u672c\u9762\u3001\u8cc7\u91d1\u6d41\u3001\u6298\u6ea2\u50f9\u8207\u91cf\u50f9\u652f\u6490\uff0c\u9700\u9632\u984c\u6750\u9000\u71d2\u3002",
+        evidence.length >= 3 ? "\u6709\u8cc7\u6599\u652f\u6490" : evidence.length ? "\u9700\u4ea4\u53c9\u9a57\u8b49" : "\u984c\u6750\u98a8\u96aa",
         evidence.length >= 3 ? "bull" : evidence.length ? "warn" : "bear"
       ));
 
       const sourceLinks = [
         payload?.sourceUrl ? `<a href="${escapeHtml(payload.sourceUrl)}" target="_blank" rel="noreferrer">FinMind</a>` : "",
-        etf.holdingsSourceUrl ? `<a href="${escapeHtml(etf.holdingsSourceUrl)}" target="_blank" rel="noreferrer">成分股權重</a>` : "",
-        nav.sourceUrl ? `<a href="${escapeHtml(nav.sourceUrl)}" target="_blank" rel="noreferrer">基金淨值</a>` : "",
-      ].filter(Boolean).join("、");
+        etf.holdingsSourceUrl ? `<a href="${escapeHtml(etf.holdingsSourceUrl)}" target="_blank" rel="noreferrer">\u6210\u5206\u80a1\u6b0a\u91cd</a>` : "",
+        nav.sourceUrl ? `<a href="${escapeHtml(nav.sourceUrl)}" target="_blank" rel="noreferrer">\u57fa\u91d1\u6de8\u503c</a>` : "",
+      ].filter(Boolean).join("\u3001");
       $("plainFundamentals").innerHTML = rows.join("") + `
         <div class="fund-meta">
-          ETF 專用判斷。資料來源：${sourceLinks || "來源暫時不可用"}。
-          成分股日期：${escapeHtml(etf.holdingsDate || "無可用日期")}。
-          更新時間：${escapeHtml(payload?.fetchedAt ? new Date(payload.fetchedAt).toLocaleString("zh-TW") : "無可用時間")}。
+          ETF \u5c08\u7528\u5224\u65b7\u3002\u8cc7\u6599\u4f86\u6e90\uff1a${sourceLinks || "\u4f86\u6e90\u66ab\u6642\u4e0d\u53ef\u7528"}\u3002
+          \u6210\u5206\u80a1\u65e5\u671f\uff1a${escapeHtml(etf.holdingsDate || "\u7121\u53ef\u7528\u65e5\u671f")}\u3002
+          \u66f4\u65b0\u6642\u9593\uff1a${escapeHtml(payload?.fetchedAt ? new Date(payload.fetchedAt).toLocaleString("zh-TW") : "\u7121\u53ef\u7528\u6642\u9593")}\u3002
           ${etf.warnings?.length ? escapeHtml(etf.warnings.join(" ")) : ""}
         </div>`;
     }
@@ -1190,13 +1190,13 @@
       if (profit && Number.isFinite(profit.eps) && Number.isFinite(profit.netIncome)) {
         const profitable = profit.eps > 0 && profit.netIncome > 0;
         rows.push(fundamentalRow(
-          "公司有沒有賺錢",
-          `${profit.date} EPS ${fmt(profit.eps, 2)} 元，歸屬本期淨利 ${compactMoney(profit.netIncome)}；EPS 年增 ${signedNumber(profit.epsYoY, "%")}。`,
-          profitable ? "有獲利" : "虧損",
+          "\u516c\u53f8\u6709\u6c92\u6709\u8cfa\u9322",
+          `${profit.date} EPS ${fmt(profit.eps, 2)} \u5143\uff0c\u6b78\u5c6c\u672c\u671f\u6de8\u5229 ${compactMoney(profit.netIncome)}\uff1bEPS \u5e74\u589e ${signedNumber(profit.epsYoY, "%")}\u3002`,
+          profitable ? "\u6709\u7372\u5229" : "\u8667\u640d",
           profitable ? "bull" : "bear"
         ));
       } else {
-        rows.push(fundamentalRow("公司有沒有賺錢", "FinMind 損益表目前沒有足夠的 EPS 與淨利欄位。", "資料不足", "warn"));
+        rows.push(fundamentalRow("\u516c\u53f8\u6709\u6c92\u6709\u8cfa\u9322", "FinMind \u640d\u76ca\u8868\u76ee\u524d\u6c92\u6709\u8db3\u5920\u7684 EPS \u8207\u6de8\u5229\u6b04\u4f4d\u3002", "\u8cc7\u6599\u4e0d\u8db3", "warn"));
       }
 
       if (revenue || profit) {
@@ -1206,77 +1206,77 @@
         const availableGrowth = [monthlyYoY, quarterYoY, epsYoY].filter(Number.isFinite);
         const slowing = Number.isFinite(revenue?.growthMomentum) && revenue.growthMomentum < 0;
         const negative = availableGrowth.length && availableGrowth.filter(value => value < 0).length >= Math.ceil(availableGrowth.length / 2);
-        const label = negative ? "成長轉弱" : slowing ? "成長放緩" : "持續觀察";
+        const label = negative ? "\u6210\u9577\u8f49\u5f31" : slowing ? "\u6210\u9577\u653e\u7de9" : "\u6301\u7e8c\u89c0\u5bdf";
         const cls = negative ? "bear" : slowing ? "warn" : "bull";
         rows.push(fundamentalRow(
-          "成長有沒有變慢",
-          `月營收年增 ${signedNumber(monthlyYoY, "%")}（${revenue?.date || "日期不足"}），季度營收年增 ${signedNumber(quarterYoY, "%")}，EPS 年增 ${signedNumber(epsYoY, "%")}。近三個月年增動能變化 ${signedNumber(revenue?.growthMomentum, " 個百分點")}。`,
+          "\u6210\u9577\u6709\u6c92\u6709\u8b8a\u6162",
+          `\u6708\u71df\u6536\u5e74\u589e ${signedNumber(monthlyYoY, "%")}\uff08${revenue?.date || "\u65e5\u671f\u4e0d\u8db3"}\uff09\uff0c\u5b63\u5ea6\u71df\u6536\u5e74\u589e ${signedNumber(quarterYoY, "%")}\uff0cEPS \u5e74\u589e ${signedNumber(epsYoY, "%")}\u3002\u8fd1\u4e09\u500b\u6708\u5e74\u589e\u52d5\u80fd\u8b8a\u5316 ${signedNumber(revenue?.growthMomentum, " \u500b\u767e\u5206\u9ede")}\u3002`,
           label,
           cls
         ));
       } else {
-        rows.push(fundamentalRow("成長有沒有變慢", "FinMind 月營收與季度損益資料目前無法使用。", "資料不足", "warn"));
+        rows.push(fundamentalRow("\u6210\u9577\u6709\u6c92\u6709\u8b8a\u6162", "FinMind \u6708\u71df\u6536\u8207\u5b63\u5ea6\u640d\u76ca\u8cc7\u6599\u76ee\u524d\u7121\u6cd5\u4f7f\u7528\u3002", "\u8cc7\u6599\u4e0d\u8db3", "warn"));
       }
 
       if (valuation) {
         rows.push(fundamentalRow(
-          "股價是否太貴",
-          `${valuation.date} 本益比 ${fmt(valuation.per, 2)} 倍、股價淨值比 ${fmt(valuation.pbr, 2)} 倍、殖利率 ${fmt(valuation.dividendYield, 2)}%。是否昂貴仍需和公司歷史區間及同業比較，暫不給綜合分數。`,
-          "估值已取得",
+          "\u80a1\u50f9\u662f\u5426\u592a\u8cb4",
+          `${valuation.date} \u672c\u76ca\u6bd4 ${fmt(valuation.per, 2)} \u500d\u3001\u80a1\u50f9\u6de8\u503c\u6bd4 ${fmt(valuation.pbr, 2)} \u500d\u3001\u6b96\u5229\u7387 ${fmt(valuation.dividendYield, 2)}%\u3002\u662f\u5426\u6602\u8cb4\u4ecd\u9700\u548c\u516c\u53f8\u6b77\u53f2\u5340\u9593\u53ca\u540c\u696d\u6bd4\u8f03\uff0c\u66ab\u4e0d\u7d66\u7d9c\u5408\u5206\u6578\u3002`,
+          "\u4f30\u503c\u5df2\u53d6\u5f97",
           "neut"
         ));
       } else {
-        rows.push(fundamentalRow("股價是否太貴", "FinMind 目前沒有回傳可用資料。", "資料不足", "warn"));
+        rows.push(fundamentalRow("\u80a1\u50f9\u662f\u5426\u592a\u8cb4", "FinMind \u76ee\u524d\u6c92\u6709\u56de\u50b3\u53ef\u7528\u8cc7\u6599\u3002", "\u8cc7\u6599\u4e0d\u8db3", "warn"));
       }
 
       if (cashFlow) {
         const healthy = cashFlow.operatingCashFlow > 0 && cashFlow.freeCashFlow > 0;
         const weak = cashFlow.operatingCashFlow < 0;
         rows.push(fundamentalRow(
-          "現金流是否健康",
-          `${cashFlow.date} 營業現金流 ${compactMoney(cashFlow.operatingCashFlow)}，資本支出 ${compactMoney(cashFlow.capitalExpenditure)}，自由現金流 ${compactMoney(cashFlow.freeCashFlow)}。`,
-          weak ? "現金流出" : healthy ? "現金流為正" : "投資支出較高",
+          "\u73fe\u91d1\u6d41\u662f\u5426\u5065\u5eb7",
+          `${cashFlow.date} \u71df\u696d\u73fe\u91d1\u6d41 ${compactMoney(cashFlow.operatingCashFlow)}\uff0c\u8cc7\u672c\u652f\u51fa ${compactMoney(cashFlow.capitalExpenditure)}\uff0c\u81ea\u7531\u73fe\u91d1\u6d41 ${compactMoney(cashFlow.freeCashFlow)}\u3002`,
+          weak ? "\u73fe\u91d1\u6d41\u51fa" : healthy ? "\u73fe\u91d1\u6d41\u70ba\u6b63" : "\u6295\u8cc7\u652f\u51fa\u8f03\u9ad8",
           weak ? "bear" : healthy ? "bull" : "warn"
         ));
       } else {
-        rows.push(fundamentalRow("現金流是否健康", "FinMind 現金流量表目前沒有足夠資料。", "資料不足", "warn"));
+        rows.push(fundamentalRow("\u73fe\u91d1\u6d41\u662f\u5426\u5065\u5eb7", "FinMind \u73fe\u91d1\u6d41\u91cf\u8868\u76ee\u524d\u6c92\u6709\u8db3\u5920\u8cc7\u6599\u3002", "\u8cc7\u6599\u4e0d\u8db3", "warn"));
       }
 
       if (balance) {
         rows.push(fundamentalRow(
-          "負債是否過高",
-          `${balance.date} 負債比 ${fmt(balance.liabilityRatio, 2)}%，流動比率 ${fmt(balance.currentRatio, 2)} 倍，現金及約當現金 ${compactMoney(balance.cashAndEquivalents)}。是否偏高需依產業與公司歷史比較。`,
-          "結構已取得",
+          "\u8ca0\u50b5\u662f\u5426\u904e\u9ad8",
+          `${balance.date} \u8ca0\u50b5\u6bd4 ${fmt(balance.liabilityRatio, 2)}%\uff0c\u6d41\u52d5\u6bd4\u7387 ${fmt(balance.currentRatio, 2)} \u500d\uff0c\u73fe\u91d1\u53ca\u7d04\u7576\u73fe\u91d1 ${compactMoney(balance.cashAndEquivalents)}\u3002\u662f\u5426\u504f\u9ad8\u9700\u4f9d\u7522\u696d\u8207\u516c\u53f8\u6b77\u53f2\u6bd4\u8f03\u3002`,
+          "\u7d50\u69cb\u5df2\u53d6\u5f97",
           "neut"
         ));
       } else {
-        rows.push(fundamentalRow("負債是否過高", "FinMind 資產負債表目前沒有足夠資料。", "資料不足", "warn"));
+        rows.push(fundamentalRow("\u8ca0\u50b5\u662f\u5426\u904e\u9ad8", "FinMind \u8cc7\u7522\u8ca0\u50b5\u8868\u76ee\u524d\u6c92\u6709\u8db3\u5920\u8cc7\u6599\u3002", "\u8cc7\u6599\u4e0d\u8db3", "warn"));
       }
 
       if (institutional || foreign) {
         const net = institutional?.totalNet;
         const cls = net > 0 ? "bull" : net < 0 ? "bear" : "neut";
         rows.push(fundamentalRow(
-          "法人是否支持",
-          `近 ${institutional?.days || 0} 個交易日三大法人合計 ${signedShares(net)}，外資 ${signedShares(institutional?.foreignNet)}；外資持股比 ${fmt(foreign?.foreignRatio, 2)}%（${foreign?.date || institutional?.date || "日期不足"}）。`,
-          net > 0 ? "法人買超" : net < 0 ? "法人賣超" : "買賣平衡",
+          "\u6cd5\u4eba\u662f\u5426\u652f\u6301",
+          `\u8fd1 ${institutional?.days || 0} \u500b\u4ea4\u6613\u65e5\u4e09\u5927\u6cd5\u4eba\u5408\u8a08 ${signedShares(net)}\uff0c\u5916\u8cc7 ${signedShares(institutional?.foreignNet)}\uff1b\u5916\u8cc7\u6301\u80a1\u6bd4 ${fmt(foreign?.foreignRatio, 2)}%\uff08${foreign?.date || institutional?.date || "\u65e5\u671f\u4e0d\u8db3"}\uff09\u3002`,
+          net > 0 ? "\u6cd5\u4eba\u8cb7\u8d85" : net < 0 ? "\u6cd5\u4eba\u8ce3\u8d85" : "\u8cb7\u8ce3\u5e73\u8861",
           cls
         ));
       } else {
-        rows.push(fundamentalRow("法人是否支持", "FinMind 三大法人與外資持股資料目前無法使用。", "資料不足", "warn"));
+        rows.push(fundamentalRow("\u6cd5\u4eba\u662f\u5426\u652f\u6301", "FinMind \u4e09\u5927\u6cd5\u4eba\u8207\u5916\u8cc7\u6301\u80a1\u8cc7\u6599\u76ee\u524d\u7121\u6cd5\u4f7f\u7528\u3002", "\u8cc7\u6599\u4e0d\u8db3", "warn"));
       }
 
       if (margin || lending) {
         const marginHot = Number.isFinite(margin?.marginTwentyDayChange) && margin.marginTwentyDayChange >= 15;
         const lendingHot = Number.isFinite(lending?.volumeRatio) && lending.volumeRatio >= 1.5;
         rows.push(fundamentalRow(
-          "籌碼是否過熱",
-          `融資餘額 ${fmt(margin?.marginBalance, 0)} 張，20 日變化 ${signedNumber(margin?.marginTwentyDayChange, "%")}；最新借券成交量 ${fmt(lending?.volume, 0)} 股，約為 20 日均量 ${fmt(lending?.volumeRatio, 2)} 倍。`,
-          marginHot && lendingHot ? "籌碼偏熱" : marginHot || lendingHot ? "籌碼升溫" : "未見同步過熱",
+          "\u7c4c\u78bc\u662f\u5426\u904e\u71b1",
+          `\u878d\u8cc7\u9918\u984d ${fmt(margin?.marginBalance, 0)} \u5f35\uff0c20 \u65e5\u8b8a\u5316 ${signedNumber(margin?.marginTwentyDayChange, "%")}\uff1b\u6700\u65b0\u501f\u5238\u6210\u4ea4\u91cf ${fmt(lending?.volume, 0)} \u80a1\uff0c\u7d04\u70ba 20 \u65e5\u5747\u91cf ${fmt(lending?.volumeRatio, 2)} \u500d\u3002`,
+          marginHot && lendingHot ? "\u7c4c\u78bc\u504f\u71b1" : marginHot || lendingHot ? "\u7c4c\u78bc\u5347\u6eab" : "\u672a\u898b\u540c\u6b65\u904e\u71b1",
           marginHot && lendingHot ? "bear" : marginHot || lendingHot ? "warn" : "bull"
         ));
       } else {
-        rows.push(fundamentalRow("籌碼是否過熱", "FinMind 融資融券與借券資料目前無法使用。", "資料不足", "warn"));
+        rows.push(fundamentalRow("\u7c4c\u78bc\u662f\u5426\u904e\u71b1", "FinMind \u878d\u8cc7\u878d\u5238\u8207\u501f\u5238\u8cc7\u6599\u76ee\u524d\u7121\u6cd5\u4f7f\u7528\u3002", "\u8cc7\u6599\u4e0d\u8db3", "warn"));
       }
 
       const trendOk = data.close > maNow(data, "ma120") && maNow(data, "ma20") >= maNow(data, "ma60");
@@ -1284,35 +1284,35 @@
       const revenueOk = revenue?.yoy > 0 || profit?.revenueYoY > 0;
       const institutionOk = institutional?.totalNet > 0;
       const directNews = Array.isArray(newsPayload?.items)
-        ? newsPayload.items.filter(item => item.relation === "直接相關").length
+        ? newsPayload.items.filter(item => item.relation === "\u76f4\u63a5\u76f8\u95dc").length
         : 0;
       const evidence = [
-        profitOk ? "公司有獲利" : "",
-        revenueOk ? "營收仍成長" : "",
-        institutionOk ? "法人近五日買超" : "",
-        trendOk ? "中長期趨勢仍有支撐" : "",
-        directNews ? `有 ${directNews} 則直接相關新聞` : "",
+        profitOk ? "\u516c\u53f8\u6709\u7372\u5229" : "",
+        revenueOk ? "\u71df\u6536\u4ecd\u6210\u9577" : "",
+        institutionOk ? "\u6cd5\u4eba\u8fd1\u4e94\u65e5\u8cb7\u8d85" : "",
+        trendOk ? "\u4e2d\u9577\u671f\u8da8\u52e2\u4ecd\u6709\u652f\u6490" : "",
+        directNews ? `\u6709 ${directNews} \u5247\u76f4\u63a5\u76f8\u95dc\u65b0\u805e` : "",
       ].filter(Boolean);
       rows.push(fundamentalRow(
-        "是否只靠題材",
+        "\u662f\u5426\u53ea\u9760\u984c\u6750",
         evidence.length
-          ? `目前可核對的支撐包括：${evidence.join("、")}。仍需持續確認新聞事件能否反映到後續營收與獲利。`
-          : "目前未同時看到獲利、營收、法人、新聞與量價的明確支撐，題材退燒風險較高。",
-        evidence.length >= 3 ? "有資料支撐" : evidence.length ? "需交叉驗證" : "題材風險",
+          ? `\u76ee\u524d\u53ef\u6838\u5c0d\u7684\u652f\u6490\u5305\u62ec\uff1a${evidence.join("\u3001")}\u3002\u4ecd\u9700\u6301\u7e8c\u78ba\u8a8d\u65b0\u805e\u4e8b\u4ef6\u80fd\u5426\u53cd\u6620\u5230\u5f8c\u7e8c\u71df\u6536\u8207\u7372\u5229\u3002`
+          : "\u76ee\u524d\u672a\u540c\u6642\u770b\u5230\u7372\u5229\u3001\u71df\u6536\u3001\u6cd5\u4eba\u3001\u65b0\u805e\u8207\u91cf\u50f9\u7684\u660e\u78ba\u652f\u6490\uff0c\u984c\u6750\u9000\u71d2\u98a8\u96aa\u8f03\u9ad8\u3002",
+        evidence.length >= 3 ? "\u6709\u8cc7\u6599\u652f\u6490" : evidence.length ? "\u9700\u4ea4\u53c9\u9a57\u8b49" : "\u984c\u6750\u98a8\u96aa",
         evidence.length >= 3 ? "bull" : evidence.length ? "warn" : "bear"
       ));
 
       const cacheText = payload?.cache?.staleDatasets?.length
-        ? `部分資料使用舊快取：${payload.cache.staleDatasets.join("、")}。`
+        ? `\u90e8\u5206\u8cc7\u6599\u4f7f\u7528\u820a\u5feb\u53d6\uff1a${payload.cache.staleDatasets.join("\u3001")}\u3002`
         : payload?.cache?.cachedDatasets?.length
-          ? "部分資料由後端快取提供，仍在各資料集有效期限內。"
-          : "本次資料由後端向 FinMind 取得。";
+          ? "\u90e8\u5206\u8cc7\u6599\u7531\u5f8c\u7aef\u5feb\u53d6\u63d0\u4f9b\uff0c\u4ecd\u5728\u5404\u8cc7\u6599\u96c6\u6709\u6548\u671f\u9650\u5167\u3002"
+          : "\u672c\u6b21\u8cc7\u6599\u7531\u5f8c\u7aef\u5411 FinMind \u53d6\u5f97\u3002";
       $("plainFundamentals").innerHTML = rows.join("") + `
         <div class="fund-meta">
-          資料來源：<a href="${escapeHtml(payload?.sourceUrl || "https://finmind.github.io/")}" target="_blank" rel="noreferrer">FinMind</a>。
-          更新時間：${escapeHtml(payload?.fetchedAt ? new Date(payload.fetchedAt).toLocaleString("zh-TW") : "無可用時間")}。
+          \u8cc7\u6599\u4f86\u6e90\uff1a<a href="${escapeHtml(payload?.sourceUrl || "https://finmind.github.io/")}" target="_blank" rel="noreferrer">FinMind</a>\u3002
+          \u66f4\u65b0\u6642\u9593\uff1a${escapeHtml(payload?.fetchedAt ? new Date(payload.fetchedAt).toLocaleString("zh-TW") : "\u7121\u53ef\u7528\u6642\u9593")}\u3002
           ${escapeHtml(cacheText)}
-          ${payload?.partial ? "部分資料來源暫時不可用，畫面已逐項標示。" : ""}
+          ${payload?.partial ? "\u90e8\u5206\u8cc7\u6599\u4f86\u6e90\u66ab\u6642\u4e0d\u53ef\u7528\uff0c\u756b\u9762\u5df2\u9010\u9805\u6a19\u793a\u3002" : ""}
         </div>`;
     }
 
@@ -1493,37 +1493,37 @@
 
     function renderNews(payload) {
       const items = Array.isArray(payload?.items) ? payload.items : [];
-      $("newsNote").textContent = payload?.note || "新聞資料暫時無法載入。";
+      $("newsNote").textContent = payload?.note || "\u65b0\u805e\u8cc7\u6599\u66ab\u6642\u7121\u6cd5\u8f09\u5165\u3002";
       if (!items.length) {
         const title = payload?.unavailableReason === "timeout"
-          ? "新聞來源逾時"
+          ? "\u65b0\u805e\u4f86\u6e90\u903e\u6642"
           : payload?.ok
-            ? "查無符合條件新聞"
-            : "新聞來源暫時不可用";
-        $("newsRows").innerHTML = `<div class="news-item"><b>${escapeHtml(title)}</b><p>${escapeHtml(payload?.note || "外部來源沒有回傳資料。")}</p></div>`;
+            ? "\u67e5\u7121\u7b26\u5408\u689d\u4ef6\u65b0\u805e"
+            : "\u65b0\u805e\u4f86\u6e90\u66ab\u6642\u4e0d\u53ef\u7528";
+        $("newsRows").innerHTML = `<div class="news-item"><b>${escapeHtml(title)}</b><p>${escapeHtml(payload?.note || "\u5916\u90e8\u4f86\u6e90\u6c92\u6709\u56de\u50b3\u8cc7\u6599\u3002")}</p></div>`;
         return;
       }
       $("newsRows").innerHTML = items.slice(0, 6).map((item) => `
         <div class="news-item">
           <b><a href="${escapeHtml(item.link)}" target="_blank" rel="noreferrer">${escapeHtml(item.title)}</a></b>
           <div class="news-meta">
-            ${badge(item.relation || "未分類", item.relation === "直接相關" ? "bull" : item.relation === "間接相關" ? "warn" : "neut")}
-            ${badge(item.sentiment || "中性", item.sentiment === "利多" ? "bull" : item.sentiment === "利空" ? "bear" : "neut")}
-            ${badge(item.horizon || "中線", "neut")}
-            ${badge(`信心 ${item.confidence || 0}%`, (item.confidence || 0) >= 70 ? "bull" : (item.confidence || 0) >= 45 ? "warn" : "neut")}
+            ${badge(item.relation || "\u672a\u5206\u985e", item.relation === "\u76f4\u63a5\u76f8\u95dc" ? "bull" : item.relation === "\u9593\u63a5\u76f8\u95dc" ? "warn" : "neut")}
+            ${badge(item.sentiment || "\u4e2d\u6027", item.sentiment === "\u5229\u591a" ? "bull" : item.sentiment === "\u5229\u7a7a" ? "bear" : "neut")}
+            ${badge(item.horizon || "\u4e2d\u7dda", "neut")}
+            ${badge(`\u4fe1\u5fc3 ${item.confidence || 0}%`, (item.confidence || 0) >= 70 ? "bull" : (item.confidence || 0) >= 45 ? "warn" : "neut")}
           </div>
-          <p>${escapeHtml(item.impact || "需再確認與公司營收、毛利、估值或情緒的關係。")}</p>
-          <p class="note">${escapeHtml(item.source || "新聞來源")} ${item.publishedAt ? `| ${new Date(item.publishedAt).toLocaleDateString("zh-TW")}` : ""}</p>
+          <p>${escapeHtml(item.impact || "\u9700\u518d\u78ba\u8a8d\u8207\u516c\u53f8\u71df\u6536\u3001\u6bdb\u5229\u3001\u4f30\u503c\u6216\u60c5\u7dd2\u7684\u95dc\u4fc2\u3002")}</p>
+          <p class="note">${escapeHtml(item.source || "\u65b0\u805e\u4f86\u6e90")} ${item.publishedAt ? `| ${new Date(item.publishedAt).toLocaleDateString("zh-TW")}` : ""}</p>
         </div>`).join("");
     }
 
     async function loadAndRenderNews(data) {
-      $("newsRows").innerHTML = `<div class="news-item"><b>正在搜尋新聞</b><p>會判讀直接相關、間接相關、雜訊、利多利空與影響週期。</p></div>`;
-      $("newsNote").textContent = "新聞由外部來源即時搜尋，結果會隨時間變動。";
+      $("newsRows").innerHTML = `<div class="news-item"><b>\u6b63\u5728\u641c\u5c0b\u65b0\u805e</b><p>\u6703\u5224\u8b80\u76f4\u63a5\u76f8\u95dc\u3001\u9593\u63a5\u76f8\u95dc\u3001\u96dc\u8a0a\u3001\u5229\u591a\u5229\u7a7a\u8207\u5f71\u97ff\u9031\u671f\u3002</p></div>`;
+      $("newsNote").textContent = "\u65b0\u805e\u7531\u5916\u90e8\u4f86\u6e90\u5373\u6642\u641c\u5c0b\uff0c\u7d50\u679c\u6703\u96a8\u6642\u9593\u8b8a\u52d5\u3002";
       try {
         renderNews(await getNews(data.code, data.quote?.name || fallbackNames[data.code] || ""));
       } catch (err) {
-        renderNews({ ok:false, items:[], note: "新聞來源暫時不可用，主分析仍可使用。" });
+        renderNews({ ok:false, items:[], note: "\u65b0\u805e\u4f86\u6e90\u66ab\u6642\u4e0d\u53ef\u7528\uff0c\u4e3b\u5206\u6790\u4ecd\u53ef\u4f7f\u7528\u3002" });
       }
     }
 
@@ -1536,14 +1536,14 @@
     async function getValueScore(code) {
       const api = await waitForAppApi();
       const { data } = await api.get(`/api/value-score?code=${encodeURIComponent(code)}`);
-      if (!data || !data.ok || !data.score) throw new Error(data?.message || "價值評分資料不可用。");
+      if (!data || !data.ok || !data.score) throw new Error(data?.message || "\u50f9\u503c\u8a55\u5206\u8cc7\u6599\u4e0d\u53ef\u7528\u3002");
       return data.score;
     }
 
     async function getScreener(mode) {
       const api = await waitForAppApi();
       const { data } = await api.get(`/api/screener?mode=${encodeURIComponent(mode)}`);
-      if (!data || !data.ok) throw new Error(data?.message || "排行榜資料不可用。");
+      if (!data || !data.ok) throw new Error(data?.message || "\u6392\u884c\u699c\u8cc7\u6599\u4e0d\u53ef\u7528\u3002");
       return data;
     }
 
@@ -2340,9 +2340,9 @@
 
     async function loadSupplementalData(data) {
       const requestCode = data.code;
-      $("plainFundamentals").innerHTML = `<div class="sr"><div class="sl"><b>正在載入 FinMind</b><br>同步損益表、月營收、估值、現金流、負債、法人與籌碼資料。</div>${badge("載入中", "neut")}</div>`;
-      $("newsRows").innerHTML = `<div class="news-item"><b>正在搜尋新聞</b><p>會判讀直接相關、間接相關、雜訊、利多利空與影響週期。</p></div>`;
-      $("newsNote").textContent = "新聞由外部來源即時搜尋，結果會隨時間變動。";
+      $("plainFundamentals").innerHTML = `<div class="sr"><div class="sl"><b>\u6b63\u5728\u8f09\u5165 FinMind</b><br>\u540c\u6b65\u640d\u76ca\u8868\u3001\u6708\u71df\u6536\u3001\u4f30\u503c\u3001\u73fe\u91d1\u6d41\u3001\u8ca0\u50b5\u3001\u6cd5\u4eba\u8207\u7c4c\u78bc\u8cc7\u6599\u3002</div>${badge("\u8f09\u5165\u4e2d", "neut")}</div>`;
+      $("newsRows").innerHTML = `<div class="news-item"><b>\u6b63\u5728\u641c\u5c0b\u65b0\u805e</b><p>\u6703\u5224\u8b80\u76f4\u63a5\u76f8\u95dc\u3001\u9593\u63a5\u76f8\u95dc\u3001\u96dc\u8a0a\u3001\u5229\u591a\u5229\u7a7a\u8207\u5f71\u97ff\u9031\u671f\u3002</p></div>`;
+      $("newsNote").textContent = "\u65b0\u805e\u7531\u5916\u90e8\u4f86\u6e90\u5373\u6642\u641c\u5c0b\uff0c\u7d50\u679c\u6703\u96a8\u6642\u9593\u8b8a\u52d5\u3002";
       const [fundamentalsResult, newsResult] = await Promise.allSettled([
         getFundamentals(requestCode),
         getNews(requestCode, data.quote?.name || fallbackNames[requestCode] || ""),
@@ -2351,15 +2351,15 @@
       const fundamentals = fundamentalsResult.status === "fulfilled" ? fundamentalsResult.value : null;
       const news = newsResult.status === "fulfilled"
         ? newsResult.value
-        : { ok:false, items:[], note:"新聞來源暫時不可用，主分析仍可使用。" };
+        : { ok:false, items:[], note:"\u65b0\u805e\u4f86\u6e90\u66ab\u6642\u4e0d\u53ef\u7528\uff0c\u4e3b\u5206\u6790\u4ecd\u53ef\u4f7f\u7528\u3002" };
       renderNews(news);
       if (fundamentals?.ok) {
         renderPlainFundamentalsStable(data, fundamentals, news);
       } else {
         $("plainFundamentals").innerHTML = fundamentalRow(
-          "FinMind 資料暫時無法載入",
-          fundamentals?.message || "後端未取得可用的基本面與籌碼資料，技術分析及新聞功能仍可使用。",
-          "稍後重試",
+          "FinMind \u8cc7\u6599\u66ab\u6642\u7121\u6cd5\u8f09\u5165",
+          fundamentals?.message || "\u5f8c\u7aef\u672a\u53d6\u5f97\u53ef\u7528\u7684\u57fa\u672c\u9762\u8207\u7c4c\u78bc\u8cc7\u6599\uff0c\u6280\u8853\u5206\u6790\u53ca\u65b0\u805e\u529f\u80fd\u4ecd\u53ef\u4f7f\u7528\u3002",
+          "\u7a0d\u5f8c\u91cd\u8a66",
           "warn"
         );
       }
@@ -2372,9 +2372,9 @@
       $("heroFacts").innerHTML = [
         heroFact(`${data.code} ${name}`, "neut"),
         heroFact(`${q.market || "TWSE/OTC"} ${q.currency || "TWD"}`, "neut"),
-        heroFact(`今日 ${fmt(data.close)} 元`, trendCls),
+        heroFact(`\u4eca\u65e5 ${fmt(data.close)} \u5143`, trendCls),
         heroFact(`RSI ${fmt(data.rsiNow, 1)}`, data.rsiNow >= 70 ? "bear" : "neut"),
-        heroFact(`回檔 ${data.pullback}% ${riskText}`, riskCls),
+        heroFact(`\u56de\u6a94 ${data.pullback}% ${riskText}`, riskCls),
         heroFact(trendText, trendCls)
       ].join("");
     }
@@ -2382,40 +2382,40 @@
     function renderBars(prob, data) {
       const color = (v) => v >= 70 ? "var(--red)" : v >= 45 ? "#d7a53a" : "var(--green)";
       const rows = [
-        ["整體回檔機率", prob.overall, "短期 1 到 2 週"],
-        ["技術面", prob.tech, "RSI、均線乖離、布林位置"],
-        ["量能面", prob.volume, "放量後是否縮量或失速"],
-        ["纏論與波浪", prob.wave, "高檔中樞、第五浪或 ABC 修正"],
-        ["急漲後動能衰退", Math.max(15, Math.min(95, Math.round((data.rsiNow > 65 ? 30 : 12) + data.volumeRatio * 16 + (data.close > data.resistance * .98 ? 25 : 8)))), "大陽線後隔日續航"],
-        ["基本面支撐（舊版代理）", prob.fund, "此列仍是技術趨勢代理；FinMind 評分標準後續另行確認"],
-        ["中長期趨勢逆轉", prob.longTerm, "MA120 與長線低點防線"]
+        ["\u6574\u9ad4\u56de\u6a94\u6a5f\u7387", prob.overall, "\u77ed\u671f 1 \u5230 2 \u9031"],
+        ["\u6280\u8853\u9762", prob.tech, "RSI\u3001\u5747\u7dda\u4e56\u96e2\u3001\u5e03\u6797\u4f4d\u7f6e"],
+        ["\u91cf\u80fd\u9762", prob.volume, "\u653e\u91cf\u5f8c\u662f\u5426\u7e2e\u91cf\u6216\u5931\u901f"],
+        ["\u7e8f\u8ad6\u8207\u6ce2\u6d6a", prob.wave, "\u9ad8\u6a94\u4e2d\u6a1e\u3001\u7b2c\u4e94\u6d6a\u6216 ABC \u4fee\u6b63"],
+        ["\u6025\u6f32\u5f8c\u52d5\u80fd\u8870\u9000", Math.max(15, Math.min(95, Math.round((data.rsiNow > 65 ? 30 : 12) + data.volumeRatio * 16 + (data.close > data.resistance * .98 ? 25 : 8)))), "\u5927\u967d\u7dda\u5f8c\u9694\u65e5\u7e8c\u822a"],
+        ["\u57fa\u672c\u9762\u652f\u6490\uff08\u820a\u7248\u4ee3\u7406\uff09", prob.fund, "\u6b64\u5217\u4ecd\u662f\u6280\u8853\u8da8\u52e2\u4ee3\u7406\uff1bFinMind \u8a55\u5206\u6a19\u6e96\u5f8c\u7e8c\u53e6\u884c\u78ba\u8a8d"],
+        ["\u4e2d\u9577\u671f\u8da8\u52e2\u9006\u8f49", prob.longTerm, "MA120 \u8207\u9577\u7dda\u4f4e\u9ede\u9632\u7dda"]
       ];
       const [riskText, riskCls, riskDesc] = pullbackLabel(data.pullback);
       const keyLine = data.pullback >= 60
-        ? `關鍵觀察位置是 MA5 ${fmt(maNow(data, "ma5"))} 與短線支撐 ${fmt(data.support)}，若跌破後無法收回，回檔評分會升高。`
-        : `關鍵觀察位置是短線支撐 ${fmt(data.support)} 與 MA20 ${fmt(maNow(data, "ma20"))}，只要量縮守住，修正壓力仍可控。`;
+        ? `\u95dc\u9375\u89c0\u5bdf\u4f4d\u7f6e\u662f MA5 ${fmt(maNow(data, "ma5"))} \u8207\u77ed\u7dda\u652f\u6490 ${fmt(data.support)}\uff0c\u82e5\u8dcc\u7834\u5f8c\u7121\u6cd5\u6536\u56de\uff0c\u56de\u6a94\u8a55\u5206\u6703\u5347\u9ad8\u3002`
+        : `\u95dc\u9375\u89c0\u5bdf\u4f4d\u7f6e\u662f\u77ed\u7dda\u652f\u6490 ${fmt(data.support)} \u8207 MA20 ${fmt(maNow(data, "ma20"))}\uff0c\u53ea\u8981\u91cf\u7e2e\u5b88\u4f4f\uff0c\u4fee\u6b63\u58d3\u529b\u4ecd\u53ef\u63a7\u3002`;
       $("probRows").innerHTML = rows.map(([label, value, hint]) => `<div class="pb"><b>${label}<br><span class="note">${hint}</span></b><div class="pt"><div class="pf" style="width:${value}%;background:${color(value)}"></div></div><b>${value}%</b></div>`).join("");
       $("probSummary").innerHTML = `
         <div class="prob-summary">
-          <p><b>核心判斷：</b>目前回檔機率 ${data.pullback}% ，屬於${riskText}風險。${riskDesc}</p>
-          <p><b>關鍵觀察指標：</b>${keyLine} 量能目前為 20 日均量 ${fmt(data.volumeRatio, 2)} 倍，RSI ${fmt(data.rsiNow, 1)}，布林 %B ${fmt(data.pctBNow, 2)}。</p>
+          <p><b>\u6838\u5fc3\u5224\u65b7\uff1a</b>\u76ee\u524d\u56de\u6a94\u6a5f\u7387 ${data.pullback}% \uff0c\u5c6c\u65bc${riskText}\u98a8\u96aa\u3002${riskDesc}</p>
+          <p><b>\u95dc\u9375\u89c0\u5bdf\u6307\u6a19\uff1a</b>${keyLine} \u91cf\u80fd\u76ee\u524d\u70ba 20 \u65e5\u5747\u91cf ${fmt(data.volumeRatio, 2)} \u500d\uff0cRSI ${fmt(data.rsiNow, 1)}\uff0c\u5e03\u6797 %B ${fmt(data.pctBNow, 2)}\u3002</p>
         </div>`;
     }
 
     function renderSignals(data) {
       const rows = [
-        ["價格行為", `收盤 ${fmt(data.close)}，短線區間落在 ${priceRange(data.support, data.resistance)}。若收盤能站穩壓力上方，代表買盤願意接受更高成本；若跌回區間下緣，先視為回測。`, data.close > data.support ? badge("區間內偏強", "bull") : badge("跌破支撐", "bear")],
-        ["均線結構", `MA5 ${fmt(maNow(data, "ma5"))}、MA20 ${fmt(maNow(data, "ma20"))}、MA60 ${fmt(maNow(data, "ma60"))}、MA120 ${fmt(maNow(data, "ma120"))}。股價距 MA60 約 ${pct(gapPct(data.close, maNow(data, "ma60")))}。`, maNow(data, "ma20") > maNow(data, "ma60") ? badge("多頭排列", "bull") : badge("整理", "warn")],
-        ["RSI(14)", `RSI ${fmt(data.rsiNow, 1)}。70 以上代表短線強勢也代表追價成本偏高；50 到 70 代表偏多動能；低於 40 才會偏向跌深反彈觀察。`, data.rsiNow >= 70 ? badge("超買訊號", "bear") : data.rsiNow <= 40 ? badge("低檔觀察", "bull") : badge("中性偏多", "neut")],
-        ["KD 指標", `K ${fmt(data.kNow, 1)}、D ${fmt(data.dNow, 1)}。K 高於 D 代表短線動能仍在；高檔交叉向下時，隔日續航要保守確認。`, data.kNow > data.dNow ? badge("動能偏多", "bull") : badge("動能降溫", "warn")],
-        ["MACD", `柱狀體 ${fmt(last(data.hist), 3)}。柱狀體擴大代表動能推進；柱狀體縮小但股價創高時，容易形成動能背離。`, last(data.hist) >= 0 ? badge("零軸上方", "bull") : badge("零軸下方", "warn")],
-        ["布林通道", `%B ${fmt(data.pctBNow, 2)}、帶寬 ${fmt(data.bwNow, 2)}%。靠近上軌代表市場願意追價，但也容易在量能不足時出現拉回。`, data.pctBNow > .85 ? badge("接近上軌", "warn") : badge("未貼上軌", "neut")],
-        ["成交量", `今日量能約為 20 日均量 ${fmt(data.volumeRatio, 2)} 倍。急漲放量後若隔日縮量，容易變成短線換手；若放量守高，趨勢延伸機率較高。`, data.volumeRatio > 1.8 ? badge("量大需確認", "warn") : badge("量能穩定", "neut")],
-        ["纏論", `以 20 與 60 日高低點視為簡化筆段，中樞區間可先看 ${priceRange(data.support2, data.resistance2)}。站穩中樞上緣偏強，跌回中樞內則進入整理。`, data.close > data.resistance2 ? badge("脫離中樞", "bull") : badge("中樞觀察", "warn")],
-        ["波浪理論", `若目前接近短線高點，可視為推進浪後段或 B 浪反彈；若回測 MA20 不破，修正較健康；若跌破 MA60，C 浪或深度修正機率升高。`, data.pullback >= 60 ? badge("末端疑慮", "bear") : badge("推進觀察", "bull")],
-        ["葛蘭威爾八大", `股價相對 MA20 與 MA60 的位置是核心。站上均線且均線上彎偏向買進法則，遠離均線急漲則偏向賣出或等待回測法則。`, data.close > maNow(data, "ma20") ? badge("偏多法則", "bull") : badge("修復法則", "warn")],
-        ["道氏理論", `短期看 MA5 與近期高低點，中期看 MA20 對 MA60，長期看 MA120 與 52 週區間。三者同向時趨勢可信度最高。`, data.close > maNow(data, "ma120") ? badge("長線未壞", "bull") : badge("長線修復", "warn")],
-        ["基本面與籌碼", `FinMind 資料會在上方「基本面白話化」非同步載入，包括 EPS、月營收、財報、估值、法人、融資融券與借券。評分標準尚未併入回檔機率。`, badge("資料已串接", "bull")]
+        ["\u50f9\u683c\u884c\u70ba", `\u6536\u76e4 ${fmt(data.close)}\uff0c\u77ed\u7dda\u5340\u9593\u843d\u5728 ${priceRange(data.support, data.resistance)}\u3002\u82e5\u6536\u76e4\u80fd\u7ad9\u7a69\u58d3\u529b\u4e0a\u65b9\uff0c\u4ee3\u8868\u8cb7\u76e4\u9858\u610f\u63a5\u53d7\u66f4\u9ad8\u6210\u672c\uff1b\u82e5\u8dcc\u56de\u5340\u9593\u4e0b\u7de3\uff0c\u5148\u8996\u70ba\u56de\u6e2c\u3002`, data.close > data.support ? badge("\u5340\u9593\u5167\u504f\u5f37", "bull") : badge("\u8dcc\u7834\u652f\u6490", "bear")],
+        ["\u5747\u7dda\u7d50\u69cb", `MA5 ${fmt(maNow(data, "ma5"))}\u3001MA20 ${fmt(maNow(data, "ma20"))}\u3001MA60 ${fmt(maNow(data, "ma60"))}\u3001MA120 ${fmt(maNow(data, "ma120"))}\u3002\u80a1\u50f9\u8ddd MA60 \u7d04 ${pct(gapPct(data.close, maNow(data, "ma60")))}\u3002`, maNow(data, "ma20") > maNow(data, "ma60") ? badge("\u591a\u982d\u6392\u5217", "bull") : badge("\u6574\u7406", "warn")],
+        ["RSI(14)", `RSI ${fmt(data.rsiNow, 1)}\u300270 \u4ee5\u4e0a\u4ee3\u8868\u77ed\u7dda\u5f37\u52e2\u4e5f\u4ee3\u8868\u8ffd\u50f9\u6210\u672c\u504f\u9ad8\uff1b50 \u5230 70 \u4ee3\u8868\u504f\u591a\u52d5\u80fd\uff1b\u4f4e\u65bc 40 \u624d\u6703\u504f\u5411\u8dcc\u6df1\u53cd\u5f48\u89c0\u5bdf\u3002`, data.rsiNow >= 70 ? badge("\u8d85\u8cb7\u8a0a\u865f", "bear") : data.rsiNow <= 40 ? badge("\u4f4e\u6a94\u89c0\u5bdf", "bull") : badge("\u4e2d\u6027\u504f\u591a", "neut")],
+        ["KD \u6307\u6a19", `K ${fmt(data.kNow, 1)}\u3001D ${fmt(data.dNow, 1)}\u3002K \u9ad8\u65bc D \u4ee3\u8868\u77ed\u7dda\u52d5\u80fd\u4ecd\u5728\uff1b\u9ad8\u6a94\u4ea4\u53c9\u5411\u4e0b\u6642\uff0c\u9694\u65e5\u7e8c\u822a\u8981\u4fdd\u5b88\u78ba\u8a8d\u3002`, data.kNow > data.dNow ? badge("\u52d5\u80fd\u504f\u591a", "bull") : badge("\u52d5\u80fd\u964d\u6eab", "warn")],
+        ["MACD", `\u67f1\u72c0\u9ad4 ${fmt(last(data.hist), 3)}\u3002\u67f1\u72c0\u9ad4\u64f4\u5927\u4ee3\u8868\u52d5\u80fd\u63a8\u9032\uff1b\u67f1\u72c0\u9ad4\u7e2e\u5c0f\u4f46\u80a1\u50f9\u5275\u9ad8\u6642\uff0c\u5bb9\u6613\u5f62\u6210\u52d5\u80fd\u80cc\u96e2\u3002`, last(data.hist) >= 0 ? badge("\u96f6\u8ef8\u4e0a\u65b9", "bull") : badge("\u96f6\u8ef8\u4e0b\u65b9", "warn")],
+        ["\u5e03\u6797\u901a\u9053", `%B ${fmt(data.pctBNow, 2)}\u3001\u5e36\u5bec ${fmt(data.bwNow, 2)}%\u3002\u9760\u8fd1\u4e0a\u8ecc\u4ee3\u8868\u5e02\u5834\u9858\u610f\u8ffd\u50f9\uff0c\u4f46\u4e5f\u5bb9\u6613\u5728\u91cf\u80fd\u4e0d\u8db3\u6642\u51fa\u73fe\u62c9\u56de\u3002`, data.pctBNow > .85 ? badge("\u63a5\u8fd1\u4e0a\u8ecc", "warn") : badge("\u672a\u8cbc\u4e0a\u8ecc", "neut")],
+        ["\u6210\u4ea4\u91cf", `\u4eca\u65e5\u91cf\u80fd\u7d04\u70ba 20 \u65e5\u5747\u91cf ${fmt(data.volumeRatio, 2)} \u500d\u3002\u6025\u6f32\u653e\u91cf\u5f8c\u82e5\u9694\u65e5\u7e2e\u91cf\uff0c\u5bb9\u6613\u8b8a\u6210\u77ed\u7dda\u63db\u624b\uff1b\u82e5\u653e\u91cf\u5b88\u9ad8\uff0c\u8da8\u52e2\u5ef6\u4f38\u6a5f\u7387\u8f03\u9ad8\u3002`, data.volumeRatio > 1.8 ? badge("\u91cf\u5927\u9700\u78ba\u8a8d", "warn") : badge("\u91cf\u80fd\u7a69\u5b9a", "neut")],
+        ["\u7e8f\u8ad6", `\u4ee5 20 \u8207 60 \u65e5\u9ad8\u4f4e\u9ede\u8996\u70ba\u7c21\u5316\u7b46\u6bb5\uff0c\u4e2d\u6a1e\u5340\u9593\u53ef\u5148\u770b ${priceRange(data.support2, data.resistance2)}\u3002\u7ad9\u7a69\u4e2d\u6a1e\u4e0a\u7de3\u504f\u5f37\uff0c\u8dcc\u56de\u4e2d\u6a1e\u5167\u5247\u9032\u5165\u6574\u7406\u3002`, data.close > data.resistance2 ? badge("\u812b\u96e2\u4e2d\u6a1e", "bull") : badge("\u4e2d\u6a1e\u89c0\u5bdf", "warn")],
+        ["\u6ce2\u6d6a\u7406\u8ad6", `\u82e5\u76ee\u524d\u63a5\u8fd1\u77ed\u7dda\u9ad8\u9ede\uff0c\u53ef\u8996\u70ba\u63a8\u9032\u6d6a\u5f8c\u6bb5\u6216 B \u6d6a\u53cd\u5f48\uff1b\u82e5\u56de\u6e2c MA20 \u4e0d\u7834\uff0c\u4fee\u6b63\u8f03\u5065\u5eb7\uff1b\u82e5\u8dcc\u7834 MA60\uff0cC \u6d6a\u6216\u6df1\u5ea6\u4fee\u6b63\u6a5f\u7387\u5347\u9ad8\u3002`, data.pullback >= 60 ? badge("\u672b\u7aef\u7591\u616e", "bear") : badge("\u63a8\u9032\u89c0\u5bdf", "bull")],
+        ["\u845b\u862d\u5a01\u723e\u516b\u5927", `\u80a1\u50f9\u76f8\u5c0d MA20 \u8207 MA60 \u7684\u4f4d\u7f6e\u662f\u6838\u5fc3\u3002\u7ad9\u4e0a\u5747\u7dda\u4e14\u5747\u7dda\u4e0a\u5f4e\u504f\u5411\u8cb7\u9032\u6cd5\u5247\uff0c\u9060\u96e2\u5747\u7dda\u6025\u6f32\u5247\u504f\u5411\u8ce3\u51fa\u6216\u7b49\u5f85\u56de\u6e2c\u6cd5\u5247\u3002`, data.close > maNow(data, "ma20") ? badge("\u504f\u591a\u6cd5\u5247", "bull") : badge("\u4fee\u5fa9\u6cd5\u5247", "warn")],
+        ["\u9053\u6c0f\u7406\u8ad6", `\u77ed\u671f\u770b MA5 \u8207\u8fd1\u671f\u9ad8\u4f4e\u9ede\uff0c\u4e2d\u671f\u770b MA20 \u5c0d MA60\uff0c\u9577\u671f\u770b MA120 \u8207 52 \u9031\u5340\u9593\u3002\u4e09\u8005\u540c\u5411\u6642\u8da8\u52e2\u53ef\u4fe1\u5ea6\u6700\u9ad8\u3002`, data.close > maNow(data, "ma120") ? badge("\u9577\u7dda\u672a\u58de", "bull") : badge("\u9577\u7dda\u4fee\u5fa9", "warn")],
+        ["\u57fa\u672c\u9762\u8207\u7c4c\u78bc", `FinMind \u8cc7\u6599\u6703\u5728\u4e0a\u65b9\u300c\u57fa\u672c\u9762\u767d\u8a71\u5316\u300d\u975e\u540c\u6b65\u8f09\u5165\uff0c\u5305\u62ec EPS\u3001\u6708\u71df\u6536\u3001\u8ca1\u5831\u3001\u4f30\u503c\u3001\u6cd5\u4eba\u3001\u878d\u8cc7\u878d\u5238\u8207\u501f\u5238\u3002\u8a55\u5206\u6a19\u6e96\u5c1a\u672a\u4f75\u5165\u56de\u6a94\u6a5f\u7387\u3002`, badge("\u8cc7\u6599\u5df2\u4e32\u63a5", "bull")]
       ];
       $("signalRows").innerHTML = rows.map(([title, text, b]) => `
         <div class="sr">
@@ -2438,49 +2438,49 @@
       $("strategy").innerHTML = `
         <div class="strategy-grid">
           <div class="strategy-card">
-            <b>減碼觀望策略</b>
-            <p>適用情境：回檔機率 ${data.pullback}% 、RSI ${fmt(data.rsiNow, 1)}，若價格接近 ${priceRange(cutStart, cutEnd)}，短線容易出現獲利了結。</p>
+            <b>\u6e1b\u78bc\u89c0\u671b\u7b56\u7565</b>
+            <p>\u9069\u7528\u60c5\u5883\uff1a\u56de\u6a94\u6a5f\u7387 ${data.pullback}% \u3001RSI ${fmt(data.rsiNow, 1)}\uff0c\u82e5\u50f9\u683c\u63a5\u8fd1 ${priceRange(cutStart, cutEnd)}\uff0c\u77ed\u7dda\u5bb9\u6613\u51fa\u73fe\u7372\u5229\u4e86\u7d50\u3002</p>
             <ul class="mini-list">
-              <li>目前建議：${data.pullback >= 60 ? "急漲後不追高，先等隔日量能確認。" : "可續抱觀察，但不把加碼點放在壓力附近。"}</li>
-              <li>減碼區：${priceRange(cutStart, cutEnd)}，依據短中線壓力與近期高點。</li>
-              <li>短空進場條件：收盤跌破 ${fmt(ma5)} 且隔日無法站回，才視為短線轉弱。</li>
-              <li>短空停損：重新站回 ${fmt(data.resistance)} 並放量，代表空方判斷失效。</li>
+              <li>\u76ee\u524d\u5efa\u8b70\uff1a${data.pullback >= 60 ? "\u6025\u6f32\u5f8c\u4e0d\u8ffd\u9ad8\uff0c\u5148\u7b49\u9694\u65e5\u91cf\u80fd\u78ba\u8a8d\u3002" : "\u53ef\u7e8c\u62b1\u89c0\u5bdf\uff0c\u4f46\u4e0d\u628a\u52a0\u78bc\u9ede\u653e\u5728\u58d3\u529b\u9644\u8fd1\u3002"}</li>
+              <li>\u6e1b\u78bc\u5340\uff1a${priceRange(cutStart, cutEnd)}\uff0c\u4f9d\u64da\u77ed\u4e2d\u7dda\u58d3\u529b\u8207\u8fd1\u671f\u9ad8\u9ede\u3002</li>
+              <li>\u77ed\u7a7a\u9032\u5834\u689d\u4ef6\uff1a\u6536\u76e4\u8dcc\u7834 ${fmt(ma5)} \u4e14\u9694\u65e5\u7121\u6cd5\u7ad9\u56de\uff0c\u624d\u8996\u70ba\u77ed\u7dda\u8f49\u5f31\u3002</li>
+              <li>\u77ed\u7a7a\u505c\u640d\uff1a\u91cd\u65b0\u7ad9\u56de ${fmt(data.resistance)} \u4e26\u653e\u91cf\uff0c\u4ee3\u8868\u7a7a\u65b9\u5224\u65b7\u5931\u6548\u3002</li>
             </ul>
           </div>
           <div class="strategy-card">
-            <b>多單回撤佈局策略</b>
-            <p>適用情境：不追今日高點，等待價格回到均線或支撐附近，讓停損距離變短，風險報酬比才會改善。</p>
+            <b>\u591a\u55ae\u56de\u64a4\u4f48\u5c40\u7b56\u7565</b>
+            <p>\u9069\u7528\u60c5\u5883\uff1a\u4e0d\u8ffd\u4eca\u65e5\u9ad8\u9ede\uff0c\u7b49\u5f85\u50f9\u683c\u56de\u5230\u5747\u7dda\u6216\u652f\u6490\u9644\u8fd1\uff0c\u8b93\u505c\u640d\u8ddd\u96e2\u8b8a\u77ed\uff0c\u98a8\u96aa\u5831\u916c\u6bd4\u624d\u6703\u6539\u5584\u3002</p>
             <ul class="mini-list">
-              <li>第一買點：${priceRange(entry1 * .99, entry1 * 1.01)}，用 MA5 或短支撐測試。</li>
-              <li>第二買點：${priceRange(entry2 * .99, entry2 * 1.01)}，用 MA20 與中樞下沿分批。</li>
-              <li>第三買點：${priceRange(entry3 * .98, entry3 * 1.02)}，用 MA60 或長線支撐承接。</li>
-              <li>停損設置：跌破 ${fmt(stop)} 且收盤無法收回，代表中期結構轉弱。</li>
+              <li>\u7b2c\u4e00\u8cb7\u9ede\uff1a${priceRange(entry1 * .99, entry1 * 1.01)}\uff0c\u7528 MA5 \u6216\u77ed\u652f\u6490\u6e2c\u8a66\u3002</li>
+              <li>\u7b2c\u4e8c\u8cb7\u9ede\uff1a${priceRange(entry2 * .99, entry2 * 1.01)}\uff0c\u7528 MA20 \u8207\u4e2d\u6a1e\u4e0b\u6cbf\u5206\u6279\u3002</li>
+              <li>\u7b2c\u4e09\u8cb7\u9ede\uff1a${priceRange(entry3 * .98, entry3 * 1.02)}\uff0c\u7528 MA60 \u6216\u9577\u7dda\u652f\u6490\u627f\u63a5\u3002</li>
+              <li>\u505c\u640d\u8a2d\u7f6e\uff1a\u8dcc\u7834 ${fmt(stop)} \u4e14\u6536\u76e4\u7121\u6cd5\u6536\u56de\uff0c\u4ee3\u8868\u4e2d\u671f\u7d50\u69cb\u8f49\u5f31\u3002</li>
             </ul>
           </div>
         </div>`;
       const plans = [
-        ["①積極型", entry1, stop, target1, "MA5 回測"],
-        ["②標準型", entry2, stop, target2, "MA20 與中期支撐"],
-        ["③穩健型", entry3, Math.min(stop, entry3 * .92), Math.max(target2, data.high52 * 1.06), "MA60 與長線支撐"]
+        ["\u2460\u7a4d\u6975\u578b", entry1, stop, target1, "MA5 \u56de\u6e2c"],
+        ["\u2461\u6a19\u6e96\u578b", entry2, stop, target2, "MA20 \u8207\u4e2d\u671f\u652f\u6490"],
+        ["\u2462\u7a69\u5065\u578b", entry3, Math.min(stop, entry3 * .92), Math.max(target2, data.high52 * 1.06), "MA60 \u8207\u9577\u7dda\u652f\u6490"]
       ];
       $("rrCompare").innerHTML = `
-        <h2 style="margin-top:1rem">三買點風險報酬比比較</h2>
+        <h2 style="margin-top:1rem">\u4e09\u8cb7\u9ede\u98a8\u96aa\u5831\u916c\u6bd4\u6bd4\u8f03</h2>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>買點</th><th>進場</th><th>停損</th><th>最大虧損</th><th>目標</th><th>潛在報酬</th><th>R:R比</th><th>評級</th></tr></thead>
+            <thead><tr><th>\u8cb7\u9ede</th><th>\u9032\u5834</th><th>\u505c\u640d</th><th>\u6700\u5927\u8667\u640d</th><th>\u76ee\u6a19</th><th>\u6f5b\u5728\u5831\u916c</th><th>R:R\u6bd4</th><th>\u8a55\u7d1a</th></tr></thead>
             <tbody>
               ${plans.map(([name, entry, planStop, target, basis]) => {
                 const loss = gapPct(planStop, entry);
                 const gain = gapPct(target, entry);
                 const rr = rrValue(entry, planStop, target);
-                return `<tr><td>${name}<br><span class="note">${basis}</span></td><td>${fmt(entry)} 元</td><td>${fmt(planStop)} 元</td><td>${pct(loss)}</td><td>${fmt(target)} 元</td><td>${pct(gain)}</td><td>1 : ${fmt(rr, 1)}</td><td>${rrBadge(rr)}</td></tr>`;
+                return `<tr><td>${name}<br><span class="note">${basis}</span></td><td>${fmt(entry)} \u5143</td><td>${fmt(planStop)} \u5143</td><td>${pct(loss)}</td><td>${fmt(target)} \u5143</td><td>${pct(gain)}</td><td>1 : ${fmt(rr, 1)}</td><td>${rrBadge(rr)}</td></tr>`;
               }).join("")}
             </tbody>
           </table>
         </div>
         <div class="summary-box" style="margin-top:.75rem">
-          <b>操作核心建議</b>
-          <p>若今日已大漲，先觀察隔日是否量縮守高。最好的佈局通常不是追在壓力附近，而是等回測 MA20 或中期支撐後，用較短停損換較高 R:R。</p>
+          <b>\u64cd\u4f5c\u6838\u5fc3\u5efa\u8b70</b>
+          <p>\u82e5\u4eca\u65e5\u5df2\u5927\u6f32\uff0c\u5148\u89c0\u5bdf\u9694\u65e5\u662f\u5426\u91cf\u7e2e\u5b88\u9ad8\u3002\u6700\u597d\u7684\u4f48\u5c40\u901a\u5e38\u4e0d\u662f\u8ffd\u5728\u58d3\u529b\u9644\u8fd1\uff0c\u800c\u662f\u7b49\u56de\u6e2c MA20 \u6216\u4e2d\u671f\u652f\u6490\u5f8c\uff0c\u7528\u8f03\u77ed\u505c\u640d\u63db\u8f03\u9ad8 R:R\u3002</p>
         </div>`;
     }
 
@@ -2492,18 +2492,18 @@
       const bbUp = lastFiniteLocal(data.bb.up);
       const bbLow = lastFiniteLocal(data.bb.low);
       const rows = [
-        ["52週高點 / 長線壓力", data.high52, "bear"],
-        ["中期壓力", data.resistance2, "bear"],
-        ["短線壓力", data.resistance, "warn"],
-        ["布林上軌", bbUp, "warn"],
-        ["目前收盤", data.close, "neut"],
-        ["MA10 短均", ma10, "neut"],
-        ["MA20 月線", ma20, "bull"],
-        ["短線支撐", data.support, "bull"],
-        ["中期支撐", data.support2, "bull"],
-        ["MA60 季線", ma60, "bull"],
-        ["MA120 半年線", ma120, "neut"],
-        ["布林下軌 / 長線防線", Math.min(bbLow, data.low52), "neut"]
+        ["52\u9031\u9ad8\u9ede / \u9577\u7dda\u58d3\u529b", data.high52, "bear"],
+        ["\u4e2d\u671f\u58d3\u529b", data.resistance2, "bear"],
+        ["\u77ed\u7dda\u58d3\u529b", data.resistance, "warn"],
+        ["\u5e03\u6797\u4e0a\u8ecc", bbUp, "warn"],
+        ["\u76ee\u524d\u6536\u76e4", data.close, "neut"],
+        ["MA10 \u77ed\u5747", ma10, "neut"],
+        ["MA20 \u6708\u7dda", ma20, "bull"],
+        ["\u77ed\u7dda\u652f\u6490", data.support, "bull"],
+        ["\u4e2d\u671f\u652f\u6490", data.support2, "bull"],
+        ["MA60 \u5b63\u7dda", ma60, "bull"],
+        ["MA120 \u534a\u5e74\u7dda", ma120, "neut"],
+        ["\u5e03\u6797\u4e0b\u8ecc / \u9577\u7dda\u9632\u7dda", Math.min(bbLow, data.low52), "neut"]
       ].filter(([, value]) => Number.isFinite(value));
       $("levelRows").innerHTML = rows.map(([label, value, cls]) => `<div class="level-item"><b>${label}</b><span class="${cls}">${fmt(value)}</span></div>`).join("");
       return rows;
@@ -2521,16 +2521,16 @@
       const heights = [36, 24, 66, 46, data.close > ma20 ? 88 : 58, 48, 62, data.close < ma60 ? 72 : 34];
       $("wave").innerHTML = ["1","2","3","4","5","A","B","C"].map((x,i)=>`<span class="${i === 4 ? waveCls : ""}" style="height:${heights[i]}%">${x}</span>`).join("");
       $("waveLegend").innerHTML = [
-        `① ${fmt(s2)} 起漲`,
-        `③ ${priceRange(s1, r1)}`,
-        `⑤ ${fmt(r1)} 以上`,
-        `C ${fmt(ma60)} 防線`
+        `\u2460 ${fmt(s2)} \u8d77\u6f32`,
+        `\u2462 ${priceRange(s1, r1)}`,
+        `\u2464 ${fmt(r1)} \u4ee5\u4e0a`,
+        `C ${fmt(ma60)} \u9632\u7dda`
       ].map((x) => `<span>${escapeHtml(x)}</span>`).join("");
       $("structureRows").innerHTML = `
-        <div class="sr"><div class="sl"><b>波浪理論判讀</b><br>目前情境偏向 ${waveStage}。五浪推進的重點不是猜最高點，而是觀察第五浪是否出現量價背離、RSI 過熱或布林上軌鈍化。若股價守住 MA20 ${fmt(ma20)}，可視為強勢修正；若跌破 MA60 ${fmt(ma60)}，修正層級會升高。</div>${badge(waveStage, waveCls)}</div>
-        <div class="sr"><div class="sl"><b>情境 A：強勢續漲</b><br>條件是收盤站穩 ${fmt(r1)}，且量能維持在 20 日均量 1.2 倍以上。目標先看中期壓力 ${fmt(r2)}，再看 52 週高點 ${fmt(data.high52)}。</div>${badge("續漲", "bull")}</div>
-        <div class="sr"><div class="sl"><b>情境 B：已達高檔後整理</b><br>若無法突破 ${fmt(r1)}，且 RSI 從 ${fmt(data.rsiNow, 1)} 往下，容易進入 A-B-C 修正。第一觀察區是 MA20 ${fmt(ma20)}，第二觀察區是中期支撐 ${fmt(s2)}。</div>${badge("回測", "warn")}</div>
-        <div class="sr"><div class="sl"><b>纏論判讀</b><br>用 ${priceRange(s2, r2)} 當作簡化中樞。中樞上沿突破後沒有跌回，代表多方控盤；若跌回中樞內，代表追價買盤退場，操作要降槓桿或減碼。</div>${badge(data.close > r2 ? "脫離中樞" : "中樞震盪", data.close > r2 ? "bull" : "warn")}</div>`;
+        <div class="sr"><div class="sl"><b>\u6ce2\u6d6a\u7406\u8ad6\u5224\u8b80</b><br>\u76ee\u524d\u60c5\u5883\u504f\u5411 ${waveStage}\u3002\u4e94\u6d6a\u63a8\u9032\u7684\u91cd\u9ede\u4e0d\u662f\u731c\u6700\u9ad8\u9ede\uff0c\u800c\u662f\u89c0\u5bdf\u7b2c\u4e94\u6d6a\u662f\u5426\u51fa\u73fe\u91cf\u50f9\u80cc\u96e2\u3001RSI \u904e\u71b1\u6216\u5e03\u6797\u4e0a\u8ecc\u920d\u5316\u3002\u82e5\u80a1\u50f9\u5b88\u4f4f MA20 ${fmt(ma20)}\uff0c\u53ef\u8996\u70ba\u5f37\u52e2\u4fee\u6b63\uff1b\u82e5\u8dcc\u7834 MA60 ${fmt(ma60)}\uff0c\u4fee\u6b63\u5c64\u7d1a\u6703\u5347\u9ad8\u3002</div>${badge(waveStage, waveCls)}</div>
+        <div class="sr"><div class="sl"><b>\u60c5\u5883 A\uff1a\u5f37\u52e2\u7e8c\u6f32</b><br>\u689d\u4ef6\u662f\u6536\u76e4\u7ad9\u7a69 ${fmt(r1)}\uff0c\u4e14\u91cf\u80fd\u7dad\u6301\u5728 20 \u65e5\u5747\u91cf 1.2 \u500d\u4ee5\u4e0a\u3002\u76ee\u6a19\u5148\u770b\u4e2d\u671f\u58d3\u529b ${fmt(r2)}\uff0c\u518d\u770b 52 \u9031\u9ad8\u9ede ${fmt(data.high52)}\u3002</div>${badge("\u7e8c\u6f32", "bull")}</div>
+        <div class="sr"><div class="sl"><b>\u60c5\u5883 B\uff1a\u5df2\u9054\u9ad8\u6a94\u5f8c\u6574\u7406</b><br>\u82e5\u7121\u6cd5\u7a81\u7834 ${fmt(r1)}\uff0c\u4e14 RSI \u5f9e ${fmt(data.rsiNow, 1)} \u5f80\u4e0b\uff0c\u5bb9\u6613\u9032\u5165 A-B-C \u4fee\u6b63\u3002\u7b2c\u4e00\u89c0\u5bdf\u5340\u662f MA20 ${fmt(ma20)}\uff0c\u7b2c\u4e8c\u89c0\u5bdf\u5340\u662f\u4e2d\u671f\u652f\u6490 ${fmt(s2)}\u3002</div>${badge("\u56de\u6e2c", "warn")}</div>
+        <div class="sr"><div class="sl"><b>\u7e8f\u8ad6\u5224\u8b80</b><br>\u7528 ${priceRange(s2, r2)} \u7576\u4f5c\u7c21\u5316\u4e2d\u6a1e\u3002\u4e2d\u6a1e\u4e0a\u6cbf\u7a81\u7834\u5f8c\u6c92\u6709\u8dcc\u56de\uff0c\u4ee3\u8868\u591a\u65b9\u63a7\u76e4\uff1b\u82e5\u8dcc\u56de\u4e2d\u6a1e\u5167\uff0c\u4ee3\u8868\u8ffd\u50f9\u8cb7\u76e4\u9000\u5834\uff0c\u64cd\u4f5c\u8981\u964d\u69d3\u687f\u6216\u6e1b\u78bc\u3002</div>${badge(data.close > r2 ? "\u812b\u96e2\u4e2d\u6a1e" : "\u4e2d\u6a1e\u9707\u76ea", data.close > r2 ? "bull" : "warn")}</div>`;
     }
 
     function renderGranville(data) {
@@ -2539,14 +2539,14 @@
       const gap20 = gapPct(data.close, ma20);
       const gap60 = gapPct(data.close, ma60);
       const rows = [
-        ["法則一（買入）", `股價由均線下方重新站回 MA20 ${fmt(ma20)}，且 MA20 開始走平或上彎時，代表空方壓力減弱。`, data.close > ma20 ? "長線仍適用" : "等待站回", data.close > ma20 ? "bull" : "warn"],
-        ["法則二（買入）", `股價站在 MA20 上方後回測不破，屬於趨勢中的續抱或分批點。現在距 MA20 約 ${pct(gap20)}。`, data.close > ma20 && gap20 < 8 ? "回測可觀察" : "需等回測", data.close > ma20 ? "bull" : "warn"],
-        ["法則三（買入）", `MA20 與 MA60 仍向上時，股價短暫跌破後快速收回，代表假跌破機率較高。`, data.close > ma60 ? "趨勢防線在" : "尚未確認", data.close > ma60 ? "bull" : "warn"],
-        ["法則四（買入）", `急跌遠離均線後容易反彈，但這是跌深反彈，不等同主升段。當股價低於 MA60 時才優先啟用。`, data.close < ma60 ? "跌深反彈" : "目前不主用", data.close < ma60 ? "warn" : "neut"],
-        ["法則五（賣出）", `股價遠高於均線且 RSI 過熱時，代表短線報酬已先反映。現在距 MA60 約 ${pct(gap60)}。`, gap60 > 15 || data.rsiNow >= 70 ? "持續監控" : "未過度乖離", gap60 > 15 || data.rsiNow >= 70 ? "bear" : "neut"],
-        ["法則六（賣出）", `股價跌破上升均線後反彈無法站回，常見於短線轉弱。觀察 MA5 ${fmt(maNow(data, "ma5"))} 與 MA20 ${fmt(ma20)}。`, data.close < ma20 ? "轉弱確認" : "尚未觸發", data.close < ma20 ? "bear" : "neut"],
-        ["法則七（賣出）", `均線下彎且股價反彈到均線附近受壓，容易形成反彈結束。`, ma20 < ma60 ? "整理偏弱" : "不適用", ma20 < ma60 ? "bear" : "neut"],
-        ["法則八（賣出）", `股價連續遠離 MA120 ${fmt(maNow(data, "ma120"))}，且量價出現失速，代表中長線籌碼可能鬆動。`, data.pullback >= 70 ? "重點檢查" : "留意即可", data.pullback >= 70 ? "bear" : "warn"]
+        ["\u6cd5\u5247\u4e00\uff08\u8cb7\u5165\uff09", `\u80a1\u50f9\u7531\u5747\u7dda\u4e0b\u65b9\u91cd\u65b0\u7ad9\u56de MA20 ${fmt(ma20)}\uff0c\u4e14 MA20 \u958b\u59cb\u8d70\u5e73\u6216\u4e0a\u5f4e\u6642\uff0c\u4ee3\u8868\u7a7a\u65b9\u58d3\u529b\u6e1b\u5f31\u3002`, data.close > ma20 ? "\u9577\u7dda\u4ecd\u9069\u7528" : "\u7b49\u5f85\u7ad9\u56de", data.close > ma20 ? "bull" : "warn"],
+        ["\u6cd5\u5247\u4e8c\uff08\u8cb7\u5165\uff09", `\u80a1\u50f9\u7ad9\u5728 MA20 \u4e0a\u65b9\u5f8c\u56de\u6e2c\u4e0d\u7834\uff0c\u5c6c\u65bc\u8da8\u52e2\u4e2d\u7684\u7e8c\u62b1\u6216\u5206\u6279\u9ede\u3002\u73fe\u5728\u8ddd MA20 \u7d04 ${pct(gap20)}\u3002`, data.close > ma20 && gap20 < 8 ? "\u56de\u6e2c\u53ef\u89c0\u5bdf" : "\u9700\u7b49\u56de\u6e2c", data.close > ma20 ? "bull" : "warn"],
+        ["\u6cd5\u5247\u4e09\uff08\u8cb7\u5165\uff09", `MA20 \u8207 MA60 \u4ecd\u5411\u4e0a\u6642\uff0c\u80a1\u50f9\u77ed\u66ab\u8dcc\u7834\u5f8c\u5feb\u901f\u6536\u56de\uff0c\u4ee3\u8868\u5047\u8dcc\u7834\u6a5f\u7387\u8f03\u9ad8\u3002`, data.close > ma60 ? "\u8da8\u52e2\u9632\u7dda\u5728" : "\u5c1a\u672a\u78ba\u8a8d", data.close > ma60 ? "bull" : "warn"],
+        ["\u6cd5\u5247\u56db\uff08\u8cb7\u5165\uff09", `\u6025\u8dcc\u9060\u96e2\u5747\u7dda\u5f8c\u5bb9\u6613\u53cd\u5f48\uff0c\u4f46\u9019\u662f\u8dcc\u6df1\u53cd\u5f48\uff0c\u4e0d\u7b49\u540c\u4e3b\u5347\u6bb5\u3002\u7576\u80a1\u50f9\u4f4e\u65bc MA60 \u6642\u624d\u512a\u5148\u555f\u7528\u3002`, data.close < ma60 ? "\u8dcc\u6df1\u53cd\u5f48" : "\u76ee\u524d\u4e0d\u4e3b\u7528", data.close < ma60 ? "warn" : "neut"],
+        ["\u6cd5\u5247\u4e94\uff08\u8ce3\u51fa\uff09", `\u80a1\u50f9\u9060\u9ad8\u65bc\u5747\u7dda\u4e14 RSI \u904e\u71b1\u6642\uff0c\u4ee3\u8868\u77ed\u7dda\u5831\u916c\u5df2\u5148\u53cd\u6620\u3002\u73fe\u5728\u8ddd MA60 \u7d04 ${pct(gap60)}\u3002`, gap60 > 15 || data.rsiNow >= 70 ? "\u6301\u7e8c\u76e3\u63a7" : "\u672a\u904e\u5ea6\u4e56\u96e2", gap60 > 15 || data.rsiNow >= 70 ? "bear" : "neut"],
+        ["\u6cd5\u5247\u516d\uff08\u8ce3\u51fa\uff09", `\u80a1\u50f9\u8dcc\u7834\u4e0a\u5347\u5747\u7dda\u5f8c\u53cd\u5f48\u7121\u6cd5\u7ad9\u56de\uff0c\u5e38\u898b\u65bc\u77ed\u7dda\u8f49\u5f31\u3002\u89c0\u5bdf MA5 ${fmt(maNow(data, "ma5"))} \u8207 MA20 ${fmt(ma20)}\u3002`, data.close < ma20 ? "\u8f49\u5f31\u78ba\u8a8d" : "\u5c1a\u672a\u89f8\u767c", data.close < ma20 ? "bear" : "neut"],
+        ["\u6cd5\u5247\u4e03\uff08\u8ce3\u51fa\uff09", `\u5747\u7dda\u4e0b\u5f4e\u4e14\u80a1\u50f9\u53cd\u5f48\u5230\u5747\u7dda\u9644\u8fd1\u53d7\u58d3\uff0c\u5bb9\u6613\u5f62\u6210\u53cd\u5f48\u7d50\u675f\u3002`, ma20 < ma60 ? "\u6574\u7406\u504f\u5f31" : "\u4e0d\u9069\u7528", ma20 < ma60 ? "bear" : "neut"],
+        ["\u6cd5\u5247\u516b\uff08\u8ce3\u51fa\uff09", `\u80a1\u50f9\u9023\u7e8c\u9060\u96e2 MA120 ${fmt(maNow(data, "ma120"))}\uff0c\u4e14\u91cf\u50f9\u51fa\u73fe\u5931\u901f\uff0c\u4ee3\u8868\u4e2d\u9577\u7dda\u7c4c\u78bc\u53ef\u80fd\u9b06\u52d5\u3002`, data.pullback >= 70 ? "\u91cd\u9ede\u6aa2\u67e5" : "\u7559\u610f\u5373\u53ef", data.pullback >= 70 ? "bear" : "warn"]
       ];
       $("granvilleRows").innerHTML = rows.map(([title, desc, tag, cls]) => `
         <div class="sr"><div class="sl"><b>${title}</b><br>${desc}</div>${badge(tag, cls)}</div>
@@ -2558,13 +2558,13 @@
       const ma20 = maNow(data, "ma20");
       const ma60 = maNow(data, "ma60");
       const ma120 = maNow(data, "ma120");
-      const shortBias = data.close > ma5 && data.close > data.support ? ["強勢偏多", "bull", "短期看數小時到 3 週，股價站上 MA5 並守住短線支撐，代表短線高低點尚未破壞。"] : ["弱多偏空", "bear", "短期若跌破 MA5 且無法收回，代表急漲後進入修正確認期。"];
-      const midBias = ma20 > ma60 && data.close > ma20 ? ["整理偏多", "bull", "中期看 3 週到 3 個月，MA20 高於 MA60 且股價站在 MA20 上方，主趨勢仍向上。"] : ["整理修復", "warn", "中期若跌回 MA20 下方，先看 MA60 是否能承接，否則中期趨勢會轉為盤整。"];
-      const longBias = data.close > ma120 ? ["牛市格局", "bull", "長期看 1 年到數年，股價位於 MA120 上方且 52 週低點未被跌破，長線結構仍成立。"] : ["長線修復", "warn", "長期若低於 MA120，代表市場仍在修復估值或基本面預期。"];
+      const shortBias = data.close > ma5 && data.close > data.support ? ["\u5f37\u52e2\u504f\u591a", "bull", "\u77ed\u671f\u770b\u6578\u5c0f\u6642\u5230 3 \u9031\uff0c\u80a1\u50f9\u7ad9\u4e0a MA5 \u4e26\u5b88\u4f4f\u77ed\u7dda\u652f\u6490\uff0c\u4ee3\u8868\u77ed\u7dda\u9ad8\u4f4e\u9ede\u5c1a\u672a\u7834\u58de\u3002"] : ["\u5f31\u591a\u504f\u7a7a", "bear", "\u77ed\u671f\u82e5\u8dcc\u7834 MA5 \u4e14\u7121\u6cd5\u6536\u56de\uff0c\u4ee3\u8868\u6025\u6f32\u5f8c\u9032\u5165\u4fee\u6b63\u78ba\u8a8d\u671f\u3002"];
+      const midBias = ma20 > ma60 && data.close > ma20 ? ["\u6574\u7406\u504f\u591a", "bull", "\u4e2d\u671f\u770b 3 \u9031\u5230 3 \u500b\u6708\uff0cMA20 \u9ad8\u65bc MA60 \u4e14\u80a1\u50f9\u7ad9\u5728 MA20 \u4e0a\u65b9\uff0c\u4e3b\u8da8\u52e2\u4ecd\u5411\u4e0a\u3002"] : ["\u6574\u7406\u4fee\u5fa9", "warn", "\u4e2d\u671f\u82e5\u8dcc\u56de MA20 \u4e0b\u65b9\uff0c\u5148\u770b MA60 \u662f\u5426\u80fd\u627f\u63a5\uff0c\u5426\u5247\u4e2d\u671f\u8da8\u52e2\u6703\u8f49\u70ba\u76e4\u6574\u3002"];
+      const longBias = data.close > ma120 ? ["\u725b\u5e02\u683c\u5c40", "bull", "\u9577\u671f\u770b 1 \u5e74\u5230\u6578\u5e74\uff0c\u80a1\u50f9\u4f4d\u65bc MA120 \u4e0a\u65b9\u4e14 52 \u9031\u4f4e\u9ede\u672a\u88ab\u8dcc\u7834\uff0c\u9577\u7dda\u7d50\u69cb\u4ecd\u6210\u7acb\u3002"] : ["\u9577\u7dda\u4fee\u5fa9", "warn", "\u9577\u671f\u82e5\u4f4e\u65bc MA120\uff0c\u4ee3\u8868\u5e02\u5834\u4ecd\u5728\u4fee\u5fa9\u4f30\u503c\u6216\u57fa\u672c\u9762\u9810\u671f\u3002"];
       $("dowRows").innerHTML = [
-        ["短期 | 數小時到 3週", ...shortBias],
-        ["中期 | 3週到 3個月", ...midBias],
-        ["長期 | 1年到數年", ...longBias]
+        ["\u77ed\u671f | \u6578\u5c0f\u6642\u5230 3\u9031", ...shortBias],
+        ["\u4e2d\u671f | 3\u9031\u5230 3\u500b\u6708", ...midBias],
+        ["\u9577\u671f | 1\u5e74\u5230\u6578\u5e74", ...longBias]
       ].map(([period, label, cls, body]) => `
         <div class="theory-card">
           <b>${period}</b>
@@ -2573,19 +2573,19 @@
         </div>
       `).join("");
       const confirmations = [
-        data.close > ma5 ? `短期收盤站上 MA5 ${fmt(ma5)}` : `短期尚未站穩 MA5 ${fmt(ma5)}`,
-        ma20 > ma60 ? `MA20 ${fmt(ma20)} 高於 MA60 ${fmt(ma60)}` : `MA20 尚未高於 MA60`,
-        data.close > ma120 ? `股價仍在 MA120 ${fmt(ma120)} 上方` : `股價低於 MA120，長線待修復`,
-        data.close > data.support ? `短線支撐 ${fmt(data.support)} 未失守` : `短線支撐 ${fmt(data.support)} 已失守`
+        data.close > ma5 ? `\u77ed\u671f\u6536\u76e4\u7ad9\u4e0a MA5 ${fmt(ma5)}` : `\u77ed\u671f\u5c1a\u672a\u7ad9\u7a69 MA5 ${fmt(ma5)}`,
+        ma20 > ma60 ? `MA20 ${fmt(ma20)} \u9ad8\u65bc MA60 ${fmt(ma60)}` : `MA20 \u5c1a\u672a\u9ad8\u65bc MA60`,
+        data.close > ma120 ? `\u80a1\u50f9\u4ecd\u5728 MA120 ${fmt(ma120)} \u4e0a\u65b9` : `\u80a1\u50f9\u4f4e\u65bc MA120\uff0c\u9577\u7dda\u5f85\u4fee\u5fa9`,
+        data.close > data.support ? `\u77ed\u7dda\u652f\u6490 ${fmt(data.support)} \u672a\u5931\u5b88` : `\u77ed\u7dda\u652f\u6490 ${fmt(data.support)} \u5df2\u5931\u5b88`
       ];
       const warnings = [
-        data.pullback >= 60 ? `回檔機率 ${data.pullback}% 偏高，需觀察隔日量能` : `回檔機率 ${data.pullback}% 尚未失控`,
-        data.rsiNow >= 70 ? `RSI ${fmt(data.rsiNow, 1)} 過熱，追價風險升高` : `RSI ${fmt(data.rsiNow, 1)} 未明顯過熱`,
-        data.close < ma20 ? `收盤低於 MA20，短中線轉弱` : `若跌破 MA20 ${fmt(ma20)}，中期整理會加深`,
-        data.close < data.support2 ? `已跌破中期支撐 ${fmt(data.support2)}` : `中期支撐 ${fmt(data.support2)} 是下一道防線`
+        data.pullback >= 60 ? `\u56de\u6a94\u6a5f\u7387 ${data.pullback}% \u504f\u9ad8\uff0c\u9700\u89c0\u5bdf\u9694\u65e5\u91cf\u80fd` : `\u56de\u6a94\u6a5f\u7387 ${data.pullback}% \u5c1a\u672a\u5931\u63a7`,
+        data.rsiNow >= 70 ? `RSI ${fmt(data.rsiNow, 1)} \u904e\u71b1\uff0c\u8ffd\u50f9\u98a8\u96aa\u5347\u9ad8` : `RSI ${fmt(data.rsiNow, 1)} \u672a\u660e\u986f\u904e\u71b1`,
+        data.close < ma20 ? `\u6536\u76e4\u4f4e\u65bc MA20\uff0c\u77ed\u4e2d\u7dda\u8f49\u5f31` : `\u82e5\u8dcc\u7834 MA20 ${fmt(ma20)}\uff0c\u4e2d\u671f\u6574\u7406\u6703\u52a0\u6df1`,
+        data.close < data.support2 ? `\u5df2\u8dcc\u7834\u4e2d\u671f\u652f\u6490 ${fmt(data.support2)}` : `\u4e2d\u671f\u652f\u6490 ${fmt(data.support2)} \u662f\u4e0b\u4e00\u9053\u9632\u7dda`
       ];
-      $("dowConfirm").innerHTML = `<b>道氏確認訊號</b><ul class="mini-list">${confirmations.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`;
-      $("dowWarning").innerHTML = `<b>道氏警示訊號</b><ul class="mini-list">${warnings.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`;
+      $("dowConfirm").innerHTML = `<b>\u9053\u6c0f\u78ba\u8a8d\u8a0a\u865f</b><ul class="mini-list">${confirmations.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`;
+      $("dowWarning").innerHTML = `<b>\u9053\u6c0f\u8b66\u793a\u8a0a\u865f</b><ul class="mini-list">${warnings.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`;
     }
 
     function setAgentStance(text, cls = "neut") {
@@ -2603,15 +2603,15 @@
       const tone = data.pullback >= 70 ? "bear" : data.close > last(data.ma20) ? "bull" : "warn";
       activeCode = data.code;
       activeData = data;
-      setAgentStance(data.pullback >= 70 ? "高風險" : data.close > last(data.ma20) ? "偏多" : "觀察", tone);
-      $("agentMeta").textContent = `${data.code} ${q.name || fallbackNames[data.code] || ""} | ${q.source || "公開報價"} | 可直接追問目前股票。`;
+      setAgentStance(data.pullback >= 70 ? "\u9ad8\u98a8\u96aa" : data.close > last(data.ma20) ? "\u504f\u591a" : "\u89c0\u5bdf", tone);
+      $("agentMeta").textContent = `${data.code} ${q.name || fallbackNames[data.code] || ""} | ${q.source || "\u516c\u958b\u5831\u50f9"} | \u53ef\u76f4\u63a5\u8ffd\u554f\u76ee\u524d\u80a1\u7968\u3002`;
       $("agentLog").innerHTML = "";
-      appendAgentMessage("agent", "Agent 摘要", `
-        <p>${escapeHtml(data.code)} 目前收盤 ${fmt(data.close)}，回檔機率 ${data.pullback}%。短支撐 ${fmt(data.support)}，中支撐 ${fmt(data.support2)}，短壓 ${fmt(data.resistance)}。</p>
+      appendAgentMessage("agent", "Agent \u6458\u8981", `
+        <p>${escapeHtml(data.code)} \u76ee\u524d\u6536\u76e4 ${fmt(data.close)}\uff0c\u56de\u6a94\u6a5f\u7387 ${data.pullback}%\u3002\u77ed\u652f\u6490 ${fmt(data.support)}\uff0c\u4e2d\u652f\u6490 ${fmt(data.support2)}\uff0c\u77ed\u58d3 ${fmt(data.resistance)}\u3002</p>
         <ul>
-          <li>RSI14 ${fmt(data.rsiNow, 1)}，KD ${fmt(data.kNow, 1)} / ${fmt(data.dNow, 1)}。</li>
-          <li>成交量約為 20 日均量 ${fmt(data.volumeRatio, 2)} 倍。</li>
-          <li>可問：現在能不能追、停損位置、支撐壓力、或指標是否轉弱。</li>
+          <li>RSI14 ${fmt(data.rsiNow, 1)}\uff0cKD ${fmt(data.kNow, 1)} / ${fmt(data.dNow, 1)}\u3002</li>
+          <li>\u6210\u4ea4\u91cf\u7d04\u70ba 20 \u65e5\u5747\u91cf ${fmt(data.volumeRatio, 2)} \u500d\u3002</li>
+          <li>\u53ef\u554f\uff1a\u73fe\u5728\u80fd\u4e0d\u80fd\u8ffd\u3001\u505c\u640d\u4f4d\u7f6e\u3001\u652f\u6490\u58d3\u529b\u3001\u6216\u6307\u6a19\u662f\u5426\u8f49\u5f31\u3002</li>
         </ul>
         ${sourceLinks(q.sourceUrls)}`);
     }
@@ -2621,7 +2621,7 @@
       const cls = agent.tone === "bull" ? "bull" : agent.tone === "bear" ? "bear" : "warn";
       setAgentStance(agent.stance, cls);
       const list = (items) => items?.length ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>` : "";
-      appendAgentMessage("agent", agent.title || "Agent 回覆", `
+      appendAgentMessage("agent", agent.title || "Agent \u56de\u8986", `
         <p>${escapeHtml(agent.answer)}</p>
         ${list(agent.keyPoints)}
         ${list(agent.actions)}
@@ -2633,29 +2633,29 @@
     async function askAgent(question) {
       const q = String(question || "").trim();
       if (!q || !activeCode) return;
-      appendAgentMessage("user", "你的問題", `<p>${escapeHtml(q)}</p>`);
+      appendAgentMessage("user", "\u4f60\u7684\u554f\u984c", `<p>${escapeHtml(q)}</p>`);
       $("agentInput").value = "";
       $("agentAskBtn").disabled = true;
-      $("agentAskBtn").textContent = "分析中";
+      $("agentAskBtn").textContent = "\u5206\u6790\u4e2d";
       try {
         const api = await waitForAppApi();
         const { data } = await api.get(`/api/agent?code=${encodeURIComponent(activeCode)}&question=${encodeURIComponent(q)}`);
-        if (!data || !data.ok || !data.agent) throw new Error(data?.message || "Agent 沒有回傳可用回答");
+        if (!data || !data.ok || !data.agent) throw new Error(data?.message || "Agent \u6c92\u6709\u56de\u50b3\u53ef\u7528\u56de\u7b54");
         renderAgentReply(data);
       } catch (err) {
-        appendAgentMessage("agent", "Agent 錯誤", `<p>${escapeHtml(err.message || "無法完成分析。")}</p>`);
+        appendAgentMessage("agent", "Agent \u932f\u8aa4", `<p>${escapeHtml(err.message || "\u7121\u6cd5\u5b8c\u6210\u5206\u6790\u3002")}</p>`);
       } finally {
         $("agentAskBtn").disabled = false;
-        $("agentAskBtn").textContent = "提問";
+        $("agentAskBtn").textContent = "\u63d0\u554f";
       }
     }
 
     function render(data) {
       destroyCharts();
       const q = data.quote || {};
-      const name = q.name || fallbackNames[data.code] || `股票 ${data.code}`;
+      const name = q.name || fallbackNames[data.code] || `\u80a1\u7968 ${data.code}`;
       $("headline").textContent = `${data.code} ${name}`;
-      $("subtitle").textContent = `${q.market || "台股"} | ${new Date().toLocaleDateString("zh-TW")} | 收盤 ${fmt(data.close)} | 回檔機率 ${data.pullback}%`;
+      $("subtitle").textContent = `${q.market || "\u53f0\u80a1"} | ${new Date().toLocaleDateString("zh-TW")} | \u6536\u76e4 ${fmt(data.close)} | \u56de\u6a94\u6a5f\u7387 ${data.pullback}%`;
       renderHeroFacts(data, name);
       const previousClose = data.closes[data.closes.length - 2];
       const priceChange = Number.isFinite(q.change)
@@ -2668,23 +2668,23 @@
       const priceTone = movementTone(priceChange);
       const volumeTone = movementTone(latestVolume - previousVolume);
       $("metrics").innerHTML = [
-        metric("今日收盤", fmt(data.close), priceTone),
-        metric("漲跌", Number.isFinite(q.change) ? `${q.change >= 0 ? "+" : ""}${fmt(q.change)}` : pct((data.close / previousClose - 1) * 100), priceTone),
-        metric("今日區間", `${fmt(q.low || last(data.lows))} - ${fmt(q.high || last(data.highs))}`, priceTone),
-        metric("成交量", fmt(latestVolume, 0), volumeTone),
+        metric("\u4eca\u65e5\u6536\u76e4", fmt(data.close), priceTone),
+        metric("\u6f32\u8dcc", Number.isFinite(q.change) ? `${q.change >= 0 ? "+" : ""}${fmt(q.change)}` : pct((data.close / previousClose - 1) * 100), priceTone),
+        metric("\u4eca\u65e5\u5340\u9593", `${fmt(q.low || last(data.lows))} - ${fmt(q.high || last(data.highs))}`, priceTone),
+        metric("\u6210\u4ea4\u91cf", fmt(latestVolume, 0), volumeTone),
         metric("MA5", fmt(last(data.ma5))),
         metric("MA10", fmt(last(data.ma10))),
-        metric("MA20（月線）", fmt(last(data.ma20))),
-        metric("MA60（季線）", fmt(last(data.ma60))),
-        metric("MA120（半年線）", fmt(last(data.ma120))),
+        metric("MA20\uff08\u6708\u7dda\uff09", fmt(last(data.ma20))),
+        metric("MA60\uff08\u5b63\u7dda\uff09", fmt(last(data.ma60))),
+        metric("MA120\uff08\u534a\u5e74\u7dda\uff09", fmt(last(data.ma120))),
         metric("RSI14", fmt(data.rsiNow, 1)),
-        metric("布林位置", `%B ${fmt(data.pctBNow, 2)}`),
-        metric("52 週區間", `${fmt(data.low52)} - ${fmt(data.high52)}`),
-        metric("短線支撐", fmt(data.support)),
-        metric("短線壓力", fmt(data.resistance)),
-        metric("回檔機率", `${data.pullback}%`)
+        metric("\u5e03\u6797\u4f4d\u7f6e", `%B ${fmt(data.pctBNow, 2)}`),
+        metric("52 \u9031\u5340\u9593", `${fmt(data.low52)} - ${fmt(data.high52)}`),
+        metric("\u77ed\u7dda\u652f\u6490", fmt(data.support)),
+        metric("\u77ed\u7dda\u58d3\u529b", fmt(data.resistance)),
+        metric("\u56de\u6a94\u6a5f\u7387", `${data.pullback}%`)
       ].join("");
-      $("status").textContent = q.source ? `資料來源：${q.source}。頁面每次開啟都會重新向後端請求最新資料。` : "已載入公開報價資料。";
+      $("status").textContent = q.source ? `\u8cc7\u6599\u4f86\u6e90\uff1a${q.source}\u3002\u9801\u9762\u6bcf\u6b21\u958b\u555f\u90fd\u6703\u91cd\u65b0\u5411\u5f8c\u7aef\u8acb\u6c42\u6700\u65b0\u8cc7\u6599\u3002` : "\u5df2\u8f09\u5165\u516c\u958b\u5831\u50f9\u8cc7\u6599\u3002";
       renderRetailDecision(data);
       renderEntryQuality(data);
       renderEntrySupportPanels(data);
@@ -2700,7 +2700,7 @@
       loadSupplementalData(data);
       prepareValueFeatures(data);
       if (!window.Chart) {
-        $("status").textContent += " Chart.js 未載入，文字資料仍可使用。";
+        $("status").textContent += " Chart.js \u672a\u8f09\u5165\uff0c\u6587\u5b57\u8cc7\u6599\u4ecd\u53ef\u4f7f\u7528\u3002";
         return;
       }
       const grid = { color:"#ece9e4" };
@@ -2733,7 +2733,7 @@
       ]}, options:{...common, scales:{ x:common.scales.x, y:{ grid, position:"left" }, y1:{ grid:{ display:false }, position:"right" }}} });
       const values = levelRows.map(([, value]) => value);
       charts.supp = new Chart($("suppChart"), { type:"bar", data:{ datasets:[{
-        label:"價格",
+        label:"\u50f9\u683c",
         data:levelRows.map(([label, value]) => ({ y:label, x:value })),
         parsing:{ xAxisKey:"x", yAxisKey:"y" },
         backgroundColor:levelRows.map(([, , cls]) => cls === "bear" ? "#d95b4f" : cls === "warn" ? "#df8b6b" : cls === "bull" ? "#2d8a62" : "#222220")
@@ -2742,8 +2742,8 @@
 
     function showLoadError(code, message) {
       destroyCharts();
-      $("headline").textContent = "台股技術分析 Agent";
-      $("subtitle").textContent = "資料暫時無法載入，但頁面本身正常。請稍後重跑，或改輸入其他股票代碼。";
+      $("headline").textContent = "\u53f0\u80a1\u6280\u8853\u5206\u6790 Agent";
+      $("subtitle").textContent = "\u8cc7\u6599\u66ab\u6642\u7121\u6cd5\u8f09\u5165\uff0c\u4f46\u9801\u9762\u672c\u8eab\u6b63\u5e38\u3002\u8acb\u7a0d\u5f8c\u91cd\u8dd1\uff0c\u6216\u6539\u8f38\u5165\u5176\u4ed6\u80a1\u7968\u4ee3\u78bc\u3002";
       $("heroFacts").innerHTML = "";
       $("valueRadarHeroBadge").innerHTML = "";
       $("metrics").innerHTML = "";
@@ -2758,7 +2758,7 @@
       $("chaseRiskPanel").innerHTML = "";
       $("allocationGuide").innerHTML = "";
       $("portfolioHealth").innerHTML = "";
-      $("screenerRows").innerHTML = `<tr><td colspan="10">資料載入失敗，排行榜暫停更新。</td></tr>`;
+      $("screenerRows").innerHTML = `<tr><td colspan="10">\u8cc7\u6599\u8f09\u5165\u5931\u6557\uff0c\u6392\u884c\u699c\u66ab\u505c\u66f4\u65b0\u3002</td></tr>`;
       activeValueScore = null;
       $("entryQuality").innerHTML = "";
       $("entryPlanPanel").innerHTML = "";
@@ -2766,7 +2766,7 @@
       $("horizonRows").innerHTML = "";
       $("plainFundamentals").innerHTML = "";
       $("newsRows").innerHTML = "";
-      $("newsNote").textContent = "資料載入失敗，新聞分析暫停。";
+      $("newsNote").textContent = "\u8cc7\u6599\u8f09\u5165\u5931\u6557\uff0c\u65b0\u805e\u5206\u6790\u66ab\u505c\u3002";
       $("structureRows").innerHTML = "";
       $("wave").innerHTML = "";
       $("waveLegend").innerHTML = "";
@@ -2775,23 +2775,23 @@
       $("dowConfirm").innerHTML = "";
       $("dowWarning").innerHTML = "";
       $("levelRows").innerHTML = "";
-      $("agentMeta").textContent = "資料載入失敗時，Agent 會暫停，避免用過期資料回答。";
+      $("agentMeta").textContent = "\u8cc7\u6599\u8f09\u5165\u5931\u6557\u6642\uff0cAgent \u6703\u66ab\u505c\uff0c\u907f\u514d\u7528\u904e\u671f\u8cc7\u6599\u56de\u7b54\u3002";
       $("agentLog").innerHTML = "";
-      setAgentStance("錯誤", "bear");
-      $("status").textContent = `${code} 無法取得最新資料：${message}`;
+      setAgentStance("\u932f\u8aa4", "bear");
+      $("status").textContent = `${code} \u7121\u6cd5\u53d6\u5f97\u6700\u65b0\u8cc7\u6599\uff1a${message}`;
     }
 
     async function run(code) {
       code = resolveInputCode(code);
       if (!code) return;
       $("stockInput").value = code;
-      $("status").textContent = `正在載入 ${code} 最新資料...`;
+      $("status").textContent = `\u6b63\u5728\u8f09\u5165 ${code} \u6700\u65b0\u8cc7\u6599...`;
       try {
         const quote = await getQuote(code);
         render(analyze(code, quote));
       } catch (err) {
         console.error(err);
-        showLoadError(code, err.message || "未知錯誤");
+        showLoadError(code, err.message || "\u672a\u77e5\u932f\u8aa4");
       }
     }
 

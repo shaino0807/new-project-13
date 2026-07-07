@@ -3710,8 +3710,8 @@ type NewsCacheEntry = {
 
 const newsCache = new Map<string, NewsCacheEntry>();
 const newsInflight = new Map<string, Promise<NewsPayload>>();
-const NEWS_CACHE_TTL_MS = 15 * 60 * 1000;
-const NEWS_STALE_TTL_MS = 6 * 60 * 60 * 1000;
+const NEWS_CACHE_TTL_MS = 3 * 60 * 1000;
+const NEWS_STALE_TTL_MS = 60 * 60 * 1000;
 
 function decodeXml(value: string) {
   return String(value || "")
@@ -3812,11 +3812,11 @@ function classifyNews(item: NewsItem, code: string, name: string) {
   };
 }
 
-async function loadNews(code: string, name = FALLBACK_NAMES[code] || code) {
+async function loadNews(code: string, name = FALLBACK_NAMES[code] || code, options: { force?: boolean } = {}) {
   const cacheKey = `${code}:${name}`;
   const now = Date.now();
   const cached = newsCache.get(cacheKey);
-  if (cached && now - cached.fetchedAt < NEWS_CACHE_TTL_MS) {
+  if (!options.force && cached && now - cached.fetchedAt < NEWS_CACHE_TTL_MS) {
     return {
       ...cached.payload,
       cached: true,
@@ -4315,8 +4315,9 @@ export const handler = router({
   "GET /api/news": [async ({ query }: any) => {
     const code = cleanCode(query.code);
     const name = String(query.name || FALLBACK_NAMES[code] || code).slice(0, 40);
+    const force = String(query.force || "") === "1" || String(query.refresh || "").toLowerCase() === "true";
     if (!code) return error("Missing stock code", 400);
-    return json(await loadNews(code, name));
+    return json(await loadNews(code, name, { force }));
   }],
 
   "GET /api/fundamentals": [async ({ query }: any) => {
