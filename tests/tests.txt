@@ -81,7 +81,7 @@ Steps:
 5. Type "2344" and run analysis again.
 6. Wait for 基本面白話化 to update to the new stock.
 
-Expected: For each stock, 基本面白話化 shows eight rows: 公司有沒有賺錢, 成長有沒有變慢, 股價是否太貴, 現金流是否健康, 負債是否過高, 法人是否支持, 籌碼是否過熱, and 是否只靠題材. Available rows include numeric values and source dates. The section identifies FinMind as the source and never shows the old 尚未接入 or 待補 placeholder copy.
+Expected: For each stock, 基本面白話化 shows eight rows: 公司有沒有賺錢, 成長有沒有變慢, 股價是否太貴, 現金流是否健康, 負債是否過高, 法人是否支持, 籌碼是否過熱, and 是否只靠題材. Rows with available data include numeric values and source dates. Rows with unavailable upstream data are clearly marked 資料不足 or date unavailable instead of inventing values. The section identifies FinMind or official fallback as the source and never shows the old 尚未接入 or 待補 placeholder copy.
 
 ## Test 8 - FinMind failure does not break technical analysis
 Viewport: desktop
@@ -105,64 +105,17 @@ Steps:
 
 Expected: 基本面白話化 identifies ETF 專用判斷 and shows 主要成分股有沒有賺錢, 成分股成長有沒有變慢, ETF 估值與折溢價, 現金流是否健康 marked ETF 不適用, 負債是否過高 marked ETF 不適用, 法人及資金是否支持, 籌碼是否過熱, and 是否只靠題材. It includes 0050 component weights, NAV or a clear official-source unavailable message, and does not show the old FinMind company financial statement 資料不足 copy. 新聞關聯分析 either lists ETF-related news or explicitly says the source timed out or is unavailable; it must not label a timeout as no news.
 
-## Test 10 - Value radar and ranking features load
-Viewport: desktop
-Description: Verifies the Investing.com-inspired value radar is integrated into the existing page, not a separate site.
-
-Steps:
-1. Navigate to the app.
-2. Wait for the default stock analysis and supplemental data to finish loading.
-3. Observe 小資價值雷達.
-4. Click 最被高估, 觀察池最活躍, 現金流最佳, 增長最佳, and 小資友善.
-5. Change 每月可投入 to "5000" and switch 風險偏好 between 保守 and 積極.
-6. Enter "0050 40%, 2330 40%, 現金 20%" in 持股健康檢查 and click 檢查配置.
-7. Repeat on mobile width or narrow the viewport and scroll through the new sections.
-
-Expected: The same page shows 小資友善分數, 低估分數, 高估分數, 公允價值, 現金流評分, 增長評分, 市場信心, 分析師評級 status, 價值雷達總分, and 追高風險警示. The customer-facing value radar does not show the internal 資料透明度 panel. The ranking table updates without leaving the page. The note says the backend is connected to the all-Taiwan-company universe, while the current visible ranking is a controlled scoring batch and does not pretend to be a completed real-time full-market ranking. 配置助手 recalculates allocation rows in dollars and percentages. 買點好壞判斷 fills the left-column whitespace with staged-entry and risk-check panels that update with the budget. 持股健康檢查 reports concentration, cash, and available score-based risk messages without inventing data for unknown tickers. If value score or screener data is unavailable, 小資價值雷達 shows a clear unavailable or partial-data message while existing metrics, charts, 小資決策卡, 基本面白話化, 新聞關聯分析, Agent, 回檔機率, and 交易策略 remain readable without horizontal scrolling, overlap, or replacement-character mojibake.
-
-Additional expected: Opening the app with ?admin=1 or #admin reveals the 後臺資料檢查 tab. That admin view shows the internal data transparency panel with quote date, coverage rate, dataset dates, cache/stale status, and missing data items, plus the FinMind TaiwanStockInfo company-universe check. The universe check reports all-company count and twse/tpex/emerging breakdown while excluding ETF, ETN, DR, warrants, bond-like and fund-like products.
-
-## Test 11 - Client workbench stays separate from stock depth page
+## Test 10 - Dino K棒判斷策略 workflow
 Viewport: desktop and mobile
-Description: Verifies paid-client workflow features live in a separate tab while the existing stock analysis page remains available.
-
-Steps:
-1. Navigate to the app.
-2. Confirm the default stock depth page still shows the existing quote, charts, fundamentals, value radar, strategy, and Agent sections.
-3. Click 客戶工作台.
-4. Wait for the workbench load state to resolve.
-5. Inspect 評級標準與排行榜範圍.
-6. Click ranking scope filters: 觀察池, 個股, ETF.
-7. Click ranking metric filters: 低估, 高估, 現金流, 成長, 小資, ETF.
-8. In 我的持股風險, enter 0050 40%, 2330 30%, 2454 10%, cash 20% and click 分析持股.
-9. Click a stock from 今日值得觀察清單, 持股分數, or 價值評估清單.
-10. Return to 客戶工作台 and inspect 回測實驗室 v1 and AI 理財財務長.
-
-Expected: 客戶工作台 is a separate page view, not appended into the existing stock depth flow. It shows 評級標準與排行榜範圍, 市場狀態, 我的持股風險, 持股分數, 今日值得觀察清單, 值得觀察清單, 追高風險清單, 價值評估清單, scope filters, metric filters, 回測實驗室 v1, and AI 理財財務長. 評級標準 lists the stock weights 30/20/15/15/10/10 and ETF weights 25/25/15/15/10/10, while clearly saying unavailable inputs such as EV/EBITDA, same-industry comparison, ROE, margins, and dividend stability are only used when available. 排行榜範圍 explains the all-Taiwan-company universe, current controlled batch scoring, and ETF independent model without claiming the visible ranking is already a full-market real-time ranking. Portfolio holdings with available universe scores show grade, total score, chase-risk score, and data coverage; holdings without a score are marked 資料不足 and are not assigned invented values. The stock depth page keeps the original analysis flow and shows a top-level 價值雷達 grade/total/coverage badge beside the stock result plus 價值雷達總分 with A/B/C/D/X and expandable weighted components. AI 理財財務長 shows stage/wait/avoid style guidance, single-entry cap, max holding cap, worst-case loss estimate, and a stop-tracking assumption without direct buy/sell instructions. All labels remain readable without overlap or replacement-character mojibake.
-
-## Test 12 - Local index fallback API bridge
-Viewport: desktop
-Description: Verifies index.html does not show global 載入失敗 when AppDeploy client bridge is unavailable in local/static usage.
-
-Steps:
-1. Open index.html through a local static host or direct file preview.
-2. Search 2330.
-3. Confirm /api/quote loads through the direct AppDeploy API base when window.appApi is not injected.
-4. Click 客戶工作台 while the public backend does not yet expose /api/workbench.
-
-Expected: The stock depth page loads quote data instead of global 載入失敗. If /api/workbench returns 404, 客戶工作台 falls back to existing /api/screener data, marks the mode as public screener fallback, and shows 回測實驗室 as unavailable until the new backend is deployed. It must not invent professional scores that are not derivable from existing screener fields.
-
-## Test 13 - Dino K棒判斷策略 workflow
-Viewport: desktop and mobile
-Description: Verifies the taiwan-stock-swing-orchestrator flow is available as a separate page without replacing the existing stock analysis engine.
+Description: Verifies the Dino K workflow is presented as four skill-aligned blocks without replacing the existing stock analysis engine.
 
 Steps:
 1. Navigate to the app.
 2. Click Dino K棒判斷策略.
-3. Wait for the macro cards and 1-3 month candidate table to load.
+3. Wait for the macro/news block and 1-3 month Taiwan stock screener table to load.
 4. Select at least one candidate stock or enter 2330, 2454 manually.
 5. Click 進入深度流程.
 6. Wait for the deep workflow result.
 7. Return to 股票深度頁 and run 2330.
 
-Expected: Dino K棒判斷策略 is a separate tab. It shows the flow stages for macro, screening, user selection gate, and deep synthesis. The candidate table includes rank, stock, latest price, score, setup type, and key risk. The user must select or enter stock codes before deep analysis. After entering the deep flow, the page shows comparable valuation, individual deep analysis, daily technical view, K-line signal, support/resistance, invalidation, target zone, and final stance such as 偏多候選, 偏多, 觀察, 避開, or 偏空. The original 股票深度頁 still works after using Dino and no text appears as replacement-character mojibake or repeated question marks.
+Expected: Dino K棒判斷策略 is a separate tab with four clear blocks: 總經與最新新聞, 台股篩選排行榜, 使用者選股 Gate, and 深度分析與最終整合. The screener table ranks 1-3 month candidates by 主題契合度, 成交值, 收盤價相對 20MA, and 20MA 斜率, with price/20MA source labels such as TWSE STOCK_DAY or explicit fallback. The user must select or enter stock codes before deep analysis. After entering the deep flow, the page shows individual deep analysis, comparable valuation, daily technical view, K-line long/short/no-trade signal, support/resistance, invalidation, target zone, and final stance such as 偏多候選, 偏多, 觀察, 避開, or 偏空. The original 股票深度頁 still works after using Dino and no text appears as replacement-character mojibake or repeated question marks.

@@ -526,18 +526,26 @@
           <h2>Dino K&#x68d2;&#x5224;&#x65b7;&#x7b56;&#x7565;</h2>
           <button type="button" id="refreshSwingBtn">&#x91cd;&#x65b0;&#x7522;&#x751f;&#x5019;&#x9078;</button>
         </div>
-        <p class="note">&#x9019;&#x500b;&#x5206;&#x9801;&#x5c07; taiwan-stock-swing-orchestrator &#x6d41;&#x7a0b;&#x7522;&#x54c1;&#x5316;&#xff1a;&#x7e3d;&#x7d93;&#x5224;&#x65b7;&#x3001;&#x53f0;&#x80a1;&#x7be9;&#x9078;&#x3001;&#x4f7f;&#x7528;&#x8005;&#x9078;&#x80a1;&#x3001;&#x53ef;&#x6bd4;&#x4f30;&#x503c;&#x3001;&#x500b;&#x80a1;&#x6df1;&#x5ea6;&#x3001;&#x65e5;&#x7dda;&#x6280;&#x8853;&#x3001;K &#x7dda;&#x591a;&#x7a7a;&#x8a0a;&#x865f;&#x8207;&#x6700;&#x7d42;&#x6574;&#x5408;&#x3002;</p>
+        <p class="note">&#x56db;&#x6bb5;&#x5f0f;&#x6ce2;&#x6bb5;&#x5de5;&#x4f5c;&#x6d41;&#xff1a;&#x5148;&#x770b;&#x7e3d;&#x7d93;&#x8207;&#x65b0;&#x805e;&#xff0c;&#x518d;&#x505a;&#x53f0;&#x80a1;&#x7be9;&#x9078;&#xff0c;&#x4e2d;&#x9593;&#x505c;&#x4e0b;&#x4f86;&#x8b93;&#x4f7f;&#x7528;&#x8005;&#x9078;&#x80a1;&#xff0c;&#x6700;&#x5f8c;&#x624d;&#x57f7;&#x884c;&#x500b;&#x80a1;&#x6df1;&#x5ea6;&#x3001;&#x65e5;&#x7dda;&#x6280;&#x8853;&#x8207; K &#x7dda;&#x591a;&#x7a7a;&#x6574;&#x5408;&#x3002;</p>
         <div class="flow-steps" id="swingFlowSteps"></div>
-        <div class="client-grid" id="swingMacroCards"></div>
       </section>
       <section class="panel">
-        <h2>1-3 &#x500b;&#x6708;&#x6ce2;&#x6bb5;&#x5019;&#x9078;&#x6e05;&#x55ae;</h2>
+        <h2>1. &#x7e3d;&#x7d93;&#x8207;&#x6700;&#x65b0;&#x65b0;&#x805e;</h2>
+        <div class="client-grid" id="swingMacroCards"></div>
+        <div class="news-list" id="swingMacroNews"><p class="note">&#x7b49;&#x5f85;&#x7e3d;&#x7d93;&#x65b0;&#x805e;&#x8f09;&#x5165;&#x3002;</p></div>
+      </section>
+      <section class="panel">
+        <h2>2. &#x53f0;&#x80a1;&#x7be9;&#x9078;&#x6392;&#x884c;&#x699c;</h2>
+        <div id="swingScreenerLogic"></div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>&#x9078;&#x53d6;</th><th>&#x6392;&#x540d;</th><th>&#x80a1;&#x7968;</th><th>&#x73fe;&#x50f9;</th><th>&#x5206;&#x6578;</th><th>&#x578b;&#x614b;</th><th>&#x95dc;&#x9375;&#x98a8;&#x96aa;</th></tr></thead>
-            <tbody id="swingCandidateRows"><tr><td colspan="7">&#x8f09;&#x5165; Dino &#x5019;&#x9078;&#x6e05;&#x55ae;...</td></tr></tbody>
+            <thead><tr><th>&#x9078;&#x53d6;</th><th>&#x6392;&#x540d;</th><th>&#x80a1;&#x7968;</th><th>&#x73fe;&#x50f9;</th><th>&#x7e3d;&#x5206;</th><th>&#x4e3b;&#x984c;</th><th>&#x6210;&#x4ea4;&#x503c;</th><th>&#x6536;&#x76e4;/20MA</th><th>20MA &#x659c;&#x7387;</th><th>&#x8cc7;&#x6599;&#x6e90;</th></tr></thead>
+            <tbody id="swingCandidateRows"><tr><td colspan="10">&#x8f09;&#x5165; Dino &#x5019;&#x9078;&#x6e05;&#x55ae;...</td></tr></tbody>
           </table>
         </div>
+      </section>
+      <section class="panel">
+        <h2>3. &#x4f7f;&#x7528;&#x8005;&#x9078;&#x80a1; Gate</h2>
         <div class="swing-actions">
           <label>&#x624b;&#x52d5;&#x8f38;&#x5165;&#x4ee3;&#x78bc;
             <input id="swingSelectedInput" autocomplete="off" placeholder="&#x4f8b;&#xff1a;2330, 2317, 2454" aria-label="Dino K&#x68d2;&#x9078;&#x80a1;&#x4ee3;&#x78bc;">
@@ -552,7 +560,7 @@
         <section class="panel"><h2>&#x7be9;&#x9078;&#x908f;&#x8f2f;&#x8207;&#x8cc7;&#x6599;&#x4f86;&#x6e90;</h2><div id="swingSourcePanel"></div></section>
       </section>
       <section class="panel">
-        <h2>&#x6df1;&#x5ea6;&#x6d41;&#x7a0b;&#x7d50;&#x679c;</h2>
+        <h2>4. &#x6df1;&#x5ea6;&#x5206;&#x6790;&#x8207;&#x6700;&#x7d42;&#x6574;&#x5408;</h2>
         <div class="swing-section" id="swingDeepResults"><p class="note">&#x5b8c;&#x6210;&#x9078;&#x80a1; gate &#x5f8c;&#xff0c;&#x9019;&#x88e1;&#x6703;&#x986f;&#x793a;&#x53ef;&#x6bd4;&#x4f30;&#x503c;&#x3001;&#x500b;&#x80a1;&#x6df1;&#x5ea6;&#x3001;&#x65e5;&#x7dda;&#x6280;&#x8853;&#x3001;K &#x7dda;&#x591a;&#x7a7a;&#x8207;&#x6700;&#x7d42;&#x7814;&#x7a76;&#x7acb;&#x5834;&#x3002;</p></div>
       </section>
     </div>
@@ -750,21 +758,21 @@
     async function getSwingMacro() {
       const api = await waitForAppApi();
       const { data } = await api.get("/api/swing/macro");
-      if (!data || !data.ok) throw new Error(data?.message || "Dino macro failed");
+      if (!data || !data.ok) throw new Error(data?.message || "Dino \u7e3d\u7d93\u5340\u584a\u8f09\u5165\u5931\u6557");
       return data;
     }
 
     async function getSwingScreener() {
       const api = await waitForAppApi();
       const { data } = await api.get("/api/swing/screener");
-      if (!data || !data.ok) throw new Error(data?.message || "Dino screener failed");
+      if (!data || !data.ok) throw new Error(data?.message || "Dino \u53f0\u80a1\u7be9\u9078\u5340\u584a\u8f09\u5165\u5931\u6557");
       return data;
     }
 
     async function getSwingStage(stage, codes) {
       const api = await waitForAppApi();
       const { data } = await api.get(`/api/swing/${stage}?codes=${encodeURIComponent(codes.join(","))}`);
-      if (!data || !data.ok) throw new Error(data?.message || `Dino ${stage} failed`);
+      if (!data || !data.ok) throw new Error(data?.message || `Dino ${stage} \u8f09\u5165\u5931\u6557`);
       return data;
     }
 
@@ -2259,10 +2267,10 @@
 
     function renderSwingFlow(active = "screen") {
       const steps = [
-        ["macro", "\u7e3d\u7d93\u5224\u65b7", "\u53f0\u80a1\u3001\u7f8e\u80a1\u3001\u532f\u7387\u8207\u534a\u5c0e\u9ad4 proxy"],
-        ["screen", "\u53f0\u80a1\u7be9\u9078", "1-3 \u500b\u6708\u6ce2\u6bb5\u5019\u9078\u8207\u6392\u884c"],
-        ["gate", "\u4f7f\u7528\u8005\u9078\u80a1", "\u52fe\u9078\u5f8c\u624d\u9032\u5165\u6df1\u5ea6\u5206\u6790"],
-        ["deep", "\u6df1\u5ea6\u6574\u5408", "\u4f30\u503c\u3001\u6280\u8853\u3001K \u7dda\u8a0a\u865f\u8207\u7acb\u5834"]
+        ["macro", "1. \u7e3d\u7d93\u8207\u65b0\u805e", "\u53f0\u80a1\u3001\u7f8e\u80a1\u3001\u5229\u7387\u532f\u7387\u8207\u534a\u5c0e\u9ad4\u4e8b\u4ef6"],
+        ["screen", "2. \u53f0\u80a1\u7be9\u9078", "\u4e3b\u984c\u5951\u5408\u3001\u6210\u4ea4\u503c\u300120MA \u4f4d\u7f6e\u8207\u659c\u7387"],
+        ["gate", "3. \u4f7f\u7528\u8005\u9078\u80a1", "\u5f9e\u6392\u884c\u699c\u52fe\u9078\u5f8c\u624d\u9032\u5165\u6df1\u5ea6\u5206\u6790"],
+        ["deep", "4. \u6df1\u5ea6\u6574\u5408", "\u500b\u80a1\u6df1\u5ea6\u3001\u65e5\u7dda\u6280\u8853\u3001K \u7dda\u591a\u7a7a\u8207\u6700\u7d42\u7acb\u5834"]
       ];
       $("swingFlowSteps").innerHTML = steps.map(([key, title, body]) => `
         <div class="flow-step ${key === active ? "active" : ""}">
@@ -2279,6 +2287,17 @@
         valueCard("\u7f8e\u80a1 proxy", src.usProxy ? `${src.usProxy.label} ${fmt(src.usProxy.close)}` : "--", src.usProxy?.date || "\u8cc7\u6599\u4e0d\u8db3", "neut"),
         valueCard("\u532f\u7387 proxy", src.fxProxy ? `${src.fxProxy.label} ${fmt(src.fxProxy.close)}` : "--", src.fxProxy?.date || "\u8cc7\u6599\u4e0d\u8db3", "neut"),
       ].join("");
+      const news = macro?.news?.items || [];
+      $("swingMacroNews").innerHTML = news.length ? news.map(item => `
+        <div class="news-item">
+          <b>${escapeHtml(item.topic || "\u7e3d\u7d93")}</b>
+          <a href="${escapeHtml(item.link || "#")}" target="_blank" rel="noreferrer">${escapeHtml(item.title || "")}</a>
+          <div class="news-meta">
+            ${badge(item.source || "\u65b0\u805e", "neut")}
+            ${badge(item.publishedAt ? String(item.publishedAt).slice(0, 10) : "\u6642\u9593\u672a\u6a19\u793a", "warn")}
+          </div>
+          <p>${escapeHtml(item.snippet || "")}</p>
+        </div>`).join("") : `<p class="note">\u76ee\u524d\u7e3d\u7d93\u65b0\u805e\u4f86\u6e90\u66ab\u6642\u4e0d\u53ef\u7528\uff0c\u8acb\u7a0d\u5f8c\u91cd\u65b0\u7522\u751f\u5019\u9078\u3002</p>`;
     }
 
     function selectedSwingCodesFromInput() {
@@ -2312,20 +2331,37 @@
           <td><button type="button" class="chip" data-swing-open="${escapeHtml(item.code)}">${escapeHtml(item.code)} ${escapeHtml(item.name)}</button></td>
           <td>${fmt(item.latestClose)}</td>
           <td>${scoreText(item.swingScore)}</td>
-          <td>${escapeHtml(item.setupType)} ${badge(item.watchPriority, item.watchPriority === "\u9ad8" ? "bull" : item.watchPriority === "\u4e2d" ? "warn" : "neut")}</td>
-          <td>${escapeHtml(item.keyRisk)}</td>
-        </tr>`).join("") : `<tr><td colspan="7">\u6c92\u6709\u53ef\u7528 Dino \u5019\u9078\u3002</td></tr>`;
+          <td>${scoreText(item.sortKeys?.topicFit)}</td>
+          <td>${item.sortKeys?.tradingValue100m !== null && item.sortKeys?.tradingValue100m !== undefined ? `${fmt(item.sortKeys.tradingValue100m)} \u5104` : "--"}</td>
+          <td>${item.sortKeys?.closeVs20MaPct !== null && item.sortKeys?.closeVs20MaPct !== undefined ? `${fmt(item.sortKeys.closeVs20MaPct, 2)}%` : "--"}</td>
+          <td>${item.sortKeys?.ma20Slope5dPct !== null && item.sortKeys?.ma20Slope5dPct !== undefined ? `${fmt(item.sortKeys.ma20Slope5dPct, 2)}%` : "--"}</td>
+          <td>${escapeHtml(item.sortKeys?.priceSource || "--")}</td>
+        </tr>`).join("") : `<tr><td colspan="10">\u6c92\u6709\u53ef\u7528 Dino \u5019\u9078\u3002</td></tr>`;
       $("swingTodayWatch").innerHTML = (payload?.todayWatch || []).length
-        ? payload.todayWatch.map(item => workbenchItem({ code:item.code, name:item.name, professionalRating:{ grade:item.signalHint, total:item.swingScore }, cfoGuide:{ action:item.setupType }, scores:{ chaseRisk:{ score:item.levels?.invalidation ? item.swingScore : null } } }, escapeHtml(item.keyRisk))).join("")
+        ? payload.todayWatch.map(item => `
+          <div class="workbench-item">
+            <button type="button" data-swing-open="${escapeHtml(item.code)}">${escapeHtml(item.code)} ${escapeHtml(item.name || "")}</button>
+            <div>
+              <b>${escapeHtml(item.signalHint || "\u89c0\u5bdf")} ${badge(item.watchPriority, item.watchPriority === "\u9ad8" ? "bull" : item.watchPriority === "\u4e2d" ? "warn" : "neut")}</b>
+              <p class="note">${escapeHtml(item.setupType || "")}\uff1b${escapeHtml(item.keyRisk || "")}</p>
+            </div>
+            <span>${scoreText(item.swingScore)}</span>
+          </div>`).join("")
         : `<p class="note">\u4eca\u65e5\u6c92\u6709\u9ad8\u4fe1\u5fc3\u6ce2\u6bb5\u5019\u9078\u3002</p>`;
       const meta = payload?.universeMeta || {};
+      const method = payload?.rankingMethod || {};
+      $("swingScreenerLogic").innerHTML = `
+        <div class="data-status">
+          <p class="note">${escapeHtml(method.formula || "\u4e3b\u984c\u5951\u5408\u3001\u6210\u4ea4\u503c\u3001\u6536\u76e4\u76f8\u5c0d 20MA\u300120MA \u659c\u7387\u3002")}</p>
+          <p class="note">\u50f9\u683c\u8207 20MA \u512a\u5148\u4f86\u81ea ${escapeHtml(method.officialPriceSource || "TWSE STOCK_DAY")}\uff1b${escapeHtml(method.fallback || "")}</p>
+        </div>`;
       $("swingSourcePanel").innerHTML = `
         <div class="data-status">
           <div class="data-status-grid">
             <div class="data-status-card"><b>\u5019\u9078\u6c60</b><strong>${meta.requestedCount || 0} \u6a94</strong></div>
             <div class="data-status-card"><b>\u5df2\u8a08\u7b97</b><strong>${meta.scoredCount || 0} \u6a94</strong></div>
             <div class="data-status-card"><b>\u5168\u5e02\u5834 universe</b><strong>${meta.fullMarketCompanyCount || "--"} \u6a94</strong></div>
-            <div class="data-status-card"><b>\u6d41\u7a0b</b><strong>\u9700\u5148\u9078\u80a1</strong></div>
+            <div class="data-status-card"><b>\u64cd\u4f5c\u671f\u9593</b><strong>1-3 \u500b\u6708</strong></div>
           </div>
           <p class="note">${escapeHtml(payload?.gate?.instruction || "")}</p>
           <p class="note">${escapeHtml(payload?.source || "")}</p>
@@ -2342,7 +2378,8 @@
       }
       renderSwingFlow("macro");
       $("swingMacroCards").innerHTML = valueCard("Dino", "\u8f09\u5165\u4e2d", "\u6b63\u5728\u8b80\u53d6\u7e3d\u7d93 proxy \u8207\u5019\u9078\u6e05\u55ae\u3002", "warn");
-      $("swingCandidateRows").innerHTML = `<tr><td colspan="7">\u8f09\u5165 Dino \u5019\u9078\u6e05\u55ae...</td></tr>`;
+      $("swingMacroNews").innerHTML = `<p class="note">\u6b63\u5728\u8f09\u5165\u7e3d\u7d93\u65b0\u805e\u8207\u4e8b\u4ef6\u3002</p>`;
+      $("swingCandidateRows").innerHTML = `<tr><td colspan="10">\u8f09\u5165 Dino \u5019\u9078\u6e05\u55ae...</td></tr>`;
       try {
         const [macro, screener] = await Promise.all([getSwingMacro(), getSwingScreener()]);
         swingWorkflow = { macro, screener };
@@ -2352,7 +2389,7 @@
         updateSwingSelectedUI();
       } catch (err) {
         $("swingMacroCards").innerHTML = valueCard("Dino", "\u8f09\u5165\u5931\u6557", err.message || "\u8cc7\u6599\u4f86\u6e90\u66ab\u6642\u4e0d\u53ef\u7528", "bear");
-        $("swingCandidateRows").innerHTML = `<tr><td colspan="7">${escapeHtml(err.message || "\u8f09\u5165\u5931\u6557")}</td></tr>`;
+        $("swingCandidateRows").innerHTML = `<tr><td colspan="10">${escapeHtml(err.message || "\u8f09\u5165\u5931\u6557")}</td></tr>`;
       }
     }
 
@@ -2374,6 +2411,8 @@
         <tr><td>${escapeHtml(item.code || "")} ${escapeHtml(item.name || "")}</td><td>${escapeHtml(item.bias || item.message || "N/A")}</td><td>${item.target?.per ?? "N/A"}</td><td>${item.target?.pbr ?? "N/A"}</td><td>${item.peerSummary?.count ?? 0}</td><td>${escapeHtml((item.limitations || []).join(" "))}</td></tr>`).join("");
       const technicalRows = (payload.technical?.items || []).map(item => `
         <tr><td>${escapeHtml(item.code || "")} ${escapeHtml(item.name || "")}</td><td>${escapeHtml(item.trend || item.message || "N/A")}</td><td>${scoreText(item.continuationScore)}</td><td>${scoreText(item.pullbackRisk)}</td><td>${item.levels ? `${fmt(item.levels.support)} / ${fmt(item.levels.resistance)}` : "N/A"}</td><td>${item.levels ? fmt(item.levels.invalidation) : "N/A"}</td></tr>`).join("");
+      const signalRows = (payload.signal?.items || []).map(item => `
+        <tr><td>${escapeHtml(item.code || "")} ${escapeHtml(item.name || "")}</td><td>${escapeHtml(item.signal || item.message || "N/A")}</td><td>${escapeHtml(item.strength || "N/A")}</td><td>${escapeHtml(item.trigger || "N/A")}</td><td>${escapeHtml(item.requiredConfirmation || "N/A")}</td><td>${item.levels ? fmt(item.levels.invalidation) : "N/A"}</td></tr>`).join("");
       const deepCards = (payload.deep?.items || []).map(item => `
         <div class="data-status">
           <h3>${escapeHtml(item.code || "")} ${escapeHtml(item.name || "")} ${badge(item.rating?.grade || "N/A", item.rating?.grade === "A" ? "bull" : item.rating?.grade === "B" ? "warn" : "neut")}</h3>
@@ -2383,8 +2422,8 @@
         </div>`).join("");
       $("swingDeepResults").innerHTML = `
         <section>
-          <h3>\u6700\u7d42\u6574\u5408</h3>
-          ${tableFromRows(["\u80a1\u7968", "\u7814\u7a76\u7acb\u5834", "\u4f30\u503c", "\u6280\u8853", "K \u7dda", "\u60c5\u5883"], [summaryRows || `<tr><td colspan="6">\u5c1a\u7121\u6574\u5408\u7d50\u679c\u3002</td></tr>`])}
+          <h3>\u500b\u80a1\u6df1\u5ea6</h3>
+          ${deepCards || `<p class="note">\u5c1a\u7121\u500b\u80a1\u6df1\u5ea6\u8cc7\u6599\u3002</p>`}
         </section>
         <section>
           <h3>\u53ef\u6bd4\u516c\u53f8\u4f30\u503c</h3>
@@ -2395,8 +2434,12 @@
           ${tableFromRows(["\u80a1\u7968", "\u8da8\u52e2", "\u7e8c\u822a", "\u56de\u6a94", "\u652f\u6490 / \u58d3\u529b", "\u5931\u6548\u50f9"], [technicalRows || `<tr><td colspan="6">\u6280\u8853\u8cc7\u6599\u4e0d\u8db3\u3002</td></tr>`])}
         </section>
         <section>
-          <h3>\u500b\u80a1\u6df1\u5ea6</h3>
-          ${deepCards || `<p class="note">\u5c1a\u7121\u500b\u80a1\u6df1\u5ea6\u8cc7\u6599\u3002</p>`}
+          <h3>K \u7dda\u591a\u7a7a\u8a0a\u865f</h3>
+          ${tableFromRows(["\u80a1\u7968", "\u65b9\u5411", "\u5f37\u5ea6", "\u89f8\u767c", "\u78ba\u8a8d\u689d\u4ef6", "\u5931\u6548"], [signalRows || `<tr><td colspan="6">\u5c1a\u7121 K \u7dda\u8a0a\u865f\u3002</td></tr>`])}
+        </section>
+        <section>
+          <h3>\u6700\u7d42\u6574\u5408</h3>
+          ${tableFromRows(["\u80a1\u7968", "\u7814\u7a76\u7acb\u5834", "\u4f30\u503c", "\u6280\u8853", "K \u7dda", "\u60c5\u5883"], [summaryRows || `<tr><td colspan="6">\u5c1a\u7121\u6574\u5408\u7d50\u679c\u3002</td></tr>`])}
         </section>`;
     }
 
@@ -3086,7 +3129,7 @@
       setSwingSelected([...current]);
       renderSwingCandidates(swingWorkflow?.screener || { ranking: [] });
     });
-    $("swingCandidateRows").addEventListener("click", (e) => {
+    $("swingPage").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-swing-open]");
       if (btn) {
         switchView("stock");

@@ -3698,6 +3698,79 @@ async function fetchExchangeSnapshot(code: string) {
   throw new Error(errors.join("; "));
 }
 
+function ymd(date: Date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}${m}${d}`;
+}
+
+function parseTwseRocDate(value: string) {
+  const parts = String(value || "").split("/");
+  if (parts.length !== 3) return "";
+  const year = Number(parts[0]) + 1911;
+  const month = String(Number(parts[1])).padStart(2, "0");
+  const day = String(Number(parts[2])).padStart(2, "0");
+  return Number.isFinite(year) ? `${year}-${month}-${day}` : "";
+}
+
+async function fetchTwseStockDayTrend(code: string) {
+  const urls: string[] = [];
+  const rows: Array<DailyBar & { tradingValue: number }> = [];
+  const now = new Date();
+  for (let i = 0; i < 4; i++) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const url = `https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY?date=${ymd(date)}&stockNo=${encodeURIComponent(code)}&response=json`;
+    urls.push(url);
+    try {
+      const data = await fetchJson(url, 6500);
+      const batch = Array.isArray(data?.data) ? data.data : [];
+      batch.forEach((row: any[]) => {
+        const dateText = parseTwseRocDate(row[0]);
+        const close = toNumber(row[6]);
+        if (!dateText || !Number.isFinite(close)) return;
+        rows.push({
+          date: dateText,
+          volume: toNumber(row[1]),
+          tradingValue: toNumber(row[2]),
+          open: toNumber(row[3]),
+          high: toNumber(row[4]),
+          low: toNumber(row[5]),
+          close,
+        });
+      });
+    } catch {
+      // Keep trying earlier months; the caller receives a clear fallback when usable rows are insufficient.
+    }
+  }
+  const unique = [...new Map(rows.map(row => [row.date, row])).values()]
+    .filter(row => Number.isFinite(row.close))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  if (unique.length < 25) throw new Error(`TWSE STOCK_DAY has only ${unique.length} usable rows for ${code}`);
+  const closes = unique.map(row => row.close);
+  const ma20Values = sma(closes, 20);
+  const latest = unique[unique.length - 1];
+  const ma20 = lastFinite(ma20Values);
+  const ma20FiveAgo = ma20Values.length > 5 ? ma20Values[ma20Values.length - 6] : NaN;
+  const slopePct = Number.isFinite(ma20) && Number.isFinite(ma20FiveAgo) && ma20FiveAgo > 0
+    ? round(((ma20 / ma20FiveAgo) - 1) * 100, 2)
+    : null;
+  return {
+    ok: true,
+    code,
+    latestDate: latest.date,
+    latestClose: latest.close,
+    latestVolume: latest.volume,
+    latestTradingValue: latest.tradingValue,
+    tradingValue100m: Number.isFinite(latest.tradingValue) ? round(latest.tradingValue / 100000000, 2) : null,
+    ma20: Number.isFinite(ma20) ? round(ma20) : null,
+    ma20Slope5dPct: slopePct,
+    closeVs20MaPct: Number.isFinite(ma20) && ma20 > 0 ? round(((latest.close / ma20) - 1) * 100, 2) : null,
+    source: "TWSE STOCK_DAY",
+    sourceUrls: urls,
+  };
+}
+
 async function loadHistoricalQuoteForCalibration(code: string): Promise<QuoteInfo> {
   const chart = await fetchYahooChart(code, "5y");
   const series = chart.bars;
@@ -3943,6 +4016,40 @@ async function loadNews(code: string, name = FALLBACK_NAMES[code] || code, optio
   } finally {
     newsInflight.delete(cacheKey);
   }
+}
+
+async function loadSwingMacroNews() {
+  const topics = [
+    { key: "taiwan", label: "\u53f0\u80a1", query: "\u53f0\u80a1 \u5927\u76e4 \u7522\u696d \u5916\u8cc7" },
+    { key: "us", label: "\u7f8e\u80a1", query: "S&P 500 Nasdaq Fed earnings Taiwan market" },
+    { key: "rates", label: "\u5229\u7387\u8207\u532f\u7387", query: "\u806f\u6e96\u6703 \u5229\u7387 \u7f8e\u5143 \u65b0\u53f0\u5e63 \u532f\u7387" },
+    { key: "semiconductor", label: "\u534a\u5c0e\u9ad4", query: "\u534a\u5c0e\u9ad4 AI \u53f0\u7a4d\u96fb \u4f9b\u61c9\u93c8" },
+  ];
+  const results = await settleWithLimit(topics, 2, async topic => {
+    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(topic.query)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
+    const xml = await fetchText(url, 12000);
+    return parseRssItems(xml).slice(0, 3).map(item => ({
+      topic: topic.label,
+      title: item.title,
+      link: item.link,
+      source: item.source,
+      publishedAt: item.publishedAt,
+      snippet: item.snippet,
+      sourceUrl: url,
+    }));
+  });
+  const items = results.flatMap(result => result.status === "fulfilled" ? result.value : []);
+  const errors = results.map((result, index) => result.status === "rejected"
+    ? { topic: topics[index].label, message: result.reason instanceof Error ? result.reason.message : String(result.reason) }
+    : null
+  ).filter(Boolean);
+  return {
+    ok: items.length > 0,
+    generatedAt: new Date().toISOString(),
+    source: "Google News RSS",
+    items: items.slice(0, 10),
+    errors,
+  };
 }
 
 function seededRandom(seed: string) {
@@ -4354,13 +4461,49 @@ function swingTechnicalScore(item: ValueScore) {
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
-function buildSwingCandidate(item: ValueScore, marketProxy: QuoteInfo | null = null) {
+function swingThemeFitScore(item: ValueScore) {
+  const group = swingGroup(item.code);
+  if (/semiconductor|server|electronics|industrial computer|optics/i.test(group)) return 88;
+  if (/financial|telecom|consumer/i.test(group)) return 68;
+  if (/materials|plastics|steel|shipping|petrochemical/i.test(group)) return 54;
+  if (/ETF/i.test(group)) return 48;
+  return 60;
+}
+
+function scoreTradingValue(value100m: number | null) {
+  if (value100m === null || !Number.isFinite(value100m)) return 35;
+  if (value100m >= 80) return 95;
+  if (value100m >= 30) return 84;
+  if (value100m >= 10) return 72;
+  if (value100m >= 3) return 58;
+  return 42;
+}
+
+function scoreCloseVs20Ma(value: number | null) {
+  if (value === null || !Number.isFinite(value)) return 35;
+  if (value >= 0 && value <= 6) return 92;
+  if (value > 6 && value <= 12) return 76;
+  if (value > 12) return 48;
+  if (value >= -3) return 62;
+  return 35;
+}
+
+function scoreMa20Slope(value: number | null) {
+  if (value === null || !Number.isFinite(value)) return 35;
+  if (value >= 3) return 92;
+  if (value >= 1) return 80;
+  if (value >= 0) return 66;
+  if (value >= -1) return 48;
+  return 30;
+}
+
+function buildSwingCandidate(item: ValueScore, marketProxy: QuoteInfo | null = null, officialTrend: any = null) {
   const latest = item.technicalSnapshot.latest;
   const levels = item.technicalSnapshot.levels;
   const close = latest.close;
   const marketClose = marketProxy?.analysis.latest.close || null;
   const market20 = marketClose && marketProxy?.analysis.latest.ma20 ? ((marketClose / marketProxy.analysis.latest.ma20) - 1) * 100 : null;
-  const stock20 = latest.ma20 ? ((close / latest.ma20) - 1) * 100 : null;
+  const stock20 = officialTrend?.closeVs20MaPct ?? (latest.ma20 ? ((close / latest.ma20) - 1) * 100 : null);
   const relativeStrength = stock20 !== null && market20 !== null ? round(stock20 - market20, 2) : null;
   const institutional = item.fundamentals?.data?.institutional;
   const revenue = item.fundamentals?.data?.revenue;
@@ -4369,7 +4512,17 @@ function buildSwingCandidate(item: ValueScore, marketProxy: QuoteInfo | null = n
   const growthScore = Number.isFinite(revenue?.yoy) ? ((revenue?.yoy || 0) > 10 ? 12 : (revenue?.yoy || 0) > 0 ? 6 : -8) : 0;
   const rsScore = relativeStrength !== null ? (relativeStrength > 4 ? 10 : relativeStrength > 0 ? 5 : -6) : 0;
   const liquidityScore = Number.isFinite(item.volume) && (item.volume || 0) >= 500000 ? 8 : 0;
-  const swingScore = Math.max(0, Math.min(100, Math.round(technical + flowScore + growthScore + rsScore + liquidityScore)));
+  const topicFit = swingThemeFitScore(item);
+  const tradingValueScore = scoreTradingValue(officialTrend?.tradingValue100m ?? null);
+  const closeVs20MaScore = scoreCloseVs20Ma(stock20);
+  const ma20SlopeScore = scoreMa20Slope(officialTrend?.ma20Slope5dPct ?? null);
+  const swingScore = Math.max(0, Math.min(100, Math.round(
+    topicFit * 0.30 +
+    tradingValueScore * 0.25 +
+    closeVs20MaScore * 0.25 +
+    ma20SlopeScore * 0.20 +
+    Math.max(-8, Math.min(8, flowScore + growthScore + rsScore + liquidityScore))
+  )));
   const invalidation = round(Math.min(levels.supportMid * 0.97, latest.ma60 * 0.98));
   const watchPriority = swingScore >= 76 ? "\u9ad8" : swingScore >= 62 ? "\u4e2d" : "\u4f4e";
   return {
@@ -4381,9 +4534,22 @@ function buildSwingCandidate(item: ValueScore, marketProxy: QuoteInfo | null = n
     sector: swingGroup(item.code),
     setupType: swingSetupType(item.technicalSnapshot),
     swingScore,
+    sortKeys: {
+      topicFit,
+      tradingValue100m: officialTrend?.tradingValue100m ?? null,
+      tradingValueScore,
+      closeVs20MaPct: stock20 !== null && Number.isFinite(stock20) ? round(stock20, 2) : null,
+      closeVs20MaScore,
+      ma20: officialTrend?.ma20 ?? latest.ma20,
+      ma20Slope5dPct: officialTrend?.ma20Slope5dPct ?? null,
+      ma20SlopeScore,
+      rankingFormula: "\u4e3b\u984c\u5951\u5408\u5ea6 30% + \u6210\u4ea4\u503c 25% + \u6536\u76e4\u50f9\u76f8\u5c0d 20MA 25% + 20MA \u659c\u7387 20%",
+      priceSource: officialTrend?.source || "Yahoo/TWSE \u5099\u63f4\u8cc7\u6599",
+      priceSourceUrls: officialTrend?.sourceUrls || [],
+    },
     watchPriority,
     primaryEvidence: [
-      `20MA ${fmt(latest.ma20)} / 60MA ${fmt(latest.ma60)}`,
+      `20MA ${fmt(officialTrend?.ma20 ?? latest.ma20)} / 60MA ${fmt(latest.ma60)}`,
       `RSI ${fmt(latest.rsi14, 1)}, \u56de\u6a94\u98a8\u96aa ${latest.pullback}%`,
       relativeStrength !== null ? `20\u65e5\u76f8\u5c0d 0050 ${fmt(relativeStrength, 2)}%` : "\u76f8\u5c0d\u5f37\u5f31\u8cc7\u6599\u4e0d\u8db3",
       Number.isFinite(revenue?.yoy) ? `\u6708\u71df\u6536 YoY ${fmt(revenue?.yoy as number, 2)}%` : "\u6708\u71df\u6536\u52d5\u80fd\u7f3a\u8cc7\u6599",
@@ -4409,11 +4575,13 @@ async function loadSwingMacro() {
     fetchYahooSymbolChart("^GSPC", "S&P 500", "6mo"),
     fetchYahooSymbolChart("TWD=X", "USD/TWD", "6mo"),
     loadQuote("2330"),
+    loadSwingMacroNews(),
   ]);
   const tw = settled[0].status === "fulfilled" ? settled[0].value : null;
   const spx = settled[1].status === "fulfilled" ? settled[1].value : null;
   const fx = settled[2].status === "fulfilled" ? settled[2].value : null;
   const tsmc = settled[3].status === "fulfilled" ? settled[3].value : null;
+  const macroNews = settled[4].status === "fulfilled" ? settled[4].value : { ok: false, items: [], errors: [] };
   const riskScore = [
     tw ? (tw.analysis.latest.close > tw.analysis.latest.ma20 ? 25 : 8) : 0,
     spx ? (spx.trend === "risk-on" ? 25 : spx.trend === "range-bound" ? 14 : 4) : 0,
@@ -4421,13 +4589,18 @@ async function loadSwingMacro() {
     tsmc ? (tsmc.analysis.latest.close > tsmc.analysis.latest.ma20 ? 20 : 8) : 0,
   ].reduce((sum, value) => sum + value, 0);
   const label = riskScore >= 72 ? "risk-on" : riskScore >= 56 ? "selective risk-on" : riskScore >= 42 ? "range-bound" : riskScore >= 28 ? "defensive" : "risk-off";
+  const labelZh = label === "risk-on" ? "\u98a8\u96aa\u504f\u597d" :
+    label === "selective risk-on" ? "\u9078\u64c7\u6027\u504f\u591a" :
+    label === "range-bound" ? "\u5340\u9593\u76e4" :
+    label === "defensive" ? "\u504f\u9632\u5b88" : "\u98a8\u96aa\u504f\u7a7a";
   return {
     ok: true,
     generatedAt: new Date().toISOString(),
     reportTimezone: "Asia/Taipei",
     horizon: "1-3 months",
     regime: {
-      label,
+      label: labelZh,
+      rawLabel: label,
       score: riskScore,
       summary: label === "risk-on" ? "\u53f0\u80a1\u8207\u7f8e\u80a1\u98a8\u96aa\u504f\u597d\u504f\u5f37\uff0c\u6ce2\u6bb5\u53ef\u512a\u5148\u770b 20MA \u4e0a\u65b9\u7e8c\u822a\u80a1\u3002" :
         label === "selective risk-on" ? "\u98a8\u96aa\u504f\u597d\u9078\u64c7\u6027\u504f\u591a\uff0c\u512a\u5148\u7be9\u51fa\u6709\u71df\u6536\u6216\u6cd5\u4eba\u652f\u6490\u7684\u5f37\u52e2\u80a1\u3002" :
@@ -4441,6 +4614,7 @@ async function loadSwingMacro() {
       fxProxy: fx,
       semiconductorProxy: tsmc ? { label: "2330", date: tsmc.quoteDate, close: tsmc.close, source: tsmc.source, sourceUrls: tsmc.sourceUrls } : null,
     },
+    news: macroNews,
     screeningImplications: [
       "\u512a\u5148\u770b 20MA \u4e0a\u65b9\u4e14 MA20 \u9ad8\u65bc MA60 \u7684 1-3 \u500b\u6708\u6ce2\u6bb5\u7d50\u69cb\u3002",
       "RSI \u904e\u71b1\u8207\u8ddd\u96e2\u77ed\u7dda\u652f\u6490\u904e\u9060\u6642\uff0c\u5148\u964d\u70ba\u89c0\u5bdf\uff0c\u4e0d\u628a\u7a81\u7834\u7576\u4f5c\u76f4\u63a5\u9032\u5834\u7406\u7531\u3002",
@@ -4456,9 +4630,18 @@ async function loadSwingScreener(universeValue: unknown) {
     loadScreener("undervalued", universeValue, { fast: true }),
     loadQuote("0050").catch(() => null),
   ]);
-  const candidates = screener.items
-    .filter(item => item.professionalRating.assetModel === "stock")
-    .map(item => buildSwingCandidate(item, marketProxy))
+  const stockItems = screener.items.filter(item => item.professionalRating.assetModel === "stock");
+  const officialResults = await settleWithLimit(stockItems, 5, item => fetchTwseStockDayTrend(item.code));
+  const officialMap = new Map<string, any>();
+  const officialErrors: Array<{ code: string; message: string }> = [];
+  officialResults.forEach((result, index) => {
+    const code = stockItems[index]?.code;
+    if (!code) return;
+    if (result.status === "fulfilled") officialMap.set(code, result.value);
+    else officialErrors.push({ code, message: result.reason instanceof Error ? result.reason.message : String(result.reason) });
+  });
+  const candidates = stockItems
+    .map(item => buildSwingCandidate(item, marketProxy, officialMap.get(item.code) || null))
     .sort((a, b) => b.swingScore - a.swingScore);
   return {
     ok: candidates.length > 0,
@@ -4469,11 +4652,17 @@ async function loadSwingScreener(universeValue: unknown) {
     candidates,
     todayWatch: candidates.filter(item => item.watchPriority !== "\u4f4e" && item.signalHint !== "\u89c0\u5bdf").slice(0, 8),
     ranking: candidates.slice(0, 16),
+    rankingMethod: {
+      horizon: "1-3 months",
+      formula: "\u4e3b\u984c\u5951\u5408\u5ea6 30% + \u6210\u4ea4\u503c 25% + \u6536\u76e4\u50f9\u76f8\u5c0d 20MA 25% + 20MA \u659c\u7387 20%",
+      officialPriceSource: "TWSE STOCK_DAY",
+      fallback: "\u82e5\u500b\u80a1\u975e TWSE \u6216\u5b98\u65b9\u7aef\u9ede\u6682\u6642\u4e0d\u53ef\u7528\uff0c\u8a72\u6b04\u4f4d\u6703\u6a19\u793a fallback\uff0c\u4e0d\u5047\u88dd\u70ba TWSE STOCK_DAY\u3002",
+    },
     gate: {
       required: true,
       instruction: "\u8acb\u52fe\u9078\u8981\u9032\u5165\u6df1\u5ea6\u6d41\u7a0b\u7684\u80a1\u7968\uff0c\u518d\u57f7\u884c\u53ef\u6bd4\u4f30\u503c\u3001\u6df1\u5ea6\u5206\u6790\u3001\u65e5\u7dda\u6280\u8853\u3001K \u7dda\u8a0a\u865f\u8207\u6700\u7d42\u6574\u5408\u3002",
     },
-    errors: screener.errors,
+    errors: [...screener.errors, ...officialErrors],
   };
 }
 
