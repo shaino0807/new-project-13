@@ -28,7 +28,7 @@ type QuoteInfo = {
   analysis: ReturnType<typeof buildAnalysis>;
 };
 
-type YahooChartRange = "1y" | "5y";
+type YahooChartRange = "6mo" | "1y" | "5y";
 
 const FALLBACK_NAMES: Record<string, string> = {
   "0050": "\u5143\u5927\u53F0\u706350",
@@ -1240,6 +1240,11 @@ type ValueScore = {
   quoteDate: string | null;
   change: number | null;
   volume: number;
+  technicalSnapshot: {
+    latest: QuoteInfo["analysis"]["latest"];
+    levels: QuoteInfo["analysis"]["levels"];
+    probabilities: QuoteInfo["analysis"]["probabilities"];
+  };
   source: {
     quote: string;
     fundamentals: string;
@@ -2852,6 +2857,11 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
     change: quote.change,
     volume: quote.volume,
     quoteDate: quote.quoteDate,
+    technicalSnapshot: {
+      latest: quote.analysis.latest,
+      levels: quote.analysis.levels,
+      probabilities: quote.analysis.probabilities,
+    },
     source: {
       quote: quote.source,
       fundamentals: fundamentals.source,
@@ -3591,6 +3601,45 @@ async function fetchYahooChart(code: string, range: YahooChartRange = "1y") {
   throw new Error(errors.join("; "));
 }
 
+async function fetchYahooSymbolChart(symbol: string, label: string, range: YahooChartRange = "6mo") {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d&includePrePost=false&events=history`;
+  const data = await fetchJson(url, 9000);
+  const result = data?.chart?.result?.[0];
+  const quote = result?.indicators?.quote?.[0];
+  const timestamps = result?.timestamp || [];
+  if (!result || !quote || timestamps.length < 30) throw new Error(`${label} chart unavailable`);
+  const bars: DailyBar[] = timestamps.map((ts: number, i: number) => ({
+    date: new Date(ts * 1000).toISOString().slice(0, 10),
+    open: toNumber(quote.open?.[i]),
+    high: toNumber(quote.high?.[i]),
+    low: toNumber(quote.low?.[i]),
+    close: toNumber(quote.close?.[i]),
+    volume: toNumber(quote.volume?.[i]),
+  })).filter((row: DailyBar) =>
+    Number.isFinite(row.open) &&
+    Number.isFinite(row.high) &&
+    Number.isFinite(row.low) &&
+    Number.isFinite(row.close)
+  );
+  if (bars.length < 30) throw new Error(`${label} chart has too few usable bars`);
+  const closes = bars.map(row => row.close);
+  const latest = bars[bars.length - 1];
+  const previous = bars[Math.max(0, bars.length - 22)];
+  const ma20 = sma(closes, 20);
+  const ma60 = sma(closes, 60);
+  return {
+    label,
+    symbol,
+    date: latest.date,
+    close: round(latest.close),
+    changePct20: previous?.close ? round(((latest.close / previous.close) - 1) * 100, 2) : null,
+    ma20: lastFinite(ma20),
+    ma60: lastFinite(ma60),
+    trend: latest.close > lastFinite(ma20) && lastFinite(ma20) > lastFinite(ma60) ? "risk-on" : latest.close > lastFinite(ma20) ? "range-bound" : "defensive",
+    sourceUrl: url,
+  };
+}
+
 async function fetchTwseMis(code: string) {
   const channels = [`tse_${code}.tw`, `otc_${code}.tw`].join("|");
   const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${encodeURIComponent(channels)}&json=1&delay=0`;
@@ -4269,6 +4318,406 @@ function buildAgentReply(quote: QuoteInfo, question: string) {
   };
 }
 
+function parseSwingCodes(value: unknown, fallback: string[] = []) {
+  const raw = String(value || "").trim();
+  const codes = raw
+    ? raw.split(/[,\s]+/).map(cleanCode).filter(code => /^\d{4,6}$/.test(code))
+    : fallback;
+  return [...new Set(codes)].slice(0, 6);
+}
+
+function swingGroup(code: string) {
+  return TAIWAN_SCREENING_UNIVERSE.find(item => item.code === code)?.group || "unclassified";
+}
+
+function swingSetupType(snapshot: ValueScore["technicalSnapshot"]) {
+  const latest = snapshot.latest;
+  const close = latest.close;
+  if (close > latest.ma20 && latest.ma20 > latest.ma60 && latest.pullback < 62) return "20MA \u7e8c\u822a\u6ce2\u6bb5";
+  if (close > latest.ma60 && close <= latest.ma20 * 1.03) return "\u56de\u6e2c 20MA \u89c0\u5bdf";
+  if (close > snapshot.levels.resistanceShort * 0.98 && latest.volumeRatio >= 1.2) return "\u7a81\u7834\u58d3\u529b\u78ba\u8a8d";
+  if (latest.pullback >= 72) return "\u904e\u71b1\u7b49\u5f85\u56de\u6a94";
+  return "\u5340\u9593\u6574\u7406\u89c0\u5bdf";
+}
+
+function swingTechnicalScore(item: ValueScore) {
+  const latest = item.technicalSnapshot.latest;
+  let score = 35;
+  if (latest.close > latest.ma20) score += 14;
+  if (latest.ma20 > latest.ma60) score += 14;
+  if (latest.close > latest.ma120) score += 8;
+  if (latest.rsi14 >= 50 && latest.rsi14 <= 68) score += 10;
+  if (latest.rsi14 > 74) score -= 10;
+  if (latest.volumeRatio >= 1.1 && latest.volumeRatio <= 1.8) score += 8;
+  if (latest.pullback >= 72) score -= 16;
+  if (latest.close > item.technicalSnapshot.levels.resistanceShort * 0.98) score += 6;
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function buildSwingCandidate(item: ValueScore, marketProxy: QuoteInfo | null = null) {
+  const latest = item.technicalSnapshot.latest;
+  const levels = item.technicalSnapshot.levels;
+  const close = latest.close;
+  const marketClose = marketProxy?.analysis.latest.close || null;
+  const market20 = marketClose && marketProxy?.analysis.latest.ma20 ? ((marketClose / marketProxy.analysis.latest.ma20) - 1) * 100 : null;
+  const stock20 = latest.ma20 ? ((close / latest.ma20) - 1) * 100 : null;
+  const relativeStrength = stock20 !== null && market20 !== null ? round(stock20 - market20, 2) : null;
+  const institutional = item.fundamentals?.data?.institutional;
+  const revenue = item.fundamentals?.data?.revenue;
+  const technical = swingTechnicalScore(item);
+  const flowScore = Number.isFinite(institutional?.totalNet) ? ((institutional?.totalNet || 0) > 0 ? 12 : -8) : 0;
+  const growthScore = Number.isFinite(revenue?.yoy) ? ((revenue?.yoy || 0) > 10 ? 12 : (revenue?.yoy || 0) > 0 ? 6 : -8) : 0;
+  const rsScore = relativeStrength !== null ? (relativeStrength > 4 ? 10 : relativeStrength > 0 ? 5 : -6) : 0;
+  const liquidityScore = Number.isFinite(item.volume) && (item.volume || 0) >= 500000 ? 8 : 0;
+  const swingScore = Math.max(0, Math.min(100, Math.round(technical + flowScore + growthScore + rsScore + liquidityScore)));
+  const invalidation = round(Math.min(levels.supportMid * 0.97, latest.ma60 * 0.98));
+  const watchPriority = swingScore >= 76 ? "\u9ad8" : swingScore >= 62 ? "\u4e2d" : "\u4f4e";
+  return {
+    code: item.code,
+    name: item.name,
+    market: item.market,
+    latestClose: item.close,
+    latestDataDate: item.quoteDate,
+    sector: swingGroup(item.code),
+    setupType: swingSetupType(item.technicalSnapshot),
+    swingScore,
+    watchPriority,
+    primaryEvidence: [
+      `20MA ${fmt(latest.ma20)} / 60MA ${fmt(latest.ma60)}`,
+      `RSI ${fmt(latest.rsi14, 1)}, \u56de\u6a94\u98a8\u96aa ${latest.pullback}%`,
+      relativeStrength !== null ? `20\u65e5\u76f8\u5c0d 0050 ${fmt(relativeStrength, 2)}%` : "\u76f8\u5c0d\u5f37\u5f31\u8cc7\u6599\u4e0d\u8db3",
+      Number.isFinite(revenue?.yoy) ? `\u6708\u71df\u6536 YoY ${fmt(revenue?.yoy as number, 2)}%` : "\u6708\u71df\u6536\u52d5\u80fd\u7f3a\u8cc7\u6599",
+      Number.isFinite(institutional?.totalNet) ? `\u8fd15\u65e5\u6cd5\u4eba\u5408\u8a08 ${fmt(institutional?.totalNet as number, 0)}` : "\u6cd5\u4eba\u8cc7\u6599\u7f3a\u8cc7\u6599",
+    ],
+    keyRisk: `\u8dcc\u7834 ${fmt(invalidation)} \u6216 MA20 ${fmt(latest.ma20)} \u7121\u6cd5\u6536\u56de\u6642\uff0c\u6ce2\u6bb5\u5047\u8a2d\u5931\u6548\u3002`,
+    levels: {
+      support: levels.supportShort,
+      supportMid: levels.supportMid,
+      resistance: levels.resistanceShort,
+      resistanceMid: levels.resistanceMid,
+      invalidation,
+      target1: round(levels.resistanceShort * 1.04),
+      target2: round(Math.max(levels.resistanceMid, latest.week52High) * 1.03),
+    },
+    signalHint: swingScore >= 76 && latest.pullback < 68 ? "\u504f\u591a\u5019\u9078" : latest.pullback >= 72 ? "\u89c0\u5bdf" : swingScore >= 58 ? "\u504f\u591a" : "\u907f\u958b",
+  };
+}
+
+async function loadSwingMacro() {
+  const settled = await Promise.allSettled([
+    loadQuote("0050"),
+    fetchYahooSymbolChart("^GSPC", "S&P 500", "6mo"),
+    fetchYahooSymbolChart("TWD=X", "USD/TWD", "6mo"),
+    loadQuote("2330"),
+  ]);
+  const tw = settled[0].status === "fulfilled" ? settled[0].value : null;
+  const spx = settled[1].status === "fulfilled" ? settled[1].value : null;
+  const fx = settled[2].status === "fulfilled" ? settled[2].value : null;
+  const tsmc = settled[3].status === "fulfilled" ? settled[3].value : null;
+  const riskScore = [
+    tw ? (tw.analysis.latest.close > tw.analysis.latest.ma20 ? 25 : 8) : 0,
+    spx ? (spx.trend === "risk-on" ? 25 : spx.trend === "range-bound" ? 14 : 4) : 0,
+    fx ? ((fx.changePct20 || 0) <= 2 ? 18 : 6) : 0,
+    tsmc ? (tsmc.analysis.latest.close > tsmc.analysis.latest.ma20 ? 20 : 8) : 0,
+  ].reduce((sum, value) => sum + value, 0);
+  const label = riskScore >= 72 ? "risk-on" : riskScore >= 56 ? "selective risk-on" : riskScore >= 42 ? "range-bound" : riskScore >= 28 ? "defensive" : "risk-off";
+  return {
+    ok: true,
+    generatedAt: new Date().toISOString(),
+    reportTimezone: "Asia/Taipei",
+    horizon: "1-3 months",
+    regime: {
+      label,
+      score: riskScore,
+      summary: label === "risk-on" ? "\u53f0\u80a1\u8207\u7f8e\u80a1\u98a8\u96aa\u504f\u597d\u504f\u5f37\uff0c\u6ce2\u6bb5\u53ef\u512a\u5148\u770b 20MA \u4e0a\u65b9\u7e8c\u822a\u80a1\u3002" :
+        label === "selective risk-on" ? "\u98a8\u96aa\u504f\u597d\u9078\u64c7\u6027\u504f\u591a\uff0c\u512a\u5148\u7be9\u51fa\u6709\u71df\u6536\u6216\u6cd5\u4eba\u652f\u6490\u7684\u5f37\u52e2\u80a1\u3002" :
+        label === "range-bound" ? "\u5e02\u5834\u8f03\u50cf\u5340\u9593\u76e4\uff0c\u7a81\u7834\u8981\u770b\u91cf\u80fd\uff0c\u56de\u6e2c\u652f\u6490\u4e0d\u7834\u624d\u5ef6\u7e8c\u3002" :
+        label === "defensive" ? "\u98a8\u96aa\u504f\u9632\u5b88\uff0c\u5019\u9078\u80a1\u9700\u8981\u66f4\u56b4\u683c\u7684\u5931\u6548\u50f9\u8207\u5009\u4f4d\u63a7\u5236\u3002" :
+        "\u98a8\u96aa\u504f\u7a7a\uff0c\u6ce2\u6bb5\u6e05\u55ae\u4ee5\u89c0\u5bdf\u8207\u7b49\u5f85\u78ba\u8a8d\u70ba\u4e3b\u3002",
+    },
+    sources: {
+      taiwanProxy: tw ? { label: "0050", date: tw.quoteDate, close: tw.close, source: tw.source, sourceUrls: tw.sourceUrls } : null,
+      usProxy: spx,
+      fxProxy: fx,
+      semiconductorProxy: tsmc ? { label: "2330", date: tsmc.quoteDate, close: tsmc.close, source: tsmc.source, sourceUrls: tsmc.sourceUrls } : null,
+    },
+    screeningImplications: [
+      "\u512a\u5148\u770b 20MA \u4e0a\u65b9\u4e14 MA20 \u9ad8\u65bc MA60 \u7684 1-3 \u500b\u6708\u6ce2\u6bb5\u7d50\u69cb\u3002",
+      "RSI \u904e\u71b1\u8207\u8ddd\u96e2\u77ed\u7dda\u652f\u6490\u904e\u9060\u6642\uff0c\u5148\u964d\u70ba\u89c0\u5bdf\uff0c\u4e0d\u628a\u7a81\u7834\u7576\u4f5c\u76f4\u63a5\u9032\u5834\u7406\u7531\u3002",
+      "\u71df\u6536 YoY\u3001\u8fd1 5 \u65e5\u6cd5\u4eba\u5408\u8a08\u3001\u76f8\u5c0d 0050 \u5f37\u5f31\u4f5c\u70ba\u5019\u9078\u6392\u5e8f\u52a0\u5206\u3002",
+      "\u6bcf\u6a94\u90fd\u9700\u8981\u652f\u6490\u3001\u58d3\u529b\u3001\u505c\u640d\u5931\u6548\u9ede\u8207\u4e8b\u4ef6\u98a8\u96aa\u6a19\u793a\u3002",
+    ],
+    errors: settled.map((item, index) => item.status === "rejected" ? { index, message: item.reason instanceof Error ? item.reason.message : String(item.reason) } : null).filter(Boolean),
+  };
+}
+
+async function loadSwingScreener(universeValue: unknown) {
+  const [screener, marketProxy] = await Promise.all([
+    loadScreener("undervalued", universeValue, { fast: true }),
+    loadQuote("0050").catch(() => null),
+  ]);
+  const candidates = screener.items
+    .filter(item => item.professionalRating.assetModel === "stock")
+    .map(item => buildSwingCandidate(item, marketProxy))
+    .sort((a, b) => b.swingScore - a.swingScore);
+  return {
+    ok: candidates.length > 0,
+    generatedAt: new Date().toISOString(),
+    horizon: "1-3 months",
+    source: screener.source,
+    universeMeta: screener.universeMeta,
+    candidates,
+    todayWatch: candidates.filter(item => item.watchPriority !== "\u4f4e" && item.signalHint !== "\u89c0\u5bdf").slice(0, 8),
+    ranking: candidates.slice(0, 16),
+    gate: {
+      required: true,
+      instruction: "\u8acb\u52fe\u9078\u8981\u9032\u5165\u6df1\u5ea6\u6d41\u7a0b\u7684\u80a1\u7968\uff0c\u518d\u57f7\u884c\u53ef\u6bd4\u4f30\u503c\u3001\u6df1\u5ea6\u5206\u6790\u3001\u65e5\u7dda\u6280\u8853\u3001K \u7dda\u8a0a\u865f\u8207\u6700\u7d42\u6574\u5408\u3002",
+    },
+    errors: screener.errors,
+  };
+}
+
+async function loadSwingValuation(codes: string[]) {
+  const selected = await settleWithLimit(codes, 3, code => loadValueScore(code, { fast: true }));
+  const peerBatch = await loadScreener("undervalued", undefined, { fast: true }).catch(() => null);
+  const peerItems = peerBatch?.items || [];
+  const items = selected.map((result, index) => {
+    if (result.status === "rejected") return { ok: false, code: codes[index], message: result.reason instanceof Error ? result.reason.message : String(result.reason) };
+    const item = result.value;
+    const group = swingGroup(item.code);
+    const peers = peerItems.filter(peer => peer.code !== item.code && swingGroup(peer.code) === group).slice(0, 12);
+    const peerValues = (key: "per" | "pbr" | "dividendYield") => peers.map(peer => valuationMetric(peer, key)).filter((value): value is number => value !== null).sort((a, b) => a - b);
+    const median = (values: number[]) => values.length ? values[Math.floor(values.length / 2)] : null;
+    return {
+      ok: true,
+      code: item.code,
+      name: item.name,
+      exchange: item.market,
+      valuationDate: item.fundamentals?.data?.valuation?.date || item.quoteDate,
+      currency: "TWD",
+      sector: group,
+      target: {
+        close: item.close,
+        per: valuationMetric(item, "per"),
+        pbr: valuationMetric(item, "pbr"),
+        dividendYield: valuationMetric(item, "dividendYield"),
+        evRevenue: "N/A",
+        evEbitda: "N/A",
+        revenueGrowth: item.fundamentals?.data?.revenue?.yoy ?? item.fundamentals?.data?.profitability?.revenueYoY ?? null,
+        margin: item.fundamentals?.data?.profitability?.revenue && item.fundamentals?.data?.profitability?.operatingIncome !== null
+          ? round(((item.fundamentals.data.profitability.operatingIncome || 0) / item.fundamentals.data.profitability.revenue) * 100, 2)
+          : null,
+      },
+      peerSummary: {
+        count: peers.length,
+        medianPer: median(peerValues("per")),
+        medianPbr: median(peerValues("pbr")),
+        medianDividendYield: median(peerValues("dividendYield")),
+        evRevenue: "N/A",
+        evEbitda: "N/A",
+      },
+      peers: peers.slice(0, 8).map(peer => ({
+        code: peer.code,
+        name: peer.name,
+        per: valuationMetric(peer, "per"),
+        pbr: valuationMetric(peer, "pbr"),
+        dividendYield: valuationMetric(peer, "dividendYield"),
+        revenueGrowth: peer.fundamentals?.data?.revenue?.yoy ?? null,
+      })),
+      bias: item.scores.undervalued !== null && item.scores.undervalued >= 70 ? "\u53ef\u80fd\u6298\u50f9" : item.scores.overvalued !== null && item.scores.overvalued >= 70 ? "\u504f\u8cb4" : "\u63a5\u8fd1\u540c\u696d\u5340\u9593",
+      limitations: ["\u53f0\u80a1\u516c\u958b\u8cc7\u6599\u5c0d EV\u3001EBITDA \u8207\u5206\u6790\u5e2b\u9810\u4f30\u8986\u84cb\u4e0d\u8db3\uff0c\u7f3a\u8cc7\u6599\u6b04\u4f4d\u6a19\u793a N/A\uff0c\u4e0d\u7528\u5047\u6578\u5b57\u88dc\u503c\u3002"],
+    };
+  });
+  return { ok: true, generatedAt: new Date().toISOString(), items };
+}
+
+async function loadSwingDeepAnalysis(codes: string[]) {
+  const results = await settleWithLimit(codes, 3, async code => {
+    const [score, news] = await Promise.all([
+      loadValueScore(code, { fast: true }),
+      loadNews(code, FALLBACK_NAMES[code] || code, { force: false }).catch(err => ({ ok: false, items: [], note: err instanceof Error ? err.message : String(err) })),
+    ]);
+    const f = (score.fundamentals?.data || {}) as Record<string, any>;
+    return {
+      ok: true,
+      code: score.code,
+      name: score.name,
+      horizon: "1-3 months",
+      rating: score.professionalRating,
+      fundamentals: {
+        profitability: f.profitability || null,
+        revenue: f.revenue || null,
+        valuation: f.valuation || null,
+        cashFlow: f.cashFlow || null,
+        balanceSheet: f.balanceSheet || null,
+        institutional: f.institutional || null,
+      },
+      thesis: [
+        score.scores.growth.score !== null && score.scores.growth.score >= 65 ? "\u6210\u9577\u8cc7\u6599\u5c0d\u6ce2\u6bb5\u6709\u652f\u6490\u3002" : "\u6210\u9577\u8cc7\u6599\u4ecd\u9700\u89c0\u5bdf\u3002",
+        score.scores.cashFlow.score !== null && score.scores.cashFlow.score >= 65 ? "\u73fe\u91d1\u6d41\u6216\u80a1\u5229\u54c1\u8cea\u8f03\u7a69\u3002" : "\u73fe\u91d1\u6d41\u8a0a\u865f\u4e0d\u8db3\u6216\u9700\u8907\u67e5\u3002",
+        score.scores.marketConfidence.score !== null && score.scores.marketConfidence.score >= 60 ? "\u7c4c\u78bc\u8207\u5e02\u5834\u4fe1\u5fc3\u504f\u6b63\u5411\u3002" : "\u5e02\u5834\u4fe1\u5fc3\u5c1a\u672a\u5f62\u6210\u660e\u78ba\u512a\u52e2\u3002",
+      ],
+      catalysts: (news as any).items?.slice(0, 4).map((item: any) => ({
+        title: item.title,
+        source: item.source,
+        publishedAt: item.publishedAt,
+        relation: item.relation,
+        sentiment: item.sentiment,
+      })) || [],
+      risks: [
+        score.scores.chaseRisk.score !== null && score.scores.chaseRisk.score >= 72 ? "\u8ffd\u9ad8\u98a8\u96aa\u504f\u9ad8\uff0c\u9700\u7b49\u5f85\u56de\u6e2c\u6216\u91cf\u7e2e\u6574\u7406\u3002" : "\u8ffd\u9ad8\u98a8\u96aa\u672a\u660e\u986f\u5931\u63a7\uff0c\u4f46\u4ecd\u9700\u5b88\u5931\u6548\u50f9\u3002",
+        score.dataStatus.coverage.percent < 60 ? "\u8cc7\u6599\u8986\u84cb\u7387\u4e0d\u8db3\uff0c\u7d50\u8ad6\u53ea\u80fd\u4f5c\u70ba\u89c0\u5bdf\u3002" : "\u8cc7\u6599\u8986\u84cb\u7387\u53ef\u7528\uff0c\u4f46\u8ca1\u5831\u66f4\u65b0\u4ecd\u9700\u8ffd\u8e64\u3002",
+      ],
+      dataStatus: score.dataStatus,
+    };
+  });
+  return {
+    ok: true,
+    generatedAt: new Date().toISOString(),
+    items: results.map((result, index) => result.status === "fulfilled" ? result.value : { ok: false, code: codes[index], message: result.reason instanceof Error ? result.reason.message : String(result.reason) }),
+  };
+}
+
+function buildSwingTechnicalFromQuote(quote: QuoteInfo) {
+  const latest = quote.analysis.latest;
+  const levels = quote.analysis.levels;
+  const continuationScore = Math.max(0, Math.min(100, Math.round(
+    45 +
+    (latest.close > latest.ma20 ? 12 : -8) +
+    (latest.ma20 > latest.ma60 ? 12 : -6) +
+    (latest.rsi14 >= 50 && latest.rsi14 <= 68 ? 10 : latest.rsi14 > 74 ? -12 : 0) +
+    (latest.volumeRatio >= 1.1 ? 6 : 0) -
+    Math.max(0, latest.pullback - 60) * 0.4
+  )));
+  return {
+    ok: true,
+    code: quote.code,
+    name: quote.name,
+    date: quote.quoteDate,
+    close: quote.close,
+    trend: latest.close > latest.ma20 && latest.ma20 > latest.ma60 ? "\u504f\u591a" : latest.close > latest.ma60 ? "\u6574\u7406" : "\u504f\u5f31",
+    continuationScore,
+    pullbackRisk: latest.pullback,
+    indicators: {
+      ma5: latest.ma5,
+      ma20: latest.ma20,
+      ma60: latest.ma60,
+      ma120: latest.ma120,
+      rsi14: latest.rsi14,
+      macdHist: latest.hist,
+      kdK: latest.k,
+      kdD: latest.d,
+      bollingerPctB: latest.pctB,
+      volumeRatio: latest.volumeRatio,
+      atrPct: latest.atrPct,
+    },
+    levels: {
+      support: levels.supportShort,
+      supportMid: levels.supportMid,
+      resistance: levels.resistanceShort,
+      resistanceMid: levels.resistanceMid,
+      invalidation: round(Math.min(levels.supportMid * 0.97, latest.ma60 * 0.98)),
+      target1: round(levels.resistanceShort * 1.04),
+      target2: round(Math.max(levels.resistanceMid, latest.week52High) * 1.03),
+    },
+    scenarios: [
+      `\u7ad9\u7a69 ${fmt(levels.resistanceShort)} \u4e14\u91cf\u80fd\u5927\u65bc 20 \u65e5\u5747\u91cf 1.2 \u500d\uff0c\u7e8c\u6f32\u60c5\u5883\u5347\u6eab\u3002`,
+      `\u56de\u6e2c MA20 ${fmt(latest.ma20)} \u4e0d\u7834\uff0c\u504f\u5411\u5065\u5eb7\u6574\u7406\u3002`,
+      `\u8dcc\u7834 ${fmt(Math.min(levels.supportMid * 0.97, latest.ma60 * 0.98))} \u6642\uff0c1-3 \u500b\u6708\u6ce2\u6bb5\u5047\u8a2d\u5931\u6548\u3002`,
+    ],
+  };
+}
+
+async function loadSwingTechnical(codes: string[]) {
+  const results = await settleWithLimit(codes, 3, code => loadQuote(code));
+  return {
+    ok: true,
+    generatedAt: new Date().toISOString(),
+    items: results.map((result, index) => result.status === "fulfilled" ? buildSwingTechnicalFromQuote(result.value) : { ok: false, code: codes[index], message: result.reason instanceof Error ? result.reason.message : String(result.reason) }),
+  };
+}
+
+function buildSwingSignalFromTechnical(item: any) {
+  if (!item.ok) return item;
+  const ind = item.indicators;
+  const levels = item.levels;
+  const longSetup = item.close > ind.ma20 && ind.ma20 > ind.ma60 && item.pullbackRisk < 68 && ind.rsi14 >= 48 && ind.rsi14 <= 72;
+  const shortSetup = item.close < ind.ma60 && ind.rsi14 < 45 && ind.macdHist < 0;
+  const wait = !longSetup && !shortSetup;
+  const stance = longSetup ? "\u504f\u591a\u5019\u9078" : shortSetup ? "\u504f\u7a7a" : item.pullbackRisk >= 72 ? "\u89c0\u5bdf" : "\u907f\u958b";
+  return {
+    ok: true,
+    code: item.code,
+    name: item.name,
+    stance,
+    signal: longSetup ? "long setup" : shortSetup ? "short setup" : "no trade / wait for confirmation",
+    strength: longSetup ? Math.min(92, item.continuationScore + 8) : shortSetup ? Math.max(50, 100 - item.continuationScore) : Math.max(30, Math.min(70, item.continuationScore)),
+    requiredConfirmation: longSetup
+      ? `\u6536\u76e4\u7ad9\u7a69 ${fmt(levels.resistance)} \u6216\u56de\u6e2c MA20 \u4e0d\u7834\u3002`
+      : shortSetup
+        ? `\u53cd\u5f48\u7121\u6cd5\u7ad9\u56de MA60 ${fmt(ind.ma60)}\u3002`
+        : `\u7b49\u5f85\u7a81\u7834 ${fmt(levels.resistance)} \u6216\u56de\u6e2c ${fmt(levels.support)} \u5f8c\u518d\u5224\u65b7\u3002`,
+    invalidation: fmt(levels.invalidation),
+    targetZone: `${fmt(levels.target1)} - ${fmt(levels.target2)}`,
+  };
+}
+
+async function loadSwingSignal(codes: string[]) {
+  const technical = await loadSwingTechnical(codes);
+  return {
+    ok: true,
+    generatedAt: new Date().toISOString(),
+    items: technical.items.map(buildSwingSignalFromTechnical),
+  };
+}
+
+async function loadSwingSummary(codes: string[]) {
+  const [valuation, deep, technical, signal] = await Promise.all([
+    loadSwingValuation(codes),
+    loadSwingDeepAnalysis(codes),
+    loadSwingTechnical(codes),
+    loadSwingSignal(codes),
+  ]);
+  const byCode = (items: any[]) => new Map(items.map(item => [item.code, item]));
+  const valuationMap = byCode(valuation.items);
+  const deepMap = byCode(deep.items);
+  const technicalMap = byCode(technical.items);
+  const signalMap = byCode(signal.items);
+  const rows = codes.map(code => {
+    const v: any = valuationMap.get(code) || {};
+    const d: any = deepMap.get(code) || {};
+    const t: any = technicalMap.get(code) || {};
+    const s: any = signalMap.get(code) || {};
+    return {
+      code,
+      name: d.name || t.name || v.name || FALLBACK_NAMES[code] || code,
+      valuationBias: v.bias || "N/A",
+      fundamentalBias: d.rating?.grade ? `${d.rating.grade} / ${scoreTextValue(d.rating.total)}` : "N/A",
+      technicalBias: t.trend || "N/A",
+      klineSignal: s.signal || "N/A",
+      scenario: s.requiredConfirmation || "\u8cc7\u6599\u4e0d\u8db3",
+      keyLevels: t.levels || null,
+      mainCatalyst: d.catalysts?.[0]?.title || "\u5c1a\u7121\u76f4\u63a5\u65b0\u805e\u50ac\u5316",
+      mainRisk: d.risks?.[0] || "\u8cc7\u6599\u4e0d\u8db3",
+      finalStance: s.stance || "\u89c0\u5bdf",
+    };
+  });
+  return {
+    ok: true,
+    generatedAt: new Date().toISOString(),
+    rows,
+    rankedWatchlist: [...rows].sort((a, b) => {
+      const rank = (stance: string) => stance === "\u504f\u591a\u5019\u9078" ? 4 : stance === "\u504f\u591a" ? 3 : stance === "\u89c0\u5bdf" ? 2 : stance === "\u907f\u958b" ? 1 : 0;
+      return rank(b.finalStance) - rank(a.finalStance);
+    }),
+    riskControls: [
+      "\u4e0d\u628a\u5019\u9078\u6e05\u55ae\u89e3\u8b80\u6210\u76f4\u63a5\u8cb7\u9032\u8a0a\u865f\u3002",
+      "\u6240\u6709\u5019\u9078\u90fd\u5fc5\u9808\u5148\u5b9a\u7fa9\u5931\u6548\u50f9\uff0c\u8dcc\u7834\u5f8c\u505c\u6b62\u539f\u672c\u6ce2\u6bb5\u5047\u8a2d\u3002",
+      "\u82e5\u8cc7\u6599\u8986\u84cb\u7387\u4e0d\u8db3\u6216\u65b0\u805e\u4f86\u6e90\u903e\u6642\uff0c\u8a72\u6a94\u53ea\u4fdd\u7559\u89c0\u5bdf\uff0c\u4e0d\u5347\u7d1a\u70ba\u9ad8\u4fe1\u5fc3\u5019\u9078\u3002",
+    ],
+  };
+}
+
 export const handler = router({
   "GET /api/_healthcheck": [async () => json({ message: "Success" })],
 
@@ -4371,6 +4820,93 @@ export const handler = router({
       return json({
         ok: false,
         message: `Unable to load Taiwan company universe: ${err instanceof Error ? err.message : String(err)}`,
+      }, 502);
+    }
+  }],
+
+  "GET /api/swing/macro": [async () => {
+    try {
+      return json(await loadSwingMacro(), 200);
+    } catch (err) {
+      return json({
+        ok: false,
+        message: `Unable to build swing macro view: ${err instanceof Error ? err.message : String(err)}`,
+      }, 502);
+    }
+  }],
+
+  "GET /api/swing/screener": [async ({ query }: any) => {
+    try {
+      return json(await loadSwingScreener(query.universe), 200);
+    } catch (err) {
+      return json({
+        ok: false,
+        message: `Unable to build swing screener: ${err instanceof Error ? err.message : String(err)}`,
+      }, 502);
+    }
+  }],
+
+  "GET /api/swing/valuation": [async ({ query }: any) => {
+    const codes = parseSwingCodes(query.codes || query.code);
+    if (!codes.length) return error("Missing stock codes", 400);
+    try {
+      return json(await loadSwingValuation(codes), 200);
+    } catch (err) {
+      return json({
+        ok: false,
+        message: `Unable to build swing valuation: ${err instanceof Error ? err.message : String(err)}`,
+      }, 502);
+    }
+  }],
+
+  "GET /api/swing/deep-analysis": [async ({ query }: any) => {
+    const codes = parseSwingCodes(query.codes || query.code);
+    if (!codes.length) return error("Missing stock codes", 400);
+    try {
+      return json(await loadSwingDeepAnalysis(codes), 200);
+    } catch (err) {
+      return json({
+        ok: false,
+        message: `Unable to build swing deep analysis: ${err instanceof Error ? err.message : String(err)}`,
+      }, 502);
+    }
+  }],
+
+  "GET /api/swing/technical": [async ({ query }: any) => {
+    const codes = parseSwingCodes(query.codes || query.code);
+    if (!codes.length) return error("Missing stock codes", 400);
+    try {
+      return json(await loadSwingTechnical(codes), 200);
+    } catch (err) {
+      return json({
+        ok: false,
+        message: `Unable to build swing technical view: ${err instanceof Error ? err.message : String(err)}`,
+      }, 502);
+    }
+  }],
+
+  "GET /api/swing/signal": [async ({ query }: any) => {
+    const codes = parseSwingCodes(query.codes || query.code);
+    if (!codes.length) return error("Missing stock codes", 400);
+    try {
+      return json(await loadSwingSignal(codes), 200);
+    } catch (err) {
+      return json({
+        ok: false,
+        message: `Unable to build swing signal: ${err instanceof Error ? err.message : String(err)}`,
+      }, 502);
+    }
+  }],
+
+  "GET /api/swing/summary": [async ({ query }: any) => {
+    const codes = parseSwingCodes(query.codes || query.code);
+    if (!codes.length) return error("Missing stock codes", 400);
+    try {
+      return json(await loadSwingSummary(codes), 200);
+    } catch (err) {
+      return json({
+        ok: false,
+        message: `Unable to build swing summary: ${err instanceof Error ? err.message : String(err)}`,
       }, 502);
     }
   }],

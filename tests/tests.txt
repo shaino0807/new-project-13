@@ -151,3 +151,18 @@ Steps:
 4. Click 客戶工作台 while the public backend does not yet expose /api/workbench.
 
 Expected: The stock depth page loads quote data instead of global 載入失敗. If /api/workbench returns 404, 客戶工作台 falls back to existing /api/screener data, marks the mode as public screener fallback, and shows 回測實驗室 as unavailable until the new backend is deployed. It must not invent professional scores that are not derivable from existing screener fields.
+
+## Test 13 - Dino K棒判斷策略 workflow
+Viewport: desktop and mobile
+Description: Verifies the taiwan-stock-swing-orchestrator flow is available as a separate page without replacing the existing stock analysis engine.
+
+Steps:
+1. Navigate to the app.
+2. Click Dino K棒判斷策略.
+3. Wait for the macro cards and 1-3 month candidate table to load.
+4. Select at least one candidate stock or enter 2330, 2454 manually.
+5. Click 進入深度流程.
+6. Wait for the deep workflow result.
+7. Return to 股票深度頁 and run 2330.
+
+Expected: Dino K棒判斷策略 is a separate tab. It shows the flow stages for macro, screening, user selection gate, and deep synthesis. The candidate table includes rank, stock, latest price, score, setup type, and key risk. The user must select or enter stock codes before deep analysis. After entering the deep flow, the page shows comparable valuation, individual deep analysis, daily technical view, K-line signal, support/resistance, invalidation, target zone, and final stance such as 偏多候選, 偏多, 觀察, 避開, or 偏空. The original 股票深度頁 still works after using Dino and no text appears as replacement-character mojibake or repeated question marks.
