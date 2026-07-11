@@ -1,27 +1,27 @@
 # Tests
 
-## Test 1 - Homepage loads and default analysis appears [sanity]
+## Test 1 - Homepage waits for user input [sanity]
 Viewport: desktop
-Description: Verifies the public site opens to the stock analysis Agent and loads a default stock without showing a blank page.
+Description: Verifies the public site no longer auto-loads a default stock before the visitor enters a code.
 
 Steps:
-1. Navigate to the app.
+1. Navigate to the app without a `code` query parameter.
 2. Wait for the page to fully load.
 
-Expected: The page shows the title "台股技術分析 Agent" or a loaded stock heading, plus metric cards, 小資決策卡, 買點好壞判斷, 短中長線分層, 基本面白話化, 新聞關聯分析, 葛蘭威爾八大法則當前位置, 道氏理論三期趨勢, and the status text mentioning a data source or latest data request. 基本面白話化 eventually shows FinMind as its source or a clear temporary-unavailable message.
+Expected: The hero shows 台股技術分析 Agent and a 待輸入 / 待載入 state. It must not show 2330 台積電, a default close price, or a default pullback probability before user input.
 
 ## Test 2 - Visitor can analyze 2344
 Viewport: desktop
-Description: Verifies a shared visitor can enter a stock name and receive fresh backend quote analysis on the same page.
+Description: Verifies a shared visitor can enter a stock name or code and receive backend quote analysis on the same page.
 
 Steps:
 1. Navigate to the app.
-2. Type "華邦電" in the stock code or name field.
+2. Type 2344 in the stock code or name field.
 3. Click the analysis button.
 4. Wait for the heading and metrics to update.
-5. Change 每月可投入 to "5000".
+5. Change monthly budget to 5000.
 
-Expected: The page shows "2344" with stock metrics, 小資決策卡, 回檔機率 with 核心判斷 and 關鍵觀察指標, 支撐 / 壓力, 十二維訊號判讀, 葛蘭威爾八大法則當前位置, 道氏理論三期趨勢, and source links or source status text. 今日收盤, 漲跌, and 今日區間 use red text when the daily change is positive, green text when negative, and amber text when unchanged. 成交量 uses red when volume increased from the previous trading day, green when it decreased, and amber when unchanged. 小資決策卡 updates the 分批方式 and 停損承受 values without reloading the page.
+Expected: The page shows 2344 with stock metrics, technical sections, value radar, allocation guide, fundamentals, news, charts, and source/status text. Budget-dependent sections update without reloading the page.
 
 ## Test 3 - Agent answers a follow-up question
 Viewport: desktop
@@ -29,8 +29,8 @@ Description: Verifies the Agent panel answers questions about the currently load
 
 Steps:
 1. Navigate to the app.
-2. Wait for the default stock analysis to load.
-3. Click the "回檔風險" prompt.
+2. Run 2330 analysis.
+3. Click an Agent prompt.
 4. Wait for the Agent response.
 
 Expected: The Agent log shows the user's question and an Agent answer with key points, actions, watchlist items, and a disclaimer.
@@ -41,81 +41,80 @@ Description: Verifies the core technical-analysis surface remains available and 
 
 Steps:
 1. Navigate to the app.
-2. Type "2454" in the stock code field.
+2. Type 2454 in the stock code field.
 3. Click the analysis button.
 4. Scroll through the page.
 
-Expected: Price, MACD, RSI/KD, volume, Bollinger, support/resistance charts, 回檔機率 bars and summary, 小資決策卡, 買點好壞判斷, 短中長線分層, 基本面白話化, 新聞關聯分析, 波浪理論判讀, 葛蘭威爾八大法則當前位置, 道氏理論三期趨勢, and the strategy sections are visible.
+Expected: Price, MACD, RSI/KD, volume, Bollinger, support/resistance charts, probability summary, value radar, chase-risk warning, fundamentals, news, strategy, and Agent sections are visible.
 
 ## Test 5 - Mobile page remains readable
 Viewport: mobile
-Description: Verifies the Agent remains usable on a narrow viewport without horizontal scrolling.
+Description: Verifies the Agent remains usable on a narrow viewport without shrinking key numbers into unreadable text.
 
 Steps:
 1. Navigate to the app on a mobile-width viewport.
-2. Enter "0050" and run analysis.
+2. Enter 0050 and run analysis.
 3. Scroll from top to bottom.
 
-Expected: The input, metric cards, 小資決策卡, 買點好壞判斷, 短中長線分層, 新聞關聯分析, charts, signal rows, 葛蘭威爾八大法則當前位置, 道氏理論三期趨勢, Agent panel, 回檔機率 summary, and strategy sections are readable. Key numeric cards remain at mobile-readable size, the top metrics use a compact two-column layout on normal phone widths, and dense ranking or risk tables scroll horizontally inside their panels instead of shrinking numbers into tiny text or breaking each row into unreadable blocks.
+Expected: The input, metric cards, charts, ranking tables, risk tables, and Agent panel are readable. Dense tables scroll horizontally inside their panels when needed.
 
 ## Test 6 - News relation module handles external data
 Viewport: desktop
-Description: Verifies latest-news analysis is visible and does not block the quote analysis if the external source is unavailable.
+Description: Verifies latest-news analysis is visible and does not block quote analysis if an external source is unavailable.
 
 Steps:
 1. Navigate to the app.
-2. Wait for the default stock analysis to load.
-3. Observe 新聞關聯分析.
+2. Run 2330 analysis.
+3. Observe the latest-news section.
 
-Expected: The section either lists news cards tagged as 直接相關 / 間接相關 / 無關雜訊 with 利多 / 利空 / 中性, impact horizon, confidence, and possible impact, or clearly distinguishes 新聞來源逾時, 新聞來源暫時不可用, and 查無符合條件新聞 while the rest of the page remains usable.
+Expected: The section lists related news or clearly states timeout/unavailable status. It must not label a timeout as no news, and the rest of the page remains usable.
 
-## Test 7 - FinMind fundamentals load for a new stock
+## Test 7 - Fundamentals load for a new stock
 Viewport: desktop
-Description: Verifies each stock search requests the aggregated FinMind backend route and replaces the former placeholder fundamentals.
+Description: Verifies each stock search requests the aggregated backend route and replaces placeholder fundamentals.
 
 Steps:
 1. Navigate to the app.
-2. Type "2330" in the stock code field.
-3. Click the analysis button.
-4. Wait for 基本面白話化 to finish loading.
-5. Type "2344" and run analysis again.
-6. Wait for 基本面白話化 to update to the new stock.
+2. Run 2330 analysis.
+3. Wait for fundamentals to finish loading.
+4. Run 2344 analysis.
+5. Wait for fundamentals to update to the new stock.
 
-Expected: For each stock, 基本面白話化 shows eight rows: 公司有沒有賺錢, 成長有沒有變慢, 股價是否太貴, 現金流是否健康, 負債是否過高, 法人是否支持, 籌碼是否過熱, and 是否只靠題材. Rows with available data include numeric values and source dates. Rows with unavailable upstream data are clearly marked 資料不足 or date unavailable instead of inventing values. The section identifies FinMind or official fallback as the source and never shows the old 尚未接入 or 待補 placeholder copy.
+Expected: Available rows include numeric values and source dates. Unavailable upstream data is marked clearly instead of inventing values.
 
-## Test 8 - FinMind failure does not break technical analysis
+## Test 8 - Upstream data failures stay isolated
 Viewport: desktop
-Description: Verifies quota, authorization, maintenance, or upstream failures remain isolated from existing features.
+Description: Verifies quota, authorization, maintenance, or upstream failures do not break existing features.
 
 Steps:
 1. Navigate to the app.
 2. Run any valid stock analysis.
-3. Observe the page after the quote and supplemental requests finish.
+3. Observe the page after quote and supplemental requests finish.
 
-Expected: If FinMind is available, the eight fundamental rows render. If FinMind is unavailable or only partially available, the section shows a clear per-item or section-level message. Quote metrics, charts, news, strategy, and Agent remain usable without overlapping sections or horizontal scrolling.
+Expected: If supplemental data is unavailable or partial, the section shows a clear message. Quote metrics, charts, news, strategy, and Agent remain usable.
 
-## Test 9 - 0050 uses ETF-specific fundamentals and news
+## Test 9 - 0050 uses ETF-specific handling
 Viewport: desktop
 Description: Verifies an ETF is not evaluated as if it were a single listed company.
 
 Steps:
 1. Navigate to the app.
-2. Type "0050" and run analysis.
-3. Wait for 基本面白話化 and 新聞關聯分析 to finish loading.
+2. Type 0050 and run analysis.
+3. Wait for fundamentals and news to finish loading.
 
-Expected: 基本面白話化 identifies ETF 專用判斷 and shows 主要成分股有沒有賺錢, 成分股成長有沒有變慢, ETF 估值與折溢價, 現金流是否健康 marked ETF 不適用, 負債是否過高 marked ETF 不適用, 法人及資金是否支持, 籌碼是否過熱, and 是否只靠題材. It includes 0050 component weights, NAV or a clear official-source unavailable message, and does not show the old FinMind company financial statement 資料不足 copy. 新聞關聯分析 either lists ETF-related news or explicitly says the source timed out or is unavailable; it must not label a timeout as no news.
+Expected: ETF-specific rows, NAV/component data or clear official-source unavailable messages are shown. Company financial-statement placeholders must not be used for ETF-only fields.
 
-## Test 10 - Dino K棒判斷策略 workflow
+## Test 10 - Dino swing workflow is customer-facing and skill-aligned
 Viewport: desktop and mobile
-Description: Verifies the Dino K workflow is presented as five skill-aligned blocks without replacing the existing stock analysis engine.
+Description: Verifies Dino focuses on usable customer output rather than internal calculation steps.
 
 Steps:
 1. Navigate to the app.
 2. Click Dino K棒判斷策略.
-3. Wait for the macro/news analysis block, 1-3 month Taiwan stock screener table, and thematic stock-picking tables to load.
+3. Wait for macro/news, 1-3 month screener, thematic tables, and source panel to load.
 4. Select at least one candidate stock or enter 2330, 2454 manually.
 5. Click 進入深度流程.
 6. Wait for the deep workflow result.
 7. Return to 股票深度頁 and run 2330.
 
-Expected: Dino K棒判斷策略 is a separate tab with five clear blocks: 總經與最新新聞, 台股篩選排行榜, 主題式選股, 使用者選股 Gate, and 深度分析與最終整合. The macro/news block directly explains market status with a conclusion and reasons, and every news card shows news key points, conclusion, reason, market impact, screening use, source, and horizon instead of showing raw proxy cards or only listing headlines. The block also includes 判讀註解 describing how the macro/news signal is used and when source summaries are limited. The main screener table ranks 1-3 month candidates by 主題契合度, 成交值, 收盤價相對 20MA, and 20MA 斜率, and shows Rank, 代碼/名稱, 最新收盤, 20MA, 1-3 月型態, 主要篩選證據, 研究用失效線, and 優先度. The thematic block shows five tables: 熱門股篩選, 外資買超強勢股 / 殖利率排序, EPS 成長候選, 高成交值候選, and 20MA 技術候選. The user must select or enter stock codes before deep analysis. After entering the deep flow, the page shows report-style individual analysis, comparable valuation, daily technical view, K-line long/short/no-trade signal, support/resistance, invalidation, target zone, scenarios, and final stance such as 偏多候選, 偏多, 觀察, 避開, or 偏空. The original 股票深度頁 still works after using Dino and no text appears as replacement-character mojibake or repeated question marks.
+Expected: The internal workflow explainer and 重新產生候選 button are not visible to normal users. The macro/news block explains article-specific key points, reasons, market impact, screening use, source, horizon, and whether article content or RSS summary was read. The screener table shows detailed 1-3 month setup descriptions, main evidence, research invalidation line with conditions, and priority. The thematic block shows five tables with readable business/theme notes and clear units for institutional net buy. The source panel shows full-market universe count plus the scored seed count. Deep analysis requires selected or manually entered stock codes and does not break the original stock analysis page.

@@ -1405,7 +1405,57 @@ const TAIWAN_SCREENING_UNIVERSE = [
   { code: "6669", name: "Wiwynn", group: "server" },
 ];
 const DEFAULT_SCREENER_UNIVERSE = TAIWAN_SCREENING_UNIVERSE.map(item => item.code);
-const CUSTOM_SCREENER_LIMIT = 40;
+const CUSTOM_SCREENER_LIMIT = 80;
+const DEFAULT_FULL_MARKET_SEED_LIMIT = 64;
+const EXPANDED_SWING_SEED_CODES = [
+  "1101", "1102", "1216", "1301", "1303", "1402", "1476", "1590", "1605", "2002",
+  "2049", "2201", "2207", "2301", "2303", "2308", "2313", "2317", "2324", "2327",
+  "2330", "2344", "2352", "2353", "2356", "2357", "2360", "2368", "2376", "2377",
+  "2379", "2382", "2383", "2395", "2408", "2409", "2412", "2449", "2454", "2474",
+  "2481", "2603", "2609", "2615", "2633", "2880", "2881", "2882", "2883", "2884",
+  "2885", "2886", "2887", "2891", "2892", "3008", "3017", "3034", "3035", "3045",
+  "3081", "3189", "3231", "3260", "3324", "3363", "3443", "3450", "3481", "3529",
+  "3533", "3653", "3661", "3665", "3711", "4919", "4938", "5269", "5347", "5483",
+  "5871", "5876", "5880", "6239", "6257", "6269", "6274", "6415", "6446", "6488",
+  "6505", "6669", "6770", "6781", "6805", "8046", "8069", "8150", "8299", "8996",
+];
+const COMPANY_THEME_DETAILS: Record<string, string> = {
+  "1101": "\u6c34\u6ce5\u8207\u5efa\u6750\uff1b\u53f0\u7063\u5167\u9700\u3001\u623f\u5e02\u8207\u57fa\u5efa\u984c\u6750\u3002",
+  "1102": "\u6c34\u6ce5\u8207\u5efa\u6750\uff1b\u5167\u9700\u666f\u6c23\u8207\u71df\u5efa\u5faa\u74b0\u3002",
+  "1216": "\u98df\u54c1\u8207\u901a\u8def\u9f8d\u982d\uff1b\u9632\u79a6\u578b\u5167\u9700\u8207\u6d88\u8cbb\u984c\u6750\u3002",
+  "1590": "\u5de5\u696d\u6a5f\u5668\u4eba\u8207\u81ea\u52d5\u5316\uff1b\u667a\u6167\u88fd\u9020\u8207\u6a5f\u5668\u4eba\u984c\u6750\u3002",
+  "2303": "\u6210\u719f\u88fd\u7a0b\u6676\u5713\u4ee3\u5de5\uff1b\u534a\u5c0e\u9ad4\u5faa\u74b0\u3001\u96fb\u6e90\u7ba1\u7406\u8207\u8eca\u7528\u984c\u6750\u3002",
+  "2308": "\u96fb\u6e90\u7ba1\u7406\u3001\u6563\u71b1\u8207\u5de5\u696d\u81ea\u52d5\u5316\uff1bAI \u4f3a\u670d\u5668\u96fb\u6e90/\u6563\u71b1\u984c\u6750\u3002",
+  "2313": "PCB \u5370\u5237\u96fb\u8def\u677f\uff1b\u9ad8\u968e\u8f09\u677f\u3001AI \u4f3a\u670d\u5668\u8207\u901a\u8a0a\u677f\u984c\u6750\u3002",
+  "2317": "\u96fb\u5b50\u4ee3\u5de5\u8207 AI \u4f3a\u670d\u5668\u7d44\u88dd\uff1b\u8cc7\u6599\u4e2d\u5fc3\u3001\u96fb\u52d5\u8eca\u8207\u6a5f\u5668\u4eba\u984c\u6750\u3002",
+  "2330": "\u6676\u5713\u4ee3\u5de5\u9f8d\u982d\uff1bAI/HPC\u3001\u5148\u9032\u88fd\u7a0b\u8207 CoWoS \u5148\u9032\u5c01\u88dd\u984c\u6750\u3002",
+  "2344": "DRAM \u8207\u8a18\u61b6\u9ad4 IC\uff1b\u8a18\u61b6\u9ad4\u5faa\u74b0\u3001AI \u908a\u7de3\u8207\u8eca\u7528\u9700\u6c42\u3002",
+  "2356": "\u7b46\u96fb\u8207\u4f3a\u670d\u5668 ODM\uff1bAI \u4f3a\u670d\u5668\u3001PC/AI PC \u984c\u6750\u3002",
+  "2357": "\u54c1\u724c PC\u3001\u4e3b\u6a5f\u677f\u8207\u96fb\u7af6\uff1bAI PC \u8207\u908a\u7de3 AI \u984c\u6750\u3002",
+  "2368": "PCB \u8207\u4f3a\u670d\u5668\u677f\uff1bAI \u4f3a\u670d\u5668\u3001\u9ad8\u5c64\u6578 PCB \u984c\u6750\u3002",
+  "2379": "\u7db2\u8def\u8207\u591a\u5a92\u9ad4 IC \u8a2d\u8a08\uff1bAI PC\u3001\u7db2\u901a\u8207\u8eca\u7528\u6676\u7247\u984c\u6750\u3002",
+  "2382": "\u96f2\u7aef\u8207 AI \u4f3a\u670d\u5668 ODM\uff1b\u8cc7\u6599\u4e2d\u5fc3\u3001GB200/AI \u4f3a\u670d\u5668\u984c\u6750\u3002",
+  "2383": "PCB \u8207\u9ad8\u901f\u50b3\u8f38\u677f\uff1bAI \u4f3a\u670d\u5668\u3001\u8f09\u677f\u8207\u9ad8\u983b\u6750\u6599\u984c\u6750\u3002",
+  "2395": "\u5de5\u696d\u96fb\u8166\u8207\u908a\u7de3\u904b\u7b97\uff1b\u667a\u6167\u5de5\u5ee0\u3001AIoT \u8207\u5de5\u63a7\u984c\u6750\u3002",
+  "2408": "DRAM \u8a18\u61b6\u9ad4\uff1b\u8a18\u61b6\u9ad4\u5831\u50f9\u5faa\u74b0\u8207 AI \u5b58\u5132\u9700\u6c42\u3002",
+  "2409": "\u9762\u677f\u8207\u986f\u793a\u5668\uff1b\u9762\u677f\u5831\u50f9\u3001AI PC \u986f\u793a\u8207\u8eca\u7528\u986f\u793a\u984c\u6750\u3002",
+  "2449": "IC \u6e2c\u8a66\uff1bAI/HPC\u3001ASIC \u8207\u9ad8\u968e\u6676\u7247\u6e2c\u8a66\u984c\u6750\u3002",
+  "2454": "IC \u8a2d\u8a08\u9f8d\u982d\uff1b\u624b\u6a5f SoC\u3001AI \u908a\u7de3\u8207\u8eca\u7528\u6676\u7247\u984c\u6750\u3002",
+  "3008": "\u624b\u6a5f\u93e1\u982d\u8207\u5149\u5b78\uff1b\u9ad8\u50f9\u80a1\u3001\u860b\u679c\u4f9b\u61c9\u93c8\u8207\u8eca\u7528\u5149\u5b78\u984c\u6750\u3002",
+  "3017": "\u6563\u71b1\u6a21\u7d44\uff1bAI \u4f3a\u670d\u5668\u6c34\u51b7/\u98a8\u51b7\u3001\u9ad8\u529f\u8017\u6676\u7247\u6563\u71b1\u984c\u6750\u3002",
+  "3034": "\u9762\u677f\u9a45\u52d5 IC \u8207 IC \u8a2d\u8a08\uff1bAI PC\u3001\u986f\u793a\u8207\u8eca\u7528\u986f\u793a\u984c\u6750\u3002",
+  "3081": "\u5149\u901a\u8a0a\u8207 III-V \u534a\u5c0e\u9ad4\uff1bCPO\u3001800G/1.6T \u5149\u901a\u8a0a\u984c\u6750\u3002",
+  "3231": "\u4f3a\u670d\u5668\u8207 PC ODM\uff1bAI \u4f3a\u670d\u5668\u3001\u8cc7\u6599\u4e2d\u5fc3\u8207 PC \u5faa\u74b0\u984c\u6750\u3002",
+  "3324": "\u6563\u71b1\u6a21\u7d44\uff1bAI \u4f3a\u670d\u5668\u6563\u71b1\u3001\u6c34\u51b7\u8207\u9ad8\u529f\u8017\u7cfb\u7d71\u984c\u6750\u3002",
+  "3363": "\u5149\u901a\u8a0a\u5143\u4ef6\uff1bCPO\u3001\u9ad8\u901f\u5149\u6a21\u7d44\u8207\u8cc7\u6599\u4e2d\u5fc3\u984c\u6750\u3002",
+  "3450": "\u5149\u901a\u8a0a\u5143\u4ef6\uff1bCPO\u3001800G/1.6T \u5149\u901a\u8a0a\u8207\u8cc7\u6599\u4e2d\u5fc3\u984c\u6750\u3002",
+  "3711": "\u5c01\u6e2c\u8207\u5148\u9032\u5c01\u88dd\uff1bAI \u6676\u7247\u5c01\u6e2c\u3001OSAT \u8207\u5148\u9032\u5c01\u88dd\u984c\u6750\u3002",
+  "6239": "\u8a18\u61b6\u9ad4\u5c01\u6e2c\uff1bDRAM/NAND \u5faa\u74b0\u8207\u5b58\u5132\u9700\u6c42\u984c\u6750\u3002",
+  "6257": "IC \u6e2c\u8a66\uff1b\u8a18\u61b6\u9ad4\u8207\u7cfb\u7d71\u6676\u7247\u6e2c\u8a66\u984c\u6750\u3002",
+  "6269": "FPCB \u8207\u9ad8\u901f\u50b3\u8f38\u677f\uff1b\u624b\u6a5f\u3001\u8eca\u7528\u8207 AI \u4f3a\u670d\u5668\u96f6\u7d44\u4ef6\u984c\u6750\u3002",
+  "6669": "AI \u4f3a\u670d\u5668\u6574\u6a5f\u8207\u8cc7\u6599\u4e2d\u5fc3\uff1b\u9ad8\u50f9\u9ad8\u6210\u9577 AI \u4f3a\u670d\u5668\u984c\u6750\u3002",
+  "8046": "ABF \u8f09\u677f\uff1bAI/HPC \u6676\u7247\u8f09\u677f\u8207\u9ad8\u968e\u5c01\u88dd\u984c\u6750\u3002",
+};
 
 const SCORE_SOURCE_NOTE = "Transparent model: Yahoo/TWSE quotes plus FinMind financial data; no InvestingPro data or third-party analyst consensus is used.";
 
@@ -1452,6 +1502,7 @@ function buildTaiwanCompanyUniverseFromFinMind(info: FinMindDatasetResult) {
     companyCount: companies.length,
     counts,
     filter: "4-digit twse/tpex/emerging companies; ETF, bond ETF, ETN, warrants, DR and fund-like products are excluded.",
+    companies,
     samples: companies.slice(0, 20),
   };
 }
@@ -1766,6 +1817,7 @@ async function loadOfficialTaiwanCompanyUniverseFallback(finMindError: unknown) 
     companyCount: companies.length,
     counts,
     filter: "Official listed, OTC, and emerging company profile endpoints; used only when FinMind TaiwanStockInfo is temporarily unavailable.",
+    companies,
     samples: companies.slice(0, 20),
   };
 }
@@ -2963,11 +3015,45 @@ function screenerSortValue(mode: string, item: ValueScore) {
 
 function parseScreenerUniverse(value: unknown) {
   const raw = String(value || "").trim();
-  if (!raw) return DEFAULT_SCREENER_UNIVERSE;
+  if (!raw) return [];
   const codes = raw.split(/[,\s]+/)
     .map(cleanCode)
     .filter(code => /^\d{4,6}$/.test(code));
   return [...new Set(codes)].slice(0, CUSTOM_SCREENER_LIMIT);
+}
+
+function industryThemeScore(company: { code: string; name: string; type: string; industry: string }) {
+  const text = `${company.name || ""} ${company.industry || ""}`;
+  if (COMPANY_THEME_DETAILS[company.code]) return 100;
+  if (/\u534a\u5c0e\u9ad4|\u96fb\u5b50\u96f6\u7d44\u4ef6|\u5149\u96fb|\u96fb\u8166|\u901a\u4fe1|\u5176\u4ed6\u96fb\u5b50|\u8cc7\u8a0a/i.test(text)) return 88;
+  if (/\u91d1\u878d|\u96fb\u6a5f|\u6a5f\u68b0|\u751f\u6280|\u822a\u904b|\u7d21\u7e54|\u5316\u5de5|\u6c34\u6ce5|\u92fc\u9435/i.test(text)) return 70;
+  return 52;
+}
+
+function buildDefaultScreenerUniverse(marketUniverseResult: any) {
+  const companies = Array.isArray(marketUniverseResult?.companies) ? marketUniverseResult.companies : [];
+  const byCode = new Map<string, any>(companies.map((company: any) => [company.code, company]));
+  const selected: string[] = [];
+  const add = (code: string) => {
+    const clean = cleanCode(code);
+    if (!/^\d{4}$/.test(clean)) return;
+    if (selected.includes(clean)) return;
+    if (byCode.size && !byCode.has(clean)) return;
+    selected.push(clean);
+  };
+  EXPANDED_SWING_SEED_CODES.forEach(add);
+  [...companies]
+    .filter((company: any) => /^\d{4}$/.test(company.code))
+    .sort((a: any, b: any) => {
+      const scoreDiff = industryThemeScore(b) - industryThemeScore(a);
+      if (scoreDiff) return scoreDiff;
+      return String(a.code).localeCompare(String(b.code));
+    })
+    .forEach((company: any) => {
+      if (selected.length < DEFAULT_FULL_MARKET_SEED_LIMIT) add(company.code);
+    });
+  if (!selected.length) return DEFAULT_SCREENER_UNIVERSE;
+  return selected.slice(0, DEFAULT_FULL_MARKET_SEED_LIMIT);
 }
 
 async function settleWithLimit<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>) {
@@ -2989,16 +3075,15 @@ async function settleWithLimit<T, R>(items: T[], limit: number, fn: (item: T, in
 }
 
 async function loadScreener(mode: string, universeValue: unknown, options: { fast?: boolean } = {}) {
-  const universe = parseScreenerUniverse(universeValue);
-  const isDefaultUniverse = !universeValue && universe.length === DEFAULT_SCREENER_UNIVERSE.length;
-  const scoreLimit = isDefaultUniverse ? Math.max(1, universe.length) : 4;
-  const [marketUniverseResult, results] = await Promise.all([
-    withTimeout(loadTaiwanCompanyUniverse(), 12000, "Taiwan company universe timed out").catch(err => ({
-      ok: false,
-      message: err instanceof Error ? err.message : String(err),
-    })),
-    settleWithLimit(universe, scoreLimit, code => loadValueScore(code, options)),
-  ]);
+  const customUniverse = parseScreenerUniverse(universeValue);
+  const marketUniverseResult = await withTimeout(loadTaiwanCompanyUniverse(), 12000, "Taiwan company universe timed out").catch(err => ({
+    ok: false,
+    message: err instanceof Error ? err.message : String(err),
+  }));
+  const isDefaultUniverse = customUniverse.length === 0;
+  const universe = isDefaultUniverse ? buildDefaultScreenerUniverse(marketUniverseResult) : customUniverse;
+  const scoreLimit = isDefaultUniverse ? 10 : 4;
+  const results = await settleWithLimit(universe, scoreLimit, code => loadValueScore(code, options));
   const items: ValueScore[] = [];
   const errors: Array<{ code: string; message: string }> = [];
   results.forEach((result, index) => {
@@ -3022,8 +3107,12 @@ async function loadScreener(mode: string, universeValue: unknown, options: { fas
       requestedCount: universe.length,
       scoredCount: sorted.length,
       customLimit: CUSTOM_SCREENER_LIMIT,
+      defaultSeedLimit: DEFAULT_FULL_MARKET_SEED_LIMIT,
+      defaultSeedSource: isDefaultUniverse ? "full-market company universe plus cross-industry swing seed" : "custom input",
       groups: [...new Set(TAIWAN_SCREENING_UNIVERSE.filter(item => universe.includes(item.code)).map(item => item.group))],
-      note: "Full Taiwan company universe is checked separately; this endpoint scores a controlled batch to avoid upstream quota/timeouts.",
+      note: isDefaultUniverse
+        ? "Full Taiwan company universe is loaded first; this request scores a broader cross-industry seed from that universe to avoid synchronous 2,500-stock upstream timeouts."
+        : "Custom input mode scores only the submitted stock list.",
     },
     source: SCORE_SOURCE_NOTE,
     generatedAt: new Date().toISOString(),
@@ -4053,10 +4142,9 @@ async function loadSwingMacroNews() {
   const results = await settleWithLimit(topics, 2, async topic => {
     const url = `https://news.google.com/rss/search?q=${encodeURIComponent(topic.query)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
     const xml = await fetchText(url, 12000);
-    return parseRssItems(xml).slice(0, 3).map(item => ({
-      ...classifyMacroNews(item, topic.label),
-      sourceUrl: url,
-    }));
+    const items = parseRssItems(xml).slice(0, 3);
+    const enriched = await settleWithLimit(items, 2, item => enrichMacroNewsItem(item, topic.label, url));
+    return enriched.flatMap(result => result.status === "fulfilled" ? [result.value] : []);
   });
   const importanceRank: Record<string, number> = { "\u9ad8": 3, "\u4e2d": 2, "\u4f4e": 1 };
   const items = results
@@ -4069,23 +4157,99 @@ async function loadSwingMacroNews() {
   return {
     ok: items.length > 0,
     generatedAt: new Date().toISOString(),
-    source: "Google News RSS",
+    source: "Google News RSS plus readable article-page excerpts when available",
     items: items.slice(0, 10),
     errors,
   };
 }
 
-function classifyMacroNews(item: NewsItem, topic: string) {
+function extractArticleText(html: string) {
+  const meta = [...html.matchAll(/<meta[^>]+(?:name|property)=["'](?:description|og:description)["'][^>]+content=["']([^"']+)["'][^>]*>/gi)]
+    .map(match => decodeHtml(match[1] || ""))
+    .join(" ");
+  const body = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<nav[\s\S]*?<\/nav>/gi, " ")
+    .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
+    .replace(/<svg[\s\S]*?<\/svg>/gi, " ")
+    .replace(/<[^>]+>/g, " ");
+  return cleanNewsText(`${meta} ${decodeHtml(body)}`).slice(0, 1800);
+}
+
+function articleEvidencePoints(text: string, fallback: string) {
+  const source = cleanNewsText(text || fallback || "");
+  if (!source) return [];
+  const parts = source
+    .split(/[。.!?；;]\s*/)
+    .map(part => part.trim())
+    .filter(part => part.length >= 18 && part.length <= 180)
+    .filter(part => !/\bfunction\b|\bfromCharCode\b|\breturn\b|\bvar\b|\bconst\b|\blet\b|[{}`]/i.test(part));
+  return [...new Set(parts)].slice(0, 3);
+}
+
+function isGoogleNewsWrapperText(text: string) {
+  return /Comprehensive up-to-date news coverage|aggregated from sources all over the world by Google News|Google News/i.test(text);
+}
+
+function extractPublisherUrlFromGoogleNewsHtml(html: string) {
+  const decoded = decodeHtml(html)
+    .replace(/\\u003d/g, "=")
+    .replace(/\\u0026/g, "&")
+    .replace(/\\\//g, "/");
+  const urls = [...decoded.matchAll(/https?:\/\/[^\s"'<>\\]+/g)].map(match => match[0]);
+  return urls.find(url =>
+    !/google\.com|googleusercontent\.com|gstatic\.com|google-analytics\.com|googletagmanager\.com|doubleclick\.net|schema\.org|w3\.org|youtube\.com|youtu\.be/i.test(url) &&
+    !/\.(png|jpg|jpeg|gif|webp|svg|ico|js|css|json|xml)(\?|$)/i.test(url)
+  ) || "";
+}
+
+async function enrichMacroNewsItem(item: NewsItem, topic: string, sourceUrl: string) {
+  let articleText = "";
+  let articleReadStatus = "\u50c5\u8b80\u53d6 RSS \u6a19\u984c\u8207\u6458\u8981";
+  let publisherUrl = "";
+  try {
+    const html = await fetchText(item.link, 9000);
+    const extracted = extractArticleText(html);
+    const isGoogleWrapper = /news\.google\.com/i.test(item.link) || isGoogleNewsWrapperText(extracted);
+    if (isGoogleWrapper) {
+      publisherUrl = "";
+      articleText = "";
+    } else {
+      articleText = extracted;
+    }
+    if (articleText.length >= 120 && !isGoogleNewsWrapperText(articleText)) {
+      articleReadStatus = publisherUrl ? "\u5df2\u8b80\u53d6\u539f\u59cb\u65b0\u805e\u9801\u5167\u6587\u6458\u8981" : "\u5df2\u8b80\u53d6\u65b0\u805e\u9801\u5167\u6587\u6458\u8981";
+    } else {
+      articleText = "";
+      articleReadStatus = publisherUrl
+        ? "\u539f\u59cb\u65b0\u805e\u9801\u5167\u6587\u7121\u6cd5\u53d6\u5f97\uff0c\u6539\u7528 RSS \u6a19\u984c\u8207\u6458\u8981"
+        : "\u4f86\u6e90\u70ba Google News RSS wrapper\uff0c\u672a\u53d6\u5f97\u53ef\u9760\u539f\u6587\u7db2\u5740\uff0c\u6539\u7528 RSS \u6a19\u984c\u8207\u6458\u8981";
+    }
+  } catch (err) {
+    articleReadStatus = "\u65b0\u805e\u9801\u5167\u6587\u66ab\u6642\u7121\u6cd5\u8b80\u53d6\uff0c\u6539\u7528 RSS \u6a19\u984c\u8207\u6458\u8981";
+  }
+  return {
+    ...classifyMacroNews(item, topic, articleText, articleReadStatus),
+    sourceUrl,
+    publisherUrl,
+    link: publisherUrl || item.link,
+  };
+}
+
+function classifyMacroNews(item: NewsItem, topic: string, articleText = "", articleReadStatus = "\u50c5\u8b80\u53d6 RSS \u6a19\u984c\u8207\u6458\u8981") {
   const cleanTitle = cleanNewsText(item.title);
   const cleanSnippet = cleanNewsText(item.snippet);
-  const text = `${cleanTitle} ${cleanSnippet}`.toLowerCase();
+  const articleEvidence = articleEvidencePoints(articleText, cleanSnippet || cleanTitle);
+  const articleBasis = articleEvidence.join(" ");
+  const text = `${cleanTitle} ${cleanSnippet} ${articleBasis}`.toLowerCase();
   const hasRate = /fed|fomc|rate|yield|\u5229\u7387|\u964d\u606f|\u7f8e\u5143|\u532f\u7387|\u516c\u50b5/.test(text);
   const hasTaiwan = /\u53f0\u80a1|\u52a0\u6b0a|\u5916\u8cc7|twse|\u65b0\u53f0\u5e63|\u53f0\u5e63/.test(text);
   const hasSemi = /ai|tsmc|nvidia|\u534a\u5c0e\u9ad4|\u53f0\u7a4d|\u4f3a\u670d\u5668|\u4f9b\u61c9\u93c8|\u6676\u7247/.test(text);
   const hasRisk = /\u901a\u81a8|\u8870\u9000|\u95dc\u7a05|\u5730\u7de3|\u8dcc|\u8ce3\u58d3|\u8b66\u793a|\u964d\u8a55|\u8d70\u5f31/.test(text);
   const hasGrowth = /\u6210\u9577|\u5275\u9ad8|\u8ca1\u5831|\u71df\u6536|\u8a02\u55ae|\u4e0a\u4fee|\u8cb7\u8d85|\u9700\u6c42/.test(text);
   const importance = hasRate || hasTaiwan || hasSemi ? "\u9ad8" : hasRisk || hasGrowth ? "\u4e2d" : "\u4f4e";
-  const sourceSummary = cleanSnippet && cleanSnippet !== cleanTitle ? cleanSnippet : cleanTitle;
+  const sourceSummary = articleEvidence[0] || (cleanSnippet && cleanSnippet !== cleanTitle ? cleanSnippet : cleanTitle);
   const matchedDrivers = [
     hasTaiwan ? "\u53f0\u80a1\u98a8\u96aa\u504f\u597d/\u8cc7\u91d1\u9762" : "",
     hasRate ? "\u5229\u7387\u3001\u532f\u7387\u6216\u8cc7\u91d1\u6210\u672c" : "",
@@ -4125,9 +4289,9 @@ function classifyMacroNews(item: NewsItem, topic: string) {
           ? "\u91cd\u9ede\u5224\u8b80\uff1a\u9019\u5247\u65b0\u805e\u7684\u6838\u5fc3\u662f\u53f0\u80a1\u8cc7\u91d1\u9762\u6216\u5927\u76e4\u60c5\u7dd2\uff0c\u6703\u76f4\u63a5\u5f71\u97ff\u4eca\u65e5\u5019\u9078\u80a1\u7684\u512a\u5148\u9806\u5e8f\u3002"
           : "\u91cd\u9ede\u5224\u8b80\uff1a\u9019\u5247\u65b0\u805e\u76ee\u524d\u672a\u547d\u4e2d\u9ad8\u5f71\u97ff\u5e02\u5834\u4e3b\u8ef8\uff0c\u5148\u4f5c\u70ba\u80cc\u666f\u8ffd\u8e64\u3002";
   const keyPoints = [
-    focus,
+    `\u5c0f\u8cc7/\u6ce2\u6bb5\u4ea4\u6613\u8005\u5148\u770b\uff1a${focus.replace(/^\u91cd\u9ede\u5224\u8b80\uff1a/, "")}`,
     matchedDrivers.length ? `\u8fa8\u8b58\u5230\u7684\u4e3b\u8ef8\uff1a${matchedDrivers.join("\u3001")}\u3002` : "\u8fa8\u8b58\u5230\u7684\u4e3b\u8ef8\uff1a\u672a\u547d\u4e2d\u9ad8\u5f71\u97ff\u95dc\u9375\u8a5e\uff0c\u5148\u5217\u80cc\u666f\u8ffd\u8e64\u3002",
-    `\u4f86\u6e90\u6458\u8981\uff1a${sourceSummary || "\u4f86\u6e90\u6458\u8981\u4e0d\u8db3\uff0c\u50c5\u4f9d\u6a19\u984c\u8207\u4e3b\u984c\u95dc\u9375\u8a5e\u5224\u8b80\u3002"}`,
+    articleEvidence[1] ? `\u6587\u7ae0\u5167\u5bb9\u6458\u53e5\uff1a${articleEvidence[1]}` : `\u4f86\u6e90\u6458\u8981\uff1a${sourceSummary || "\u4f86\u6e90\u6458\u8981\u4e0d\u8db3\uff0c\u50c5\u4f9d\u6a19\u984c\u8207\u4e3b\u984c\u95dc\u9375\u8a5e\u5224\u8b80\u3002"}`,
     reason,
   ];
   return {
@@ -4142,6 +4306,8 @@ function classifyMacroNews(item: NewsItem, topic: string) {
     conclusion,
     reason,
     sourceSummary,
+    articleReadStatus,
+    articleEvidence,
     marketImpact,
     screeningUse,
     riskFlag: hasRisk ? "\u98a8\u96aa\u8b66\u793a" : hasGrowth || hasSemi ? "\u984c\u6750\u652f\u6490" : "\u80cc\u666f\u8cc7\u8a0a",
@@ -4604,6 +4770,29 @@ function swingSetupType(snapshot: ValueScore["technicalSnapshot"]) {
   return "\u5340\u9593\u6574\u7406\u89c0\u5bdf";
 }
 
+function swingSetupDetail(snapshot: ValueScore["technicalSnapshot"]) {
+  const latest = snapshot.latest;
+  const close = latest.close;
+  const distance20 = latest.ma20 ? ((close / latest.ma20) - 1) * 100 : null;
+  const distance20Text = Number.isFinite(distance20) ? fmt(distance20 as number, 1) : "--";
+  if (close > latest.ma20 && latest.ma20 > latest.ma60 && latest.pullback < 62) {
+    return `20MA \u7e8c\u822a\uff1a\u6536\u76e4\u5728 20MA \u4e0a\u65b9\u4e14 20MA \u9ad8\u65bc 60MA\uff0c\u5c6c\u65bc 1-3 \u500b\u6708\u8da8\u52e2\u7e8c\u822a\u5019\u9078\uff1b\u82e5\u96e2 20MA ${distance20Text}% \u904e\u9060\uff0c\u61c9\u7b49\u56de\u6e2c\u6216\u653e\u91cf\u7a81\u7834\u78ba\u8a8d\u3002`;
+  }
+  if (close > latest.ma60 && close <= latest.ma20 * 1.03) {
+    return `\u56de\u6e2c\u89c0\u5bdf\uff1a\u50f9\u683c\u9760\u8fd1 20MA\uff0c\u5c6c\u65bc\u7b49\u652f\u6490\u7684\u4f4d\u7f6e\uff1b\u82e5\u5b88\u4f4f 20MA \u4e26\u91cf\u80fd\u4e0d\u5931\u63a7\uff0c\u624d\u4fdd\u7559\u7e8c\u6f32\u5047\u8a2d\u3002`;
+  }
+  if (close > snapshot.levels.resistanceShort * 0.98 && latest.volumeRatio >= 1.2) {
+    return `\u7e7c\u7e8c\u7e8c\u6f32/\u7a81\u7834\u78ba\u8a8d\uff1a\u50f9\u683c\u63a5\u8fd1\u77ed\u58d3\u6216\u5df2\u7a81\u7834\uff0c\u4e14\u91cf\u80fd\u6709\u653e\u5927\uff1b\u9069\u5408\u89c0\u5bdf\u662f\u5426\u7ad9\u7a69\u58d3\u529b\u8f49\u652f\u6490\u3002`;
+  }
+  if (latest.pullback >= 72) {
+    return `\u904e\u71b1\u7b49\u56de\u6a94\uff1aRSI/\u4e56\u96e2\u6216\u6ce2\u52d5\u5df2\u504f\u9ad8\uff0c\u76f4\u63a5\u8ffd\u50f9\u7684\u505c\u640d\u8ddd\u96e2\u6703\u8b8a\u5927\uff1b\u512a\u5148\u7b49\u56de\u6e2c 20MA \u6216\u91cf\u7e2e\u6574\u7406\u3002`;
+  }
+  if (close < latest.ma20 && latest.ma20 < latest.ma60) {
+    return `\u504f\u7a7a\u89c0\u5bdf\uff1a\u50f9\u683c\u5728 20MA \u4e0b\u65b9\u4e14 20MA \u4f4e\u65bc 60MA\uff0c\u4e0d\u9069\u5408\u7576\u4f5c\u512a\u5148\u6ce2\u6bb5\u5019\u9078\uff0c\u9700\u7b49\u6536\u56de 20MA \u518d\u8a55\u4f30\u3002`;
+  }
+  return `\u5340\u9593\u6574\u7406\uff1a\u8da8\u52e2\u689d\u4ef6\u5c1a\u672a\u5b8c\u5168\u6210\u7acb\uff0c\u9069\u5408\u5148\u770b\u58d3\u529b\u8207\u652f\u6490\u662f\u5426\u6536\u6582\uff1b\u7a81\u7834\u9700\u6709\u6210\u4ea4\u503c\u914d\u5408\u3002`;
+}
+
 function swingTechnicalScore(item: ValueScore) {
   const latest = item.technicalSnapshot.latest;
   let score = 35;
@@ -4625,6 +4814,16 @@ function swingThemeFitScore(item: ValueScore) {
   if (/materials|plastics|steel|shipping|petrochemical/i.test(group)) return 54;
   if (/ETF/i.test(group)) return 48;
   return 60;
+}
+
+function companyThemeDetail(code: string, group = "") {
+  if (COMPANY_THEME_DETAILS[code]) return COMPANY_THEME_DETAILS[code];
+  if (/semiconductor/i.test(group)) return "\u534a\u5c0e\u9ad4\u4f9b\u61c9\u93c8\uff1b\u9700\u8ffd\u8e64\u6676\u7247\u9700\u6c42\u3001\u5eab\u5b58\u5faa\u74b0\u8207 AI/HPC \u984c\u6750\u3002";
+  if (/server|electronics|industrial computer/i.test(group)) return "\u96fb\u5b50\u88fd\u9020\u6216\u4f3a\u670d\u5668\u4f9b\u61c9\u93c8\uff1b\u91cd\u9ede\u770b AI \u4f3a\u670d\u5668\u3001PC/AI PC \u8207\u6210\u4ea4\u503c\u3002";
+  if (/financial/i.test(group)) return "\u91d1\u878d\u80a1\uff1b\u91cd\u9ede\u770b\u5229\u7387\u3001\u6b96\u5229\u7387\u8207\u6cd5\u4eba\u6301\u7e8c\u6027\u3002";
+  if (/shipping/i.test(group)) return "\u822a\u904b\u80a1\uff1b\u91cd\u9ede\u770b\u904b\u50f9\u3001\u666f\u6c23\u5faa\u74b0\u8207\u6210\u4ea4\u91cf\u8f49\u6298\u3002";
+  if (/ETF/i.test(group)) return "ETF \u5546\u54c1\uff1b\u53ea\u5217\u70ba\u5927\u76e4/\u6d41\u52d5\u6027\u53c3\u8003\uff0c\u4e0d\u7576\u4f5c\u500b\u80a1\u984c\u6750\u3002";
+  return "\u516c\u53f8\u984c\u6750\u5c1a\u672a\u5efa\u7acb\u7d30\u5206\u6a19\u7c64\uff1b\u5148\u4ee5\u7522\u696d\u5225\u3001\u6210\u4ea4\u503c\u8207 20MA \u7d50\u69cb\u5224\u8b80\u3002";
 }
 
 function scoreTradingValue(value100m: number | null) {
@@ -4669,20 +4868,26 @@ function swingMainEvidence(closeVs20MaPct: number | null, ma20Slope5dPct: number
 
 function swingThemeNote(item: any) {
   const group = swingGroup(item.code || "");
-  if (/server|electronics|industrial computer/i.test(group)) return "AI \u4f3a\u670d\u5668\u6216\u96fb\u5b50\u4f9b\u61c9\u93c8\u9ad8\u6d41\u52d5\u6027";
-  if (/semiconductor/i.test(group)) return "\u534a\u5c0e\u9ad4\u3001AI \u6676\u7247\u6216 IC \u984c\u6750";
-  if (/financial/i.test(group)) return "\u91d1\u878d\u80a1\u9ad8\u6210\u4ea4\u503c\u8207\u6b96\u5229\u7387\u53c3\u8003";
-  if (/ETF/i.test(group)) return "\u975e\u666e\u901a\u80a1\uff0c\u53ea\u5217\u70ba\u6d41\u52d5\u6027\u53c3\u8003";
-  return "\u6700\u65b0\u6210\u4ea4\u91cf\u6216\u6210\u4ea4\u503c\u6392\u540d\u524d\u6bb5";
+  return companyThemeDetail(item.code || "", group);
 }
 
 function swingLiquidityNote(item: any, candidate: any) {
   const trading = candidate?.sortKeys?.tradingValue100m;
   const close = candidate?.latestClose ?? item.close;
-  if (Number.isFinite(close) && close >= 800) return "\u9ad8\u50f9\u80a1\uff0c\u6d41\u52d5\u6027\u9700\u4f75\u540c\u6210\u4ea4\u503c\u6aa2\u67e5";
-  if (Number.isFinite(trading) && trading >= 30) return `${swingThemeNote(item)}\uff0c\u6210\u4ea4\u503c\u9ad8`;
-  if (Number.isFinite(trading) && trading >= 10) return `${swingThemeNote(item)}\uff0c\u6d41\u52d5\u6027\u4e2d\u9ad8`;
-  return `${swingThemeNote(item)}\uff0c\u6d41\u52d5\u6027\u4e2d\u7b49`;
+  const theme = swingThemeNote(item);
+  if (Number.isFinite(close) && close >= 800) return `${theme}\uff1b\u9ad8\u50f9\u80a1\uff0c\u55ae\u7b46\u90e8\u4f4d\u98a8\u96aa\u8f03\u9ad8\uff0c\u9700\u540c\u6642\u6aa2\u67e5\u65e5\u6210\u4ea4\u503c\u8207\u96f6\u80a1\u6210\u4ea4\uff0c\u907f\u514d\u4e0d\u597d\u9032\u51fa\u3002`;
+  if (Number.isFinite(trading) && trading >= 30) return `${theme}\uff1b\u6700\u65b0\u6210\u4ea4\u503c\u9ad8\uff0c\u9069\u5408\u5217\u5165\u6ce2\u6bb5\u6d41\u52d5\u6027\u5019\u9078\u3002`;
+  if (Number.isFinite(trading) && trading >= 10) return `${theme}\uff1b\u6210\u4ea4\u503c\u4e2d\u9ad8\uff0c\u9700\u642d\u914d 20MA \u8207\u5931\u6548\u7dda\u78ba\u8a8d\u3002`;
+  return `${theme}\uff1b\u6d41\u52d5\u6027\u504f\u4e2d\u7b49\uff0c\u8cc7\u91d1\u90e8\u4f4d\u9700\u4fdd\u5b88\u3002`;
+}
+
+function institutionalNetBuyText(totalNet: number | null | undefined, close: number | null | undefined) {
+  if (!Number.isFinite(totalNet)) return "N/A";
+  const shares = totalNet as number;
+  const lots = round(shares / 1000, 0);
+  const value100m = Number.isFinite(close) ? round((shares * (close as number)) / 100000000, 2) : null;
+  const valueText = value100m !== null ? ` / ${fmt(value100m, 2)} \u5104\u4f30` : "";
+  return `${fmt(lots, 0)} \u5f35${valueText}`;
 }
 
 function buildSwingCandidate(item: ValueScore, marketProxy: QuoteInfo | null = null, officialTrend: any = null) {
@@ -4726,6 +4931,7 @@ function buildSwingCandidate(item: ValueScore, marketProxy: QuoteInfo | null = n
     latestDataDate: item.quoteDate,
     sector: swingGroup(item.code),
     setupType: swingSetupType(item.technicalSnapshot),
+    setupDetail: swingSetupDetail(item.technicalSnapshot),
     swingScore,
     sortKeys: {
       topicFit,
@@ -4751,6 +4957,7 @@ function buildSwingCandidate(item: ValueScore, marketProxy: QuoteInfo | null = n
       Number.isFinite(institutional?.totalNet) ? `\u8fd15\u65e5\u6cd5\u4eba\u5408\u8a08 ${fmt(institutional?.totalNet as number, 0)}` : "\u6cd5\u4eba\u8cc7\u6599\u7f3a\u8cc7\u6599",
     ],
     keyRisk: `\u8dcc\u7834 ${fmt(invalidation)} \u6216 MA20 ${fmt(latest.ma20)} \u7121\u6cd5\u6536\u56de\u6642\uff0c\u6ce2\u6bb5\u5047\u8a2d\u5931\u6548\u3002`,
+    invalidationNote: `\u82e5\u6536\u76e4\u8dcc\u7834 ${fmt(invalidation)}\uff0c\u4ee3\u8868\u77ed\u7dda\u652f\u6490 ${fmt(levels.supportMid)} \u6216 60MA ${fmt(latest.ma60)} \u7d50\u69cb\u5df2\u5931\u5b88\uff1b\u82e5\u540c\u6642\u7121\u6cd5\u6536\u56de 20MA ${fmt(latest.ma20)}\uff0c1-3 \u500b\u6708\u6ce2\u6bb5\u5047\u8a2d\u61c9\u964d\u7d1a\u6216\u9000\u51fa\u89c0\u5bdf\u3002`,
     levels: {
       support: levels.supportShort,
       supportMid: levels.supportMid,
@@ -4814,14 +5021,16 @@ function buildSwingThemeTables(candidates: any[], stockItems: ValueScore[]) {
       key: "foreign-yield",
       title: "\u5916\u8cc7\u8cb7\u8d85\u5f37\u52e2\u80a1 / \u6b96\u5229\u7387\u6392\u5e8f",
       description: "\u512a\u5148\u770b\u8fd1\u671f\u6cd5\u4eba\u6de8\u8cb7\u8d85\uff0c\u4f75\u5217\u6b96\u5229\u7387\u3001\u672c\u76ca\u6bd4\u8207\u6210\u4ea4\u503c\u3002",
-      columns: ["\u6392\u540d", "\u4ee3\u78bc/\u540d\u7a31", "\u6536\u76e4", "\u5916\u8cc7\u8fd11\u6708\u8cb7\u8d85", "\u6b96\u5229\u7387%", "\u672c\u76ca\u6bd4", "\u6210\u4ea4\u503c(\u5104)"],
+      columns: ["\u6392\u540d", "\u4ee3\u78bc/\u540d\u7a31", "\u6536\u76e4", "\u8fd1 5 \u65e5\u6cd5\u4eba\u8cb7\u8d85(\u5f35 / \u5104\u4f30)", "\u6b96\u5229\u7387%", "\u672c\u76ca\u6bd4", "\u6210\u4ea4\u503c(\u5104)"],
       rows: rankRows(foreignYield, candidate => {
         const item = itemFor(candidate);
+        const totalNet = Number(item.fundamentals?.data?.institutional?.totalNet);
         return {
           code: candidate.code,
           name: candidate.name,
           close: candidate.latestClose,
-          foreignNetBuy: Number.isFinite(item.fundamentals?.data?.institutional?.totalNet) ? round(item.fundamentals.data.institutional.totalNet, 0) : null,
+          foreignNetBuy: Number.isFinite(totalNet) ? round(totalNet, 0) : null,
+          foreignNetBuyText: institutionalNetBuyText(totalNet, candidate.latestClose),
           dividendYield: valuationMetric(item, "dividendYield"),
           per: valuationMetric(item, "per"),
           tradingValue100m: candidate.sortKeys?.tradingValue100m,
