@@ -58,6 +58,19 @@ function round(value: number, digits = 2) {
   return Math.round(value * p) / p;
 }
 
+function encodeText(value: unknown) {
+  return encodeURIComponent(String(value ?? ""));
+}
+
+function encodeTextTree(value: any): any {
+  if (typeof value === "string") return encodeText(value);
+  if (Array.isArray(value)) return value.map(item => encodeTextTree(item));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, encodeTextTree(item)]));
+  }
+  return value;
+}
+
 async function fetchJson(url: string, timeoutMs = 9000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -3752,6 +3765,7 @@ async function fetchTwseStockDayTrend(code: string) {
   const latest = unique[unique.length - 1];
   const ma20 = lastFinite(ma20Values);
   const ma20FiveAgo = ma20Values.length > 5 ? ma20Values[ma20Values.length - 6] : NaN;
+  const tradingValue3m = unique.slice(-60).reduce((sum, row) => sum + (Number.isFinite(row.tradingValue) ? row.tradingValue : 0), 0);
   const slopePct = Number.isFinite(ma20) && Number.isFinite(ma20FiveAgo) && ma20FiveAgo > 0
     ? round(((ma20 / ma20FiveAgo) - 1) * 100, 2)
     : null;
@@ -3763,7 +3777,9 @@ async function fetchTwseStockDayTrend(code: string) {
     latestVolume: latest.volume,
     latestTradingValue: latest.tradingValue,
     tradingValue100m: Number.isFinite(latest.tradingValue) ? round(latest.tradingValue / 100000000, 2) : null,
+    tradingValue3m100m: tradingValue3m > 0 ? round(tradingValue3m / 100000000, 2) : null,
     ma20: Number.isFinite(ma20) ? round(ma20) : null,
+    ma20FiveAgo: Number.isFinite(ma20FiveAgo) ? round(ma20FiveAgo) : null,
     ma20Slope5dPct: slopePct,
     closeVs20MaPct: Number.isFinite(ma20) && ma20 > 0 ? round(((latest.close / ma20) - 1) * 100, 2) : null,
     source: "TWSE STOCK_DAY",
@@ -4029,16 +4045,14 @@ async function loadSwingMacroNews() {
     const url = `https://news.google.com/rss/search?q=${encodeURIComponent(topic.query)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
     const xml = await fetchText(url, 12000);
     return parseRssItems(xml).slice(0, 3).map(item => ({
-      topic: topic.label,
-      title: item.title,
-      link: item.link,
-      source: item.source,
-      publishedAt: item.publishedAt,
-      snippet: item.snippet,
+      ...classifyMacroNews(item, topic.label),
       sourceUrl: url,
     }));
   });
-  const items = results.flatMap(result => result.status === "fulfilled" ? result.value : []);
+  const importanceRank: Record<string, number> = { "\u9ad8": 3, "\u4e2d": 2, "\u4f4e": 1 };
+  const items = results
+    .flatMap(result => result.status === "fulfilled" ? result.value : [])
+    .sort((a, b) => (importanceRank[b.importance] || 0) - (importanceRank[a.importance] || 0));
   const errors = results.map((result, index) => result.status === "rejected"
     ? { topic: topics[index].label, message: result.reason instanceof Error ? result.reason.message : String(result.reason) }
     : null
@@ -4049,6 +4063,74 @@ async function loadSwingMacroNews() {
     source: "Google News RSS",
     items: items.slice(0, 10),
     errors,
+  };
+}
+
+function classifyMacroNews(item: NewsItem, topic: string) {
+  const text = `${item.title} ${item.snippet}`.toLowerCase();
+  const hasRate = /fed|fomc|rate|yield|\u5229\u7387|\u964d\u606f|\u7f8e\u5143|\u532f\u7387|\u516c\u50b5/.test(text);
+  const hasTaiwan = /\u53f0\u80a1|\u52a0\u6b0a|\u5916\u8cc7|twse|\u65b0\u53f0\u5e63|\u53f0\u5e63/.test(text);
+  const hasSemi = /ai|tsmc|nvidia|\u534a\u5c0e\u9ad4|\u53f0\u7a4d|\u4f3a\u670d\u5668|\u4f9b\u61c9\u93c8|\u6676\u7247/.test(text);
+  const hasRisk = /\u901a\u81a8|\u8870\u9000|\u95dc\u7a05|\u5730\u7de3|\u8dcc|\u8ce3\u58d3|\u8b66\u793a|\u964d\u8a55|\u8d70\u5f31/.test(text);
+  const hasGrowth = /\u6210\u9577|\u5275\u9ad8|\u8ca1\u5831|\u71df\u6536|\u8a02\u55ae|\u4e0a\u4fee|\u8cb7\u8d85|\u9700\u6c42/.test(text);
+  const importance = hasRate || hasTaiwan || hasSemi ? "\u9ad8" : hasRisk || hasGrowth ? "\u4e2d" : "\u4f4e";
+  const marketImpact = hasRisk
+    ? "\u9700\u964d\u4f4e\u8ffd\u50f9\u4fe1\u5fc3\uff0c\u512a\u5148\u6aa2\u67e5\u5019\u9078\u80a1\u662f\u5426\u96e2 20MA \u904e\u9060\u6216\u91cf\u50f9\u5931\u8861\u3002"
+    : hasGrowth || hasSemi
+      ? "\u5c0d AI\u3001\u534a\u5c0e\u9ad4\u8207\u9ad8\u6210\u4ea4\u503c\u984c\u6750\u6709\u52a0\u6eab\u6548\u679c\uff0c\u4f46\u4ecd\u9700\u7528 20MA \u8207\u5931\u6548\u7dda\u63a7\u5236\u98a8\u96aa\u3002"
+      : "\u5c6c\u80cc\u666f\u8cc7\u8a0a\uff0c\u53ea\u4f5c\u70ba\u4eca\u65e5\u5e02\u5834\u6c23\u6c1b\u8207\u98a8\u96aa\u6eab\u5ea6\u53c3\u8003\u3002";
+  const screeningUse = hasRate
+    ? "\u5f71\u97ff\u8cc7\u91d1\u98a8\u96aa\u504f\u597d\u8207\u532f\u7387\uff0c\u7be9\u9078\u6642\u63d0\u9ad8\u6d41\u52d5\u6027\u8207\u5931\u6548\u689d\u4ef6\u6b0a\u91cd\u3002"
+    : hasTaiwan
+      ? "\u76f4\u63a5\u5f71\u97ff\u53f0\u80a1\u6ce2\u6bb5\u5019\u9078\uff0c\u512a\u5148\u6aa2\u67e5\u5916\u8cc7\u3001\u6210\u4ea4\u503c\u8207 20MA \u7d50\u69cb\u3002"
+      : hasSemi
+        ? "\u8207 AI\u3001\u534a\u5c0e\u9ad4\u3001\u96fb\u5b50\u6b0a\u503c\u984c\u6750\u76f8\u95dc\uff0c\u4e3b\u984c\u5951\u5408\u5ea6\u52a0\u6b0a\u89c0\u5bdf\u3002"
+        : "\u4e0d\u76f4\u63a5\u6539\u8b8a\u5019\u9078\u540d\u55ae\uff0c\u4f46\u6703\u7d0d\u5165\u5e02\u5834\u6c23\u6c1b\u5224\u8b80\u3002";
+  return {
+    topic,
+    title: item.title,
+    link: item.link,
+    source: item.source,
+    publishedAt: item.publishedAt,
+    snippet: item.snippet,
+    importance,
+    marketImpact,
+    screeningUse,
+    riskFlag: hasRisk ? "\u98a8\u96aa\u8b66\u793a" : hasGrowth || hasSemi ? "\u984c\u6750\u652f\u6490" : "\u80cc\u666f\u8cc7\u8a0a",
+    horizon: hasRate || hasTaiwan ? "\u4eca\u65e5\u81f3 1 \u9031" : hasSemi || hasGrowth ? "1-3 \u500b\u6708" : "\u80cc\u666f\u8ffd\u8e64",
+  };
+}
+
+function buildMacroBriefing(riskScore: number, labelZh: string, macroNews: any) {
+  const items = Array.isArray(macroNews?.items) ? macroNews.items : [];
+  const highItems = items.filter((item: any) => item.importance === "\u9ad8").slice(0, 4);
+  const riskItems = items.filter((item: any) => item.riskFlag === "\u98a8\u96aa\u8b66\u793a").slice(0, 3);
+  const themeItems = items.filter((item: any) => item.riskFlag === "\u984c\u6750\u652f\u6490").slice(0, 3);
+  const today = new Date().toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" });
+  return {
+    title: `\u6bcf\u65e5\u7e3d\u9ad4\u5e02\u5834\u7b56\u7565\u5831\u544a\uff5c${today} \u53f0\u7063\u6642\u9593`,
+    onePage: {
+      marketTheme: highItems[0]?.title || "\u4eca\u65e5\u7e3d\u7d93\u8207\u7522\u696d\u65b0\u805e\u6682\u7121\u660e\u78ba\u55ae\u4e00\u4e3b\u8ef8\u3002",
+      riskTemperature: `${labelZh} / ${riskScore}`,
+      keyWatch: riskItems[0]?.marketImpact || "\u4eca\u65e5\u512a\u5148\u89c0\u5bdf\u7f8e\u80a1\u98a8\u96aa\u504f\u597d\u3001\u532f\u7387\u8207\u53f0\u80a1\u91cf\u80fd\u662f\u5426\u540c\u6b65\u3002",
+      portfolioImpact: themeItems[0]?.screeningUse || "\u7be9\u9078\u6642\u4ee5 1-3 \u500b\u6708\u8da8\u52e2\u3001\u6210\u4ea4\u503c\u8207 20MA \u7d50\u69cb\u70ba\u4e3b\uff0c\u4e0d\u76f4\u63a5\u628a\u65b0\u805e\u7576\u8cb7\u9ede\u3002",
+    },
+    crossAssetPulse: [
+      { name: "\u53f0\u80a1", view: riskScore >= 56 ? "\u9078\u64c7\u6027\u504f\u591a" : "\u9700\u7b49\u5f85\u78ba\u8a8d", evidence: items.filter((item: any) => item.topic === "\u53f0\u80a1").slice(0, 2).map((item: any) => item.title) },
+      { name: "\u7f8e\u80a1", view: riskScore >= 72 ? "\u98a8\u96aa\u504f\u597d\u652f\u6490" : "\u5f71\u97ff\u53f0\u80a1\u8ffd\u50f9\u60c5\u7dd2", evidence: items.filter((item: any) => item.topic === "\u7f8e\u80a1").slice(0, 2).map((item: any) => item.title) },
+      { name: "\u5229\u7387\u8207\u532f\u7387", view: "\u8a55\u4f30\u8cc7\u91d1\u6210\u672c\u8207\u5916\u8cc7\u6d41\u5411", evidence: items.filter((item: any) => item.topic === "\u5229\u7387\u8207\u532f\u7387").slice(0, 2).map((item: any) => item.title) },
+      { name: "\u534a\u5c0e\u9ad4", view: "\u6ce2\u6bb5\u5019\u9078\u4e3b\u984c\u6838\u5fc3", evidence: items.filter((item: any) => item.topic === "\u534a\u5c0e\u9ad4").slice(0, 2).map((item: any) => item.title) },
+    ],
+    scenarios: [
+      { name: "\u57fa\u6e96\u60c5\u5883", view: "\u53ea\u505a\u6709\u6210\u4ea4\u503c\u8207 20MA \u7d50\u69cb\u652f\u6490\u7684\u5019\u9078\uff0c\u4e0d\u8ffd\u904e\u71b1\u4e56\u96e2\u3002" },
+      { name: "\u6b63\u5411\u60c5\u5883", view: "\u82e5\u91cf\u80fd\u653e\u5927\u4e14\u91cd\u9ede\u65b0\u805e\u504f\u6210\u9577\uff0c\u63d0\u9ad8 AI\u3001\u534a\u5c0e\u9ad4\u8207\u96fb\u5b50\u4f9b\u61c9\u93c8\u512a\u5148\u5ea6\u3002" },
+      { name: "\u98a8\u96aa\u60c5\u5883", view: "\u82e5\u5229\u7387\u3001\u532f\u7387\u6216\u7f8e\u80a1\u8f49\u5f31\uff0c\u5019\u9078\u80a1\u964d\u7d1a\u70ba\u89c0\u5bdf\uff0c\u5fc5\u9808\u7b49\u56de\u6e2c\u4e0d\u7834\u518d\u8a55\u4f30\u3002" },
+    ],
+    watchList: [
+      "\u4eca\u65e5\u65b0\u805e\u662f\u5426\u5c0d\u53f0\u80a1\u6210\u4ea4\u503c\u8207\u5916\u8cc7\u4ea4\u6613\u65b9\u5411\u6709\u76f4\u63a5\u5f71\u97ff\u3002",
+      "\u534a\u5c0e\u9ad4\u8207 AI \u4f9b\u61c9\u93c8\u65b0\u805e\u662f\u5426\u53ea\u662f\u984c\u6750\uff0c\u6216\u540c\u6642\u6709\u71df\u6536\u3001\u8a02\u55ae\u8207\u6210\u4ea4\u503c\u652f\u6490\u3002",
+      "\u5019\u9078\u80a1\u7ad9\u4e0a 20MA \u5f8c\u662f\u5426\u96e2\u5747\u7dda\u904e\u9060\uff0c\u82e5\u904e\u9060\u5247\u7b49\u62c9\u56de\u3002",
+    ],
   };
 }
 
@@ -4497,6 +4579,37 @@ function scoreMa20Slope(value: number | null) {
   return 30;
 }
 
+function swingMainEvidence(closeVs20MaPct: number | null, ma20Slope5dPct: number | null, tradingValue100m: number | null) {
+  const above20 = closeVs20MaPct !== null && Number.isFinite(closeVs20MaPct) && closeVs20MaPct >= 0;
+  const rising20 = ma20Slope5dPct !== null && Number.isFinite(ma20Slope5dPct) && ma20Slope5dPct > 0;
+  const near20 = closeVs20MaPct !== null && Number.isFinite(closeVs20MaPct) && closeVs20MaPct >= 0 && closeVs20MaPct <= 6;
+  const highLiquidity = tradingValue100m !== null && Number.isFinite(tradingValue100m) && tradingValue100m >= 10;
+  if (above20 && rising20 && near20) return highLiquidity
+    ? "\u7ad9\u4e0a 20MA\uff0c\u5747\u7dda\u4e0a\u5347\uff1b\u4e14\u96e2 20MA \u4e0d\u9060\uff0c\u6210\u4ea4\u503c\u53ef\u7528\u3002"
+    : "\u7ad9\u4e0a 20MA\uff0c\u5747\u7dda\u4e0a\u5347\uff1b\u4f46\u9700\u8907\u6838\u6d41\u52d5\u6027\u3002";
+  if (above20 && rising20) return "\u6536\u76e4\u5728 20MA \u4e0a\u300120MA \u4e0a\u5347\uff1b\u4f46\u4e56\u96e2\u504f\u5927\uff0c\u4e0d\u9069\u5408\u76f4\u63a5\u8ffd\u9ad8\u3002";
+  if (above20) return "\u6536\u76e4\u5728 20MA \u4e0a\uff0c\u4f46 20MA \u659c\u7387\u5c1a\u672a\u8f49\u5f37\uff0c\u5217\u70ba\u89c0\u5bdf\u3002";
+  return "\u5c1a\u672a\u7ad9\u7a69 20MA\uff0c\u4e0d\u5217\u70ba\u512a\u5148\u8ffd\u8e64\uff0c\u9700\u7b49\u8da8\u52e2\u6536\u56de\u3002";
+}
+
+function swingThemeNote(item: any) {
+  const group = swingGroup(item.code || "");
+  if (/server|electronics|industrial computer/i.test(group)) return "AI \u4f3a\u670d\u5668\u6216\u96fb\u5b50\u4f9b\u61c9\u93c8\u9ad8\u6d41\u52d5\u6027";
+  if (/semiconductor/i.test(group)) return "\u534a\u5c0e\u9ad4\u3001AI \u6676\u7247\u6216 IC \u984c\u6750";
+  if (/financial/i.test(group)) return "\u91d1\u878d\u80a1\u9ad8\u6210\u4ea4\u503c\u8207\u6b96\u5229\u7387\u53c3\u8003";
+  if (/ETF/i.test(group)) return "\u975e\u666e\u901a\u80a1\uff0c\u53ea\u5217\u70ba\u6d41\u52d5\u6027\u53c3\u8003";
+  return "\u6700\u65b0\u6210\u4ea4\u91cf\u6216\u6210\u4ea4\u503c\u6392\u540d\u524d\u6bb5";
+}
+
+function swingLiquidityNote(item: any, candidate: any) {
+  const trading = candidate?.sortKeys?.tradingValue100m;
+  const close = candidate?.latestClose ?? item.close;
+  if (Number.isFinite(close) && close >= 800) return "\u9ad8\u50f9\u80a1\uff0c\u6d41\u52d5\u6027\u9700\u4f75\u540c\u6210\u4ea4\u503c\u6aa2\u67e5";
+  if (Number.isFinite(trading) && trading >= 30) return `${swingThemeNote(item)}\uff0c\u6210\u4ea4\u503c\u9ad8`;
+  if (Number.isFinite(trading) && trading >= 10) return `${swingThemeNote(item)}\uff0c\u6d41\u52d5\u6027\u4e2d\u9ad8`;
+  return `${swingThemeNote(item)}\uff0c\u6d41\u52d5\u6027\u4e2d\u7b49`;
+}
+
 function buildSwingCandidate(item: ValueScore, marketProxy: QuoteInfo | null = null, officialTrend: any = null) {
   const latest = item.technicalSnapshot.latest;
   const levels = item.technicalSnapshot.levels;
@@ -4516,6 +4629,11 @@ function buildSwingCandidate(item: ValueScore, marketProxy: QuoteInfo | null = n
   const tradingValueScore = scoreTradingValue(officialTrend?.tradingValue100m ?? null);
   const closeVs20MaScore = scoreCloseVs20Ma(stock20);
   const ma20SlopeScore = scoreMa20Slope(officialTrend?.ma20Slope5dPct ?? null);
+  const mainEvidence = swingMainEvidence(
+    stock20 !== null && Number.isFinite(stock20) ? round(stock20, 2) : null,
+    officialTrend?.ma20Slope5dPct ?? null,
+    officialTrend?.tradingValue100m ?? null
+  );
   const swingScore = Math.max(0, Math.min(100, Math.round(
     topicFit * 0.30 +
     tradingValueScore * 0.25 +
@@ -4541,17 +4659,19 @@ function buildSwingCandidate(item: ValueScore, marketProxy: QuoteInfo | null = n
       closeVs20MaPct: stock20 !== null && Number.isFinite(stock20) ? round(stock20, 2) : null,
       closeVs20MaScore,
       ma20: officialTrend?.ma20 ?? latest.ma20,
+      ma20FiveAgo: officialTrend?.ma20FiveAgo ?? null,
       ma20Slope5dPct: officialTrend?.ma20Slope5dPct ?? null,
       ma20SlopeScore,
+      tradingValue3m100m: officialTrend?.tradingValue3m100m ?? null,
       rankingFormula: "\u4e3b\u984c\u5951\u5408\u5ea6 30% + \u6210\u4ea4\u503c 25% + \u6536\u76e4\u50f9\u76f8\u5c0d 20MA 25% + 20MA \u659c\u7387 20%",
       priceSource: officialTrend?.source || "Yahoo/TWSE \u5099\u63f4\u8cc7\u6599",
       priceSourceUrls: officialTrend?.sourceUrls || [],
     },
     watchPriority,
     primaryEvidence: [
+      mainEvidence,
       `20MA ${fmt(officialTrend?.ma20 ?? latest.ma20)} / 60MA ${fmt(latest.ma60)}`,
       `RSI ${fmt(latest.rsi14, 1)}, \u56de\u6a94\u98a8\u96aa ${latest.pullback}%`,
-      relativeStrength !== null ? `20\u65e5\u76f8\u5c0d 0050 ${fmt(relativeStrength, 2)}%` : "\u76f8\u5c0d\u5f37\u5f31\u8cc7\u6599\u4e0d\u8db3",
       Number.isFinite(revenue?.yoy) ? `\u6708\u71df\u6536 YoY ${fmt(revenue?.yoy as number, 2)}%` : "\u6708\u71df\u6536\u52d5\u80fd\u7f3a\u8cc7\u6599",
       Number.isFinite(institutional?.totalNet) ? `\u8fd15\u65e5\u6cd5\u4eba\u5408\u8a08 ${fmt(institutional?.totalNet as number, 0)}` : "\u6cd5\u4eba\u8cc7\u6599\u7f3a\u8cc7\u6599",
     ],
@@ -4567,6 +4687,116 @@ function buildSwingCandidate(item: ValueScore, marketProxy: QuoteInfo | null = n
     },
     signalHint: swingScore >= 76 && latest.pullback < 68 ? "\u504f\u591a\u5019\u9078" : latest.pullback >= 72 ? "\u89c0\u5bdf" : swingScore >= 58 ? "\u504f\u591a" : "\u907f\u958b",
   };
+}
+
+function rankRows<T>(items: T[], mapper: (item: T, index: number) => any) {
+  return items.slice(0, 10).map((item, index) => ({ rank: index + 1, ...mapper(item, index) }));
+}
+
+function buildSwingThemeTables(candidates: any[], stockItems: ValueScore[]) {
+  const byCode = new Map(stockItems.map(item => [item.code, item]));
+  const itemFor = (candidate: any) => byCode.get(candidate.code) as any || candidate;
+  const usable = candidates.filter(candidate => itemFor(candidate)?.professionalRating?.assetModel !== "etf");
+  const hot = [...candidates].sort((a, b) => (b.sortKeys?.tradingValue100m || 0) - (a.sortKeys?.tradingValue100m || 0));
+  const foreignYield = [...candidates].sort((a, b) => {
+    const ai = itemFor(a);
+    const bi = itemFor(b);
+    const aInst = Number(ai.fundamentals?.data?.institutional?.totalNet);
+    const bInst = Number(bi.fundamentals?.data?.institutional?.totalNet);
+    const aYield = valuationMetric(ai, "dividendYield") || 0;
+    const bYield = valuationMetric(bi, "dividendYield") || 0;
+    return ((Number.isFinite(bInst) ? bInst : -999999) - (Number.isFinite(aInst) ? aInst : -999999)) || (bYield - aYield);
+  });
+  const epsGrowth = [...usable].sort((a, b) => {
+    const ai = itemFor(a);
+    const bi = itemFor(b);
+    const aEps = Number(ai.fundamentals?.data?.profitability?.eps);
+    const bEps = Number(bi.fundamentals?.data?.profitability?.eps);
+    return ((Number.isFinite(bEps) ? bEps : -999999) - (Number.isFinite(aEps) ? aEps : -999999)) || ((b.sortKeys?.tradingValue100m || 0) - (a.sortKeys?.tradingValue100m || 0));
+  });
+  const highValue = [...candidates].sort((a, b) => (b.sortKeys?.tradingValue3m100m || b.sortKeys?.tradingValue100m || 0) - (a.sortKeys?.tradingValue3m100m || a.sortKeys?.tradingValue100m || 0));
+  const ma20 = [...candidates]
+    .filter(item => (item.sortKeys?.closeVs20MaPct ?? -999) >= 0 && (item.sortKeys?.ma20Slope5dPct ?? -999) > 0)
+    .sort((a, b) => ((b.sortKeys?.ma20Slope5dPct || 0) - (a.sortKeys?.ma20Slope5dPct || 0)) || ((b.sortKeys?.tradingValue100m || 0) - (a.sortKeys?.tradingValue100m || 0)));
+  return [
+    {
+      key: "hot",
+      title: "\u71b1\u9580\u80a1\u7be9\u9078",
+      description: "\u4ee5\u6700\u65b0\u65e5\u6210\u4ea4\u91cf/\u6210\u4ea4\u503c\u8207\u53ef\u5f97\u9031\u8f49\u7387\u4ee3\u7406\uff0c\u975e\u5b8c\u6574 5 \u65e5\u9031\u8f49\u7387\u3002",
+      columns: ["\u6392\u540d", "\u4ee3\u78bc/\u540d\u7a31", "\u6536\u76e4", "\u6700\u65b0\u6210\u4ea4\u503c(\u5104)", "\u7be9\u9078\u91cd\u9ede"],
+      rows: rankRows(hot, candidate => {
+        const item = itemFor(candidate);
+        return {
+          code: candidate.code,
+          name: candidate.name,
+          close: candidate.latestClose,
+          tradingValue100m: candidate.sortKeys?.tradingValue100m,
+          focus: swingLiquidityNote(item, candidate),
+        };
+      }),
+    },
+    {
+      key: "foreign-yield",
+      title: "\u5916\u8cc7\u8cb7\u8d85\u5f37\u52e2\u80a1 / \u6b96\u5229\u7387\u6392\u5e8f",
+      description: "\u512a\u5148\u770b\u8fd1\u671f\u6cd5\u4eba\u6de8\u8cb7\u8d85\uff0c\u4f75\u5217\u6b96\u5229\u7387\u3001\u672c\u76ca\u6bd4\u8207\u6210\u4ea4\u503c\u3002",
+      columns: ["\u6392\u540d", "\u4ee3\u78bc/\u540d\u7a31", "\u6536\u76e4", "\u5916\u8cc7\u8fd11\u6708\u8cb7\u8d85", "\u6b96\u5229\u7387%", "\u672c\u76ca\u6bd4", "\u6210\u4ea4\u503c(\u5104)"],
+      rows: rankRows(foreignYield, candidate => {
+        const item = itemFor(candidate);
+        return {
+          code: candidate.code,
+          name: candidate.name,
+          close: candidate.latestClose,
+          foreignNetBuy: Number.isFinite(item.fundamentals?.data?.institutional?.totalNet) ? round(item.fundamentals.data.institutional.totalNet, 0) : null,
+          dividendYield: valuationMetric(item, "dividendYield"),
+          per: valuationMetric(item, "per"),
+          tradingValue100m: candidate.sortKeys?.tradingValue100m,
+        };
+      }),
+    },
+    {
+      key: "eps-growth",
+      title: "EPS \u6210\u9577\u5019\u9078",
+      description: "\u4ee5\u53ef\u5f97 EPS \u8207\u6210\u4ea4\u503c/\u6d41\u52d5\u6027\u8a3b\u8a18\u505a\u7814\u7a76\u5019\u9078\u3002",
+      columns: ["\u6392\u540d", "\u4ee3\u78bc/\u540d\u7a31", "\u6536\u76e4", "EPS", "\u6210\u4ea4\u503c/\u6d41\u52d5\u6027\u8a3b\u8a18"],
+      rows: rankRows(epsGrowth, candidate => {
+        const item = itemFor(candidate);
+        return {
+          code: candidate.code,
+          name: candidate.name,
+          close: candidate.latestClose,
+          eps: Number.isFinite(item.fundamentals?.data?.profitability?.eps) ? round(item.fundamentals.data.profitability.eps, 2) : null,
+          liquidityNote: swingLiquidityNote(item, candidate),
+        };
+      }),
+    },
+    {
+      key: "trading-value",
+      title: "\u9ad8\u6210\u4ea4\u503c\u5019\u9078",
+      description: "\u4ee5\u6700\u65b0\u6210\u4ea4\u503c\u8207\u8fd1 3 \u500b\u6708\u4f30\u7b97\u6210\u4ea4\u503c\u6392\u5e8f\u3002",
+      columns: ["\u6392\u540d", "\u4ee3\u78bc/\u540d\u7a31", "\u6536\u76e4", "\u6700\u65b0\u6210\u4ea4\u503c(\u5104)", "3M\u6210\u4ea4\u503c"],
+      rows: rankRows(highValue, candidate => ({
+        code: candidate.code,
+        name: candidate.name,
+        close: candidate.latestClose,
+        tradingValue100m: candidate.sortKeys?.tradingValue100m,
+        tradingValue3m100m: candidate.sortKeys?.tradingValue3m100m,
+      })),
+    },
+    {
+      key: "ma20",
+      title: "20MA \u6280\u8853\u5019\u9078",
+      description: "\u5f9e TWSE \u9010\u6a94\u6b77\u53f2\u8cc7\u6599\u8a08\u7b97\u51fa\u7684 20MA\uff1b\u689d\u4ef6\u70ba\u7ad9\u4e0a 20MA \u4e14 20MA \u4e0a\u5347\u3002",
+      columns: ["\u6392\u540d", "\u4ee3\u78bc/\u540d\u7a31", "\u6700\u65b0\u6536\u76e4", "20MA", "20MA 5\u65e5\u524d", "\u689d\u4ef6"],
+      rows: rankRows(ma20, candidate => ({
+        code: candidate.code,
+        name: candidate.name,
+        close: candidate.latestClose,
+        ma20: candidate.sortKeys?.ma20,
+        ma20FiveAgo: candidate.sortKeys?.ma20FiveAgo,
+        condition: swingMainEvidence(candidate.sortKeys?.closeVs20MaPct ?? null, candidate.sortKeys?.ma20Slope5dPct ?? null, candidate.sortKeys?.tradingValue100m ?? null),
+      })),
+    },
+  ];
 }
 
 async function loadSwingMacro() {
@@ -4593,11 +4823,31 @@ async function loadSwingMacro() {
     label === "selective risk-on" ? "\u9078\u64c7\u6027\u504f\u591a" :
     label === "range-bound" ? "\u5340\u9593\u76e4" :
     label === "defensive" ? "\u504f\u9632\u5b88" : "\u98a8\u96aa\u504f\u7a7a";
+  const briefing = buildMacroBriefing(riskScore, labelZh, macroNews);
   return {
     ok: true,
     generatedAt: new Date().toISOString(),
     reportTimezone: "Asia/Taipei",
     horizon: "1-3 months",
+    briefing,
+    text: encodeTextTree({
+      briefing,
+      regime: {
+        label: labelZh,
+        summary: label === "risk-on" ? "\u53f0\u80a1\u8207\u7f8e\u80a1\u98a8\u96aa\u504f\u597d\u504f\u5f37\uff0c\u6ce2\u6bb5\u53ef\u512a\u5148\u770b 20MA \u4e0a\u65b9\u7e8c\u822a\u80a1\u3002" :
+          label === "selective risk-on" ? "\u98a8\u96aa\u504f\u597d\u9078\u64c7\u6027\u504f\u591a\uff0c\u512a\u5148\u7be9\u51fa\u6709\u71df\u6536\u6216\u6cd5\u4eba\u652f\u6490\u7684\u5f37\u52e2\u80a1\u3002" :
+          label === "range-bound" ? "\u5e02\u5834\u8f03\u50cf\u5340\u9593\u76e4\uff0c\u7a81\u7834\u8981\u770b\u91cf\u80fd\uff0c\u56de\u6e2c\u652f\u6490\u4e0d\u7834\u624d\u5ef6\u7e8c\u3002" :
+          label === "defensive" ? "\u98a8\u96aa\u504f\u9632\u5b88\uff0c\u5019\u9078\u80a1\u9700\u8981\u66f4\u56b4\u683c\u7684\u5931\u6548\u50f9\u8207\u5009\u4f4d\u63a7\u5236\u3002" :
+          "\u98a8\u96aa\u504f\u7a7a\uff0c\u6ce2\u6bb5\u6e05\u55ae\u4ee5\u89c0\u5bdf\u8207\u7b49\u5f85\u78ba\u8a8d\u70ba\u4e3b\u3002",
+      },
+      news: macroNews.items || [],
+      screeningImplications: [
+        "\u512a\u5148\u770b 20MA \u4e0a\u65b9\u4e14 MA20 \u9ad8\u65bc MA60 \u7684 1-3 \u500b\u6708\u6ce2\u6bb5\u7d50\u69cb\u3002",
+        "RSI \u904e\u71b1\u8207\u8ddd\u96e2\u77ed\u7dda\u652f\u6490\u904e\u9060\u6642\uff0c\u5148\u964d\u70ba\u89c0\u5bdf\uff0c\u4e0d\u628a\u7a81\u7834\u7576\u4f5c\u76f4\u63a5\u9032\u5834\u7406\u7531\u3002",
+        "\u71df\u6536 YoY\u3001\u8fd1 5 \u65e5\u6cd5\u4eba\u5408\u8a08\u4f5c\u70ba\u5019\u9078\u6392\u5e8f\u52a0\u5206\u3002",
+        "\u6bcf\u6a94\u90fd\u9700\u8981\u652f\u6490\u3001\u58d3\u529b\u3001\u505c\u640d\u5931\u6548\u9ede\u8207\u4e8b\u4ef6\u98a8\u96aa\u6a19\u793a\u3002",
+      ],
+    }),
     regime: {
       label: labelZh,
       rawLabel: label,
@@ -4643,6 +4893,7 @@ async function loadSwingScreener(universeValue: unknown) {
   const candidates = stockItems
     .map(item => buildSwingCandidate(item, marketProxy, officialMap.get(item.code) || null))
     .sort((a, b) => b.swingScore - a.swingScore);
+  const themeTables = buildSwingThemeTables(candidates, stockItems);
   return {
     ok: candidates.length > 0,
     generatedAt: new Date().toISOString(),
@@ -4652,6 +4903,14 @@ async function loadSwingScreener(universeValue: unknown) {
     candidates,
     todayWatch: candidates.filter(item => item.watchPriority !== "\u4f4e" && item.signalHint !== "\u89c0\u5bdf").slice(0, 8),
     ranking: candidates.slice(0, 16),
+    themeTables,
+    text: encodeTextTree({
+      candidates,
+      todayWatch: candidates.filter(item => item.watchPriority !== "\u4f4e" && item.signalHint !== "\u89c0\u5bdf").slice(0, 8),
+      ranking: candidates.slice(0, 16),
+      themeTables,
+      source: screener.source,
+    }),
     rankingMethod: {
       horizon: "1-3 months",
       formula: "\u4e3b\u984c\u5951\u5408\u5ea6 30% + \u6210\u4ea4\u503c 25% + \u6536\u76e4\u50f9\u76f8\u5c0d 20MA 25% + 20MA \u659c\u7387 20%",
@@ -4717,7 +4976,7 @@ async function loadSwingValuation(codes: string[]) {
       limitations: ["\u53f0\u80a1\u516c\u958b\u8cc7\u6599\u5c0d EV\u3001EBITDA \u8207\u5206\u6790\u5e2b\u9810\u4f30\u8986\u84cb\u4e0d\u8db3\uff0c\u7f3a\u8cc7\u6599\u6b04\u4f4d\u6a19\u793a N/A\uff0c\u4e0d\u7528\u5047\u6578\u5b57\u88dc\u503c\u3002"],
     };
   });
-  return { ok: true, generatedAt: new Date().toISOString(), items };
+  return { ok: true, generatedAt: new Date().toISOString(), items, text: encodeTextTree({ items }) };
 }
 
 async function loadSwingDeepAnalysis(codes: string[]) {
@@ -4764,6 +5023,9 @@ async function loadSwingDeepAnalysis(codes: string[]) {
     ok: true,
     generatedAt: new Date().toISOString(),
     items: results.map((result, index) => result.status === "fulfilled" ? result.value : { ok: false, code: codes[index], message: result.reason instanceof Error ? result.reason.message : String(result.reason) }),
+    text: encodeTextTree({
+      items: results.map((result, index) => result.status === "fulfilled" ? result.value : { ok: false, code: codes[index], message: result.reason instanceof Error ? result.reason.message : String(result.reason) }),
+    }),
   };
 }
 
@@ -4819,10 +5081,12 @@ function buildSwingTechnicalFromQuote(quote: QuoteInfo) {
 
 async function loadSwingTechnical(codes: string[]) {
   const results = await settleWithLimit(codes, 3, code => loadQuote(code));
+  const items = results.map((result, index) => result.status === "fulfilled" ? buildSwingTechnicalFromQuote(result.value) : { ok: false, code: codes[index], message: result.reason instanceof Error ? result.reason.message : String(result.reason) });
   return {
     ok: true,
     generatedAt: new Date().toISOString(),
-    items: results.map((result, index) => result.status === "fulfilled" ? buildSwingTechnicalFromQuote(result.value) : { ok: false, code: codes[index], message: result.reason instanceof Error ? result.reason.message : String(result.reason) }),
+    items,
+    text: encodeTextTree({ items }),
   };
 }
 
@@ -4853,10 +5117,59 @@ function buildSwingSignalFromTechnical(item: any) {
 
 async function loadSwingSignal(codes: string[]) {
   const technical = await loadSwingTechnical(codes);
+  const items = technical.items.map(buildSwingSignalFromTechnical);
   return {
     ok: true,
     generatedAt: new Date().toISOString(),
-    items: technical.items.map(buildSwingSignalFromTechnical),
+    items,
+    text: encodeTextTree({ items }),
+  };
+}
+
+function buildSwingResearchReport(code: string, v: any, d: any, t: any, s: any) {
+  const reportDate = new Date().toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" });
+  const peerRows = Array.isArray(v.peers) ? v.peers.slice(0, 8).map((peer: any) => ({
+    code: peer.code,
+    name: peer.name,
+    per: peer.per ?? "N/A",
+    pbr: peer.pbr ?? "N/A",
+    dividendYield: peer.dividendYield ?? "N/A",
+  })) : [];
+  const priceDate = t.date || v.valuationDate || d.dataStatus?.quoteDate || "N/A";
+  const close = Number.isFinite(t.close) ? t.close : v.target?.close;
+  const valuationText = v.ok
+    ? `${v.bias || "N/A"}\uff1b\u76ee\u524d P/E ${v.target?.per ?? "N/A"}\u3001P/B ${v.target?.pbr ?? "N/A"}\uff0c\u540c\u696d\u53ef\u7528\u6a23\u672c ${v.peerSummary?.count ?? 0} \u6a94\u3002EV/EBITDA \u8207 EV/revenue \u56e0\u5373\u6642\u6de8\u50b5\u52d9\u8207 EBITDA \u8cc7\u6599\u4e0d\u8db3\u6a19\u70ba N/A\uff0c\u4e0d\u786c\u4f30\u3002`
+    : v.message || "\u4f30\u503c\u8cc7\u6599\u4e0d\u8db3\u3002";
+  const fundamentalText = d.ok
+    ? `${(d.thesis || []).join(" ")} \u50ac\u5316\u65b0\u805e\uff1a${d.catalysts?.[0]?.title || "\u5c1a\u7121\u76f4\u63a5\u65b0\u805e\u50ac\u5316"}`
+    : d.message || "\u500b\u80a1\u6df1\u5ea6\u8cc7\u6599\u4e0d\u8db3\u3002";
+  const technicalText = t.ok
+    ? `\u6700\u65b0\u6536\u76e4 ${fmt(t.close)}\uff0c20MA ${fmt(t.indicators?.ma20)}\uff0c60MA ${fmt(t.indicators?.ma60)}\uff0cRSI ${fmt(t.indicators?.rsi14, 1)}\uff0c\u8da8\u52e2\u5224\u65b7\u70ba${t.trend || "N/A"}\u3002\u652f\u6490 ${fmt(t.levels?.support)}-${fmt(t.levels?.supportMid)}\uff0c\u58d3\u529b ${fmt(t.levels?.resistance)}-${fmt(t.levels?.resistanceMid)}\uff0c\u5931\u6548\u50f9 ${fmt(t.levels?.invalidation)}\u3002`
+    : t.message || "\u6280\u8853\u8cc7\u6599\u4e0d\u8db3\u3002";
+  const klineText = s.ok
+    ? `\u8a0a\u865f\uff1a${s.stance || "N/A"} / ${s.signal || "N/A"}\u3002\u78ba\u8a8d\u689d\u4ef6\uff1a${s.requiredConfirmation || "N/A"} \u76ee\u6a19\u5340 ${s.targetZone || "N/A"}\uff0c\u5931\u6548 ${s.invalidation || "N/A"}\u3002`
+    : s.message || "\u591a\u7a7a\u8a0a\u865f\u8cc7\u6599\u4e0d\u8db3\u3002";
+  const finalStance = s.stance || "\u89c0\u5bdf";
+  return {
+    title: `${code} ${d.name || t.name || v.name || FALLBACK_NAMES[code] || ""} \u5f8c\u7e8c\u5206\u6790`,
+    reportDate: `${reportDate} \u53f0\u7063\u6642\u9593`,
+    latestPrice: `\u6700\u65b0\u53ef\u9a57\u8b49\u50f9\u683c\uff1a${priceDate} \u6536\u76e4 ${fmt(close)}\uff0c\u50f9\u683c\u4f86\u6e90\u4ee5 Yahoo/TWSE \u53ef\u5f97\u8cc7\u6599\u70ba\u4e3b\u3002`,
+    valuation: valuationText,
+    peers: peerRows,
+    fundamentals: fundamentalText,
+    risks: Array.isArray(d.risks) ? d.risks : [],
+    technical: technicalText,
+    kline: klineText,
+    scenarios: t.scenarios || [],
+    conclusion: {
+      valuation: v.bias || "N/A",
+      fundamentals: d.rating?.grade ? `${d.rating.grade} / ${scoreTextValue(d.rating.total)}` : "N/A",
+      technical: t.trend || "N/A",
+      kline: s.stance || "N/A",
+      horizon: "\u4ee5 1-3 \u500b\u6708\u6ce2\u6bb5\u70ba\u4e3b\uff0c\u7b49\u7a81\u7834\u6216\u62c9\u56de\u5b88\u4f4f\u5f8c\u518d\u63d0\u9ad8\u4fe1\u5fc3\u3002",
+      mainRisk: d.risks?.[0] || "\u8cc7\u6599\u4e0d\u8db3",
+      finalStance,
+    },
   };
 }
 
@@ -4877,6 +5190,7 @@ async function loadSwingSummary(codes: string[]) {
     const d: any = deepMap.get(code) || {};
     const t: any = technicalMap.get(code) || {};
     const s: any = signalMap.get(code) || {};
+    const researchReport = buildSwingResearchReport(code, v, d, t, s);
     return {
       code,
       name: d.name || t.name || v.name || FALLBACK_NAMES[code] || code,
@@ -4889,12 +5203,14 @@ async function loadSwingSummary(codes: string[]) {
       mainCatalyst: d.catalysts?.[0]?.title || "\u5c1a\u7121\u76f4\u63a5\u65b0\u805e\u50ac\u5316",
       mainRisk: d.risks?.[0] || "\u8cc7\u6599\u4e0d\u8db3",
       finalStance: s.stance || "\u89c0\u5bdf",
+      researchReport,
     };
   });
   return {
     ok: true,
     generatedAt: new Date().toISOString(),
     rows,
+    text: encodeTextTree({ rows }),
     rankedWatchlist: [...rows].sort((a, b) => {
       const rank = (stance: string) => stance === "\u504f\u591a\u5019\u9078" ? 4 : stance === "\u504f\u591a" ? 3 : stance === "\u89c0\u5bdf" ? 2 : stance === "\u907f\u958b" ? 1 : 0;
       return rank(b.finalStance) - rank(a.finalStance);

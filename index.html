@@ -539,13 +539,17 @@
         <div id="swingScreenerLogic"></div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>&#x9078;&#x53d6;</th><th>&#x6392;&#x540d;</th><th>&#x80a1;&#x7968;</th><th>&#x73fe;&#x50f9;</th><th>&#x7e3d;&#x5206;</th><th>&#x4e3b;&#x984c;</th><th>&#x6210;&#x4ea4;&#x503c;</th><th>&#x6536;&#x76e4;/20MA</th><th>20MA &#x659c;&#x7387;</th><th>&#x8cc7;&#x6599;&#x6e90;</th></tr></thead>
-            <tbody id="swingCandidateRows"><tr><td colspan="10">&#x8f09;&#x5165; Dino &#x5019;&#x9078;&#x6e05;&#x55ae;...</td></tr></tbody>
+            <thead><tr><th>&#x9078;&#x53d6;</th><th>Rank</th><th>&#x4ee3;&#x78bc; / &#x540d;&#x7a31;</th><th>&#x6700;&#x65b0;&#x6536;&#x76e4;</th><th>20MA</th><th>1-3 &#x6708;&#x578b;&#x614b;</th><th>&#x4e3b;&#x8981;&#x7be9;&#x9078;&#x8b49;&#x64da;</th><th>&#x7814;&#x7a76;&#x7528;&#x5931;&#x6548;&#x7dda;</th><th>&#x512a;&#x5148;&#x5ea6;</th></tr></thead>
+            <tbody id="swingCandidateRows"><tr><td colspan="9">&#x8f09;&#x5165; Dino &#x5019;&#x9078;&#x6e05;&#x55ae;...</td></tr></tbody>
           </table>
         </div>
       </section>
       <section class="panel">
-        <h2>3. &#x4f7f;&#x7528;&#x8005;&#x9078;&#x80a1; Gate</h2>
+        <h2>3. &#x4e3b;&#x984c;&#x5f0f;&#x9078;&#x80a1;</h2>
+        <div class="swing-section" id="swingThemeTables"><p class="note">&#x8f09;&#x5165;&#x4e94;&#x7a2e;&#x4e3b;&#x984c;&#x5f0f;&#x9078;&#x80a1;&#x8868;&#x3002;</p></div>
+      </section>
+      <section class="panel">
+        <h2>4. &#x4f7f;&#x7528;&#x8005;&#x9078;&#x80a1; Gate</h2>
         <div class="swing-actions">
           <label>&#x624b;&#x52d5;&#x8f38;&#x5165;&#x4ee3;&#x78bc;
             <input id="swingSelectedInput" autocomplete="off" placeholder="&#x4f8b;&#xff1a;2330, 2317, 2454" aria-label="Dino K&#x68d2;&#x9078;&#x80a1;&#x4ee3;&#x78bc;">
@@ -560,7 +564,7 @@
         <section class="panel"><h2>&#x7be9;&#x9078;&#x908f;&#x8f2f;&#x8207;&#x8cc7;&#x6599;&#x4f86;&#x6e90;</h2><div id="swingSourcePanel"></div></section>
       </section>
       <section class="panel">
-        <h2>4. &#x6df1;&#x5ea6;&#x5206;&#x6790;&#x8207;&#x6700;&#x7d42;&#x6574;&#x5408;</h2>
+        <h2>5. &#x6df1;&#x5ea6;&#x5206;&#x6790;&#x8207;&#x6700;&#x7d42;&#x6574;&#x5408;</h2>
         <div class="swing-section" id="swingDeepResults"><p class="note">&#x5b8c;&#x6210;&#x9078;&#x80a1; gate &#x5f8c;&#xff0c;&#x9019;&#x88e1;&#x6703;&#x986f;&#x793a;&#x53ef;&#x6bd4;&#x4f30;&#x503c;&#x3001;&#x500b;&#x80a1;&#x6df1;&#x5ea6;&#x3001;&#x65e5;&#x7dda;&#x6280;&#x8853;&#x3001;K &#x7dda;&#x591a;&#x7a7a;&#x8207;&#x6700;&#x7d42;&#x7814;&#x7a76;&#x7acb;&#x5834;&#x3002;</p></div>
       </section>
     </div>
@@ -616,12 +620,25 @@
     const pct = (n) => Number.isFinite(Number(n)) ? `${n >= 0 ? "+" : ""}${fmt(n, 2)}%` : "--";
     const last = (a) => Array.isArray(a) ? a[a.length - 1] : undefined;
     const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-    const badge = (text, cls) => `<span class="badge ${cls}">${escapeHtml(text)}</span>`;
+    const badge = (text, cls) => `<span class="badge ${cls}">${escapeHtml(decodeText(text))}</span>`;
     const lastFiniteLocal = (a) => Array.isArray(a) ? [...a].reverse().find((v) => Number.isFinite(v)) : NaN;
     const appDeployApiBase = "https://api-v2.appdeploy.ai/app/932f5348aea14e86a7";
 
     function escapeHtml(value) {
       return String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "\"":"&quot;", "'":"&#39;" }[ch]));
+    }
+
+    function decodeText(value) {
+      const text = String(value ?? "");
+      if (!/%[0-9A-Fa-f]{2}/.test(text)) return text;
+      try { return decodeURIComponent(text); } catch { return text; }
+    }
+
+    function decodeTree(value) {
+      if (typeof value === "string") return decodeText(value);
+      if (Array.isArray(value)) return value.map(decodeTree);
+      if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, decodeTree(item)]));
+      return value;
     }
 
     function metric(label, value, tone = "") {
@@ -2269,8 +2286,9 @@
       const steps = [
         ["macro", "1. \u7e3d\u7d93\u8207\u65b0\u805e", "\u53f0\u80a1\u3001\u7f8e\u80a1\u3001\u5229\u7387\u532f\u7387\u8207\u534a\u5c0e\u9ad4\u4e8b\u4ef6"],
         ["screen", "2. \u53f0\u80a1\u7be9\u9078", "\u4e3b\u984c\u5951\u5408\u3001\u6210\u4ea4\u503c\u300120MA \u4f4d\u7f6e\u8207\u659c\u7387"],
-        ["gate", "3. \u4f7f\u7528\u8005\u9078\u80a1", "\u5f9e\u6392\u884c\u699c\u52fe\u9078\u5f8c\u624d\u9032\u5165\u6df1\u5ea6\u5206\u6790"],
-        ["deep", "4. \u6df1\u5ea6\u6574\u5408", "\u500b\u80a1\u6df1\u5ea6\u3001\u65e5\u7dda\u6280\u8853\u3001K \u7dda\u591a\u7a7a\u8207\u6700\u7d42\u7acb\u5834"]
+        ["themes", "3. \u4e3b\u984c\u5f0f\u9078\u80a1", "\u71b1\u9580\u3001\u5916\u8cc7/\u6b96\u5229\u7387\u3001EPS\u3001\u9ad8\u6210\u4ea4\u503c\u300120MA \u5019\u9078"],
+        ["gate", "4. \u4f7f\u7528\u8005\u9078\u80a1", "\u5f9e\u6392\u884c\u699c\u52fe\u9078\u5f8c\u624d\u9032\u5165\u6df1\u5ea6\u5206\u6790"],
+        ["deep", "5. \u6df1\u5ea6\u6574\u5408", "\u500b\u80a1\u6df1\u5ea6\u3001\u65e5\u7dda\u6280\u8853\u3001K \u7dda\u591a\u7a7a\u8207\u6700\u7d42\u7acb\u5834"]
       ];
       $("swingFlowSteps").innerHTML = steps.map(([key, title, body]) => `
         <div class="flow-step ${key === active ? "active" : ""}">
@@ -2280,24 +2298,35 @@
 
     function renderSwingMacro(macro) {
       const regime = macro?.regime || {};
-      const src = macro?.sources || {};
+      const macroText = decodeTree(macro?.text || {});
+      const briefing = macroText.briefing || macro?.briefing || {};
+      const onePage = briefing.onePage || {};
+      const textRegime = macroText.regime || {};
       $("swingMacroCards").innerHTML = [
-        valueCard("\u5e02\u5834\u72c0\u614b", regime.label || "--", regime.summary || "\u5c1a\u672a\u8f09\u5165", regime.score >= 72 ? "bull" : regime.score >= 42 ? "warn" : "bear"),
-        valueCard("\u53f0\u80a1 proxy", src.taiwanProxy ? `${src.taiwanProxy.label} ${fmt(src.taiwanProxy.close)}` : "--", src.taiwanProxy?.date || "\u8cc7\u6599\u4e0d\u8db3", "neut"),
-        valueCard("\u7f8e\u80a1 proxy", src.usProxy ? `${src.usProxy.label} ${fmt(src.usProxy.close)}` : "--", src.usProxy?.date || "\u8cc7\u6599\u4e0d\u8db3", "neut"),
-        valueCard("\u532f\u7387 proxy", src.fxProxy ? `${src.fxProxy.label} ${fmt(src.fxProxy.close)}` : "--", src.fxProxy?.date || "\u8cc7\u6599\u4e0d\u8db3", "neut"),
+        valueCard("\u5e02\u5834\u72c0\u614b", textRegime.label || regime.label || "--", textRegime.summary || regime.summary || "\u5c1a\u672a\u8f09\u5165", regime.score >= 72 ? "bull" : regime.score >= 42 ? "warn" : "bear"),
+        valueCard("\u4eca\u65e5\u5e02\u5834\u4e3b\u8ef8", onePage.marketTheme || "--", briefing.title || "\u6bcf\u65e5\u7e3d\u7d93\u7b56\u7565\u5831\u544a", "neut"),
+        valueCard("\u95dc\u9375\u89c0\u5bdf", onePage.keyWatch || "--", onePage.riskTemperature || "\u98a8\u96aa\u6eab\u5ea6\u8a55\u4f30\u4e2d", regime.score >= 72 ? "bull" : "warn"),
+        valueCard("\u7be9\u9078\u542b\u610f", onePage.portfolioImpact || "--", "\u65b0\u805e\u53ea\u4f5c\u70ba\u5019\u9078\u52a0\u6b0a\uff0c\u4e0d\u7576\u76f4\u63a5\u9032\u5834\u8a0a\u865f\u3002", "neut"),
       ].join("");
-      const news = macro?.news?.items || [];
+      const pulse = (briefing.crossAssetPulse || []).map(item => `
+        <div class="data-status">
+          <h3>${escapeHtml(item.name || "")} ${badge(item.view || "\u89c0\u5bdf", "neut")}</h3>
+          <ul class="mini-list">${(item.evidence || ["\u5c1a\u7121\u76f4\u63a5\u65b0\u805e\u8b49\u64da"]).map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>
+        </div>`).join("");
+      const news = macroText.news || macro?.news?.items || [];
       $("swingMacroNews").innerHTML = news.length ? news.map(item => `
         <div class="news-item">
           <b>${escapeHtml(item.topic || "\u7e3d\u7d93")}</b>
           <a href="${escapeHtml(item.link || "#")}" target="_blank" rel="noreferrer">${escapeHtml(item.title || "")}</a>
           <div class="news-meta">
-            ${badge(item.source || "\u65b0\u805e", "neut")}
+            ${badge(item.importance ? `\u91cd\u8981\u5ea6 ${item.importance}` : "\u91cd\u8981\u5ea6\u672a\u5206\u985e", item.importance === "\u9ad8" ? "bear" : item.importance === "\u4e2d" ? "warn" : "neut")}
+            ${badge(item.riskFlag || "\u65b0\u805e", item.riskFlag === "\u98a8\u96aa\u8b66\u793a" ? "bear" : item.riskFlag === "\u984c\u6750\u652f\u6490" ? "bull" : "neut")}
             ${badge(item.publishedAt ? String(item.publishedAt).slice(0, 10) : "\u6642\u9593\u672a\u6a19\u793a", "warn")}
           </div>
-          <p>${escapeHtml(item.snippet || "")}</p>
-        </div>`).join("") : `<p class="note">\u76ee\u524d\u7e3d\u7d93\u65b0\u805e\u4f86\u6e90\u66ab\u6642\u4e0d\u53ef\u7528\uff0c\u8acb\u7a0d\u5f8c\u91cd\u65b0\u7522\u751f\u5019\u9078\u3002</p>`;
+          <p><b>\u5206\u6790\uff1a</b>${escapeHtml(item.marketImpact || item.snippet || "")}</p>
+          <p><b>\u5c0d\u7be9\u9078\u7684\u7528\u6cd5\uff1a</b>${escapeHtml(item.screeningUse || "\u5217\u5165\u80cc\u666f\u8ffd\u8e64\u3002")}</p>
+          <p class="note">${escapeHtml(item.source || "\u65b0\u805e")}\uff1b${escapeHtml(item.horizon || "\u6642\u9593\u5c3a\u5ea6\u672a\u5206\u985e")}</p>
+        </div>`).join("") + pulse : `<p class="note">\u76ee\u524d\u7e3d\u7d93\u65b0\u805e\u4f86\u6e90\u66ab\u6642\u4e0d\u53ef\u7528\uff0c\u8acb\u7a0d\u5f8c\u91cd\u65b0\u7522\u751f\u5019\u9078\u3002</p>`;
     }
 
     function selectedSwingCodesFromInput() {
@@ -2322,23 +2351,44 @@
       updateSwingSelectedUI();
     }
 
+    function renderSwingThemeTables(tables) {
+      const target = $("swingThemeTables");
+      if (!target) return;
+      target.innerHTML = (tables || []).length ? tables.map((table) => {
+        const rows = (table.rows || []).map((row) => {
+          if (table.key === "foreign-yield") return `<tr><td>${row.rank}</td><td>${escapeHtml(row.code)} ${escapeHtml(row.name || "")}</td><td>${fmt(row.close)}</td><td>${row.foreignNetBuy ?? "N/A"}</td><td>${row.dividendYield ?? "N/A"}</td><td>${row.per ?? "N/A"}</td><td>${row.tradingValue100m ?? "N/A"}</td></tr>`;
+          if (table.key === "eps-growth") return `<tr><td>${row.rank}</td><td>${escapeHtml(row.code)} ${escapeHtml(row.name || "")}</td><td>${fmt(row.close)}</td><td>${row.eps ?? "N/A"}</td><td>${escapeHtml(row.liquidityNote || "")}</td></tr>`;
+          if (table.key === "trading-value") return `<tr><td>${row.rank}</td><td>${escapeHtml(row.code)} ${escapeHtml(row.name || "")}</td><td>${fmt(row.close)}</td><td>${row.tradingValue100m ?? "N/A"}</td><td>${row.tradingValue3m100m ?? "N/A"}</td></tr>`;
+          if (table.key === "ma20") return `<tr><td>${row.rank}</td><td>${escapeHtml(row.code)} ${escapeHtml(row.name || "")}</td><td>${fmt(row.close)}</td><td>${fmt(row.ma20)}</td><td>${fmt(row.ma20FiveAgo)}</td><td>${escapeHtml(row.condition || "")}</td></tr>`;
+          return `<tr><td>${row.rank}</td><td>${escapeHtml(row.code)} ${escapeHtml(row.name || "")}</td><td>${fmt(row.close)}</td><td>${row.tradingValue100m ?? "N/A"}</td><td>${escapeHtml(row.focus || "")}</td></tr>`;
+        });
+        return `
+          <section class="data-status">
+            <h3>${escapeHtml(table.title || "")}</h3>
+            <p class="note">${escapeHtml(table.description || "")}</p>
+            ${tableFromRows(table.columns || [], rows.length ? rows : [`<tr><td colspan="${(table.columns || []).length || 1}">\u8cc7\u6599\u4e0d\u8db3\u3002</td></tr>`])}
+          </section>`;
+      }).join("") : `<p class="note">\u4e3b\u984c\u5f0f\u9078\u80a1\u8cc7\u6599\u5c1a\u672a\u8f09\u5165\u3002</p>`;
+    }
+
     function renderSwingCandidates(payload) {
-      const rows = payload?.ranking || [];
+      const textPayload = decodeTree(payload?.text || {});
+      const rows = textPayload.ranking || payload?.ranking || [];
       $("swingCandidateRows").innerHTML = rows.length ? rows.map((item, index) => `
         <tr>
           <td><input type="checkbox" data-swing-code="${escapeHtml(item.code)}" ${swingSelectedCodes.includes(item.code) ? "checked" : ""} aria-label="${escapeHtml(item.code)}"></td>
           <td>${index + 1}</td>
           <td><button type="button" class="chip" data-swing-open="${escapeHtml(item.code)}">${escapeHtml(item.code)} ${escapeHtml(item.name)}</button></td>
           <td>${fmt(item.latestClose)}</td>
-          <td>${scoreText(item.swingScore)}</td>
-          <td>${scoreText(item.sortKeys?.topicFit)}</td>
-          <td>${item.sortKeys?.tradingValue100m !== null && item.sortKeys?.tradingValue100m !== undefined ? `${fmt(item.sortKeys.tradingValue100m)} \u5104` : "--"}</td>
-          <td>${item.sortKeys?.closeVs20MaPct !== null && item.sortKeys?.closeVs20MaPct !== undefined ? `${fmt(item.sortKeys.closeVs20MaPct, 2)}%` : "--"}</td>
-          <td>${item.sortKeys?.ma20Slope5dPct !== null && item.sortKeys?.ma20Slope5dPct !== undefined ? `${fmt(item.sortKeys.ma20Slope5dPct, 2)}%` : "--"}</td>
-          <td>${escapeHtml(item.sortKeys?.priceSource || "--")}</td>
-        </tr>`).join("") : `<tr><td colspan="10">\u6c92\u6709\u53ef\u7528 Dino \u5019\u9078\u3002</td></tr>`;
+          <td>${fmt(item.sortKeys?.ma20)}</td>
+          <td>${escapeHtml(item.setupType || "--")}</td>
+          <td>${escapeHtml((item.primaryEvidence || []).slice(0, 3).join("\uff1b"))}</td>
+          <td>${item.levels?.invalidation ? fmt(item.levels.invalidation) : "--"}</td>
+          <td>${badge(item.watchPriority || "--", item.watchPriority === "\u9ad8" ? "bull" : item.watchPriority === "\u4e2d" ? "warn" : "neut")}<br><span class="note">${scoreText(item.swingScore)}</span></td>
+        </tr>`).join("") : `<tr><td colspan="9">\u6c92\u6709\u53ef\u7528 Dino \u5019\u9078\u3002</td></tr>`;
+      renderSwingThemeTables(textPayload.themeTables || payload?.themeTables || []);
       $("swingTodayWatch").innerHTML = (payload?.todayWatch || []).length
-        ? payload.todayWatch.map(item => `
+        ? (textPayload.todayWatch || payload.todayWatch).map(item => `
           <div class="workbench-item">
             <button type="button" data-swing-open="${escapeHtml(item.code)}">${escapeHtml(item.code)} ${escapeHtml(item.name || "")}</button>
             <div>
@@ -2364,7 +2414,7 @@
             <div class="data-status-card"><b>\u64cd\u4f5c\u671f\u9593</b><strong>1-3 \u500b\u6708</strong></div>
           </div>
           <p class="note">${escapeHtml(payload?.gate?.instruction || "")}</p>
-          <p class="note">${escapeHtml(payload?.source || "")}</p>
+          <p class="note">${escapeHtml(textPayload.source || payload?.source || "")}</p>
         </div>`;
     }
 
@@ -2377,9 +2427,10 @@
         return;
       }
       renderSwingFlow("macro");
-      $("swingMacroCards").innerHTML = valueCard("Dino", "\u8f09\u5165\u4e2d", "\u6b63\u5728\u8b80\u53d6\u7e3d\u7d93 proxy \u8207\u5019\u9078\u6e05\u55ae\u3002", "warn");
+      $("swingMacroCards").innerHTML = valueCard("Dino", "\u8f09\u5165\u4e2d", "\u6b63\u5728\u8b80\u53d6\u7e3d\u7d93\u65b0\u805e\u5206\u6790\u8207\u5019\u9078\u6e05\u55ae\u3002", "warn");
       $("swingMacroNews").innerHTML = `<p class="note">\u6b63\u5728\u8f09\u5165\u7e3d\u7d93\u65b0\u805e\u8207\u4e8b\u4ef6\u3002</p>`;
-      $("swingCandidateRows").innerHTML = `<tr><td colspan="10">\u8f09\u5165 Dino \u5019\u9078\u6e05\u55ae...</td></tr>`;
+      $("swingCandidateRows").innerHTML = `<tr><td colspan="9">\u8f09\u5165 Dino \u5019\u9078\u6e05\u55ae...</td></tr>`;
+      $("swingThemeTables").innerHTML = `<p class="note">\u6b63\u5728\u8f09\u5165\u4e94\u7a2e\u4e3b\u984c\u5f0f\u9078\u80a1\u8868\u3002</p>`;
       try {
         const [macro, screener] = await Promise.all([getSwingMacro(), getSwingScreener()]);
         swingWorkflow = { macro, screener };
@@ -2389,7 +2440,8 @@
         updateSwingSelectedUI();
       } catch (err) {
         $("swingMacroCards").innerHTML = valueCard("Dino", "\u8f09\u5165\u5931\u6557", err.message || "\u8cc7\u6599\u4f86\u6e90\u66ab\u6642\u4e0d\u53ef\u7528", "bear");
-        $("swingCandidateRows").innerHTML = `<tr><td colspan="10">${escapeHtml(err.message || "\u8f09\u5165\u5931\u6557")}</td></tr>`;
+        $("swingCandidateRows").innerHTML = `<tr><td colspan="9">${escapeHtml(err.message || "\u8f09\u5165\u5931\u6557")}</td></tr>`;
+        $("swingThemeTables").innerHTML = `<p class="note">${escapeHtml(err.message || "\u4e3b\u984c\u5f0f\u9078\u80a1\u8f09\u5165\u5931\u6557")}</p>`;
       }
     }
 
@@ -2398,7 +2450,45 @@
     }
 
     function renderSwingDeep(payload) {
-      const summaryRows = (payload.summary?.rows || []).map(row => `
+      const summaryText = decodeTree(payload.summary?.text || {});
+      const valuationText = decodeTree(payload.valuation?.text || {});
+      const deepText = decodeTree(payload.deep?.text || {});
+      const technicalText = decodeTree(payload.technical?.text || {});
+      const signalText = decodeTree(payload.signal?.text || {});
+      const summaryItems = summaryText.rows || payload.summary?.rows || [];
+      const reportCards = summaryItems.map(row => {
+        const report = row.researchReport || {};
+        const peerRows = (report.peers || []).map(peer => `<tr><td>${escapeHtml(peer.code || "")} ${escapeHtml(peer.name || "")}</td><td>${peer.per ?? "N/A"}</td><td>${peer.pbr ?? "N/A"}</td><td>${peer.dividendYield ?? "N/A"}</td></tr>`).join("");
+        const conclusion = report.conclusion || {};
+        return `
+          <section class="data-status">
+            <h3>${escapeHtml(report.title || `${row.code} ${row.name}`)}</h3>
+            <p class="note">${escapeHtml(report.reportDate || "")}</p>
+            <p>${escapeHtml(report.latestPrice || "")}</p>
+            <h4>\u540c\u696d\u4f30\u503c</h4>
+            ${tableFromRows(["\u540c\u696d", "P/E", "P/B", "\u6b96\u5229\u7387"], [peerRows || `<tr><td colspan="4">N/A</td></tr>`])}
+            <p>${escapeHtml(report.valuation || "")}</p>
+            <h4>\u57fa\u672c\u9762\u5224\u65b7</h4>
+            <p>${escapeHtml(report.fundamentals || "")}</p>
+            <ul class="mini-list">${(report.risks || []).map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>
+            <h4>\u65e5\u7dda\u6280\u8853</h4>
+            <p>${escapeHtml(report.technical || "")}</p>
+            <ul class="mini-list">${(report.scenarios || []).map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>
+            <h4>K \u7dda\u591a\u7a7a\u8a0a\u865f</h4>
+            <p>${escapeHtml(report.kline || "")}</p>
+            <h4>\u7d9c\u5408\u7d50\u8ad6</h4>
+            ${tableFromRows(["\u9805\u76ee", "\u5224\u65b7"], [
+              `<tr><td>\u540c\u696d\u4f30\u503c</td><td>${escapeHtml(conclusion.valuation || "N/A")}</td></tr>`,
+              `<tr><td>\u57fa\u672c\u9762</td><td>${escapeHtml(conclusion.fundamentals || "N/A")}</td></tr>`,
+              `<tr><td>\u6280\u8853\u9762</td><td>${escapeHtml(conclusion.technical || "N/A")}</td></tr>`,
+              `<tr><td>K \u7dda\u8a0a\u865f</td><td>${escapeHtml(conclusion.kline || "N/A")}</td></tr>`,
+              `<tr><td>1-3 \u500b\u6708\u60c5\u5883</td><td>${escapeHtml(conclusion.horizon || "N/A")}</td></tr>`,
+              `<tr><td>\u4e3b\u98a8\u96aa</td><td>${escapeHtml(conclusion.mainRisk || "N/A")}</td></tr>`,
+              `<tr><td>\u6700\u7d42\u7814\u7a76\u7acb\u5834</td><td>${escapeHtml(conclusion.finalStance || "N/A")}</td></tr>`
+            ])}
+          </section>`;
+      }).join("");
+      const summaryRows = summaryItems.map(row => `
         <tr>
           <td>${escapeHtml(row.code)} ${escapeHtml(row.name)}</td>
           <td>${escapeHtml(row.finalStance)}</td>
@@ -2407,13 +2497,13 @@
           <td>${escapeHtml(row.klineSignal)}</td>
           <td>${escapeHtml(row.scenario)}</td>
         </tr>`).join("");
-      const valuationRows = (payload.valuation?.items || []).map(item => `
+      const valuationRows = (valuationText.items || payload.valuation?.items || []).map(item => `
         <tr><td>${escapeHtml(item.code || "")} ${escapeHtml(item.name || "")}</td><td>${escapeHtml(item.bias || item.message || "N/A")}</td><td>${item.target?.per ?? "N/A"}</td><td>${item.target?.pbr ?? "N/A"}</td><td>${item.peerSummary?.count ?? 0}</td><td>${escapeHtml((item.limitations || []).join(" "))}</td></tr>`).join("");
-      const technicalRows = (payload.technical?.items || []).map(item => `
+      const technicalRows = (technicalText.items || payload.technical?.items || []).map(item => `
         <tr><td>${escapeHtml(item.code || "")} ${escapeHtml(item.name || "")}</td><td>${escapeHtml(item.trend || item.message || "N/A")}</td><td>${scoreText(item.continuationScore)}</td><td>${scoreText(item.pullbackRisk)}</td><td>${item.levels ? `${fmt(item.levels.support)} / ${fmt(item.levels.resistance)}` : "N/A"}</td><td>${item.levels ? fmt(item.levels.invalidation) : "N/A"}</td></tr>`).join("");
-      const signalRows = (payload.signal?.items || []).map(item => `
-        <tr><td>${escapeHtml(item.code || "")} ${escapeHtml(item.name || "")}</td><td>${escapeHtml(item.signal || item.message || "N/A")}</td><td>${escapeHtml(item.strength || "N/A")}</td><td>${escapeHtml(item.trigger || "N/A")}</td><td>${escapeHtml(item.requiredConfirmation || "N/A")}</td><td>${item.levels ? fmt(item.levels.invalidation) : "N/A"}</td></tr>`).join("");
-      const deepCards = (payload.deep?.items || []).map(item => `
+      const signalRows = (signalText.items || payload.signal?.items || []).map(item => `
+        <tr><td>${escapeHtml(item.code || "")} ${escapeHtml(item.name || "")}</td><td>${escapeHtml(item.signal || item.message || "N/A")}</td><td>${escapeHtml(item.strength || "N/A")}</td><td>${escapeHtml(item.stance || "N/A")}</td><td>${escapeHtml(item.requiredConfirmation || "N/A")}</td><td>${escapeHtml(item.invalidation || "N/A")}</td></tr>`).join("");
+      const deepCards = (deepText.items || payload.deep?.items || []).map(item => `
         <div class="data-status">
           <h3>${escapeHtml(item.code || "")} ${escapeHtml(item.name || "")} ${badge(item.rating?.grade || "N/A", item.rating?.grade === "A" ? "bull" : item.rating?.grade === "B" ? "warn" : "neut")}</h3>
           <ul class="mini-list">${(item.thesis || [item.message || "\u8cc7\u6599\u4e0d\u8db3"]).map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>
@@ -2421,6 +2511,10 @@
           <p class="note">\u98a8\u96aa\uff1a${escapeHtml((item.risks || []).join("\uff1b") || "\u8cc7\u6599\u4e0d\u8db3")}</p>
         </div>`).join("");
       $("swingDeepResults").innerHTML = `
+        <section>
+          <h3>\u7814\u7a76\u5831\u544a\u5f0f\u5206\u6790</h3>
+          ${reportCards || `<p class="note">\u5c1a\u7121\u5831\u544a\u5f0f\u5206\u6790\u3002</p>`}
+        </section>
         <section>
           <h3>\u500b\u80a1\u6df1\u5ea6</h3>
           ${deepCards || `<p class="note">\u5c1a\u7121\u500b\u80a1\u6df1\u5ea6\u8cc7\u6599\u3002</p>`}
