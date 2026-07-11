@@ -3867,6 +3867,15 @@ function stripTags(value: string) {
   return decodeXml(value).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+function cleanNewsText(value: string) {
+  return stripTags(value)
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/\s+-\s+(Yahoo\u80a1\u5e02|Google News|Reuters|Bloomberg|CNBC|MoneyDJ|Anue|\u4e2d\u592e\u793e|\u7d93\u6fdf\u65e5\u5831|\u5de5\u5546\u6642\u5831)\s*$/i, "")
+    .trim();
+}
+
 function tagValue(xml: string, tag: string) {
   const match = xml.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, "i"));
   return match ? decodeXml(match[1]).trim() : "";
@@ -4067,14 +4076,16 @@ async function loadSwingMacroNews() {
 }
 
 function classifyMacroNews(item: NewsItem, topic: string) {
-  const text = `${item.title} ${item.snippet}`.toLowerCase();
+  const cleanTitle = cleanNewsText(item.title);
+  const cleanSnippet = cleanNewsText(item.snippet);
+  const text = `${cleanTitle} ${cleanSnippet}`.toLowerCase();
   const hasRate = /fed|fomc|rate|yield|\u5229\u7387|\u964d\u606f|\u7f8e\u5143|\u532f\u7387|\u516c\u50b5/.test(text);
   const hasTaiwan = /\u53f0\u80a1|\u52a0\u6b0a|\u5916\u8cc7|twse|\u65b0\u53f0\u5e63|\u53f0\u5e63/.test(text);
   const hasSemi = /ai|tsmc|nvidia|\u534a\u5c0e\u9ad4|\u53f0\u7a4d|\u4f3a\u670d\u5668|\u4f9b\u61c9\u93c8|\u6676\u7247/.test(text);
   const hasRisk = /\u901a\u81a8|\u8870\u9000|\u95dc\u7a05|\u5730\u7de3|\u8dcc|\u8ce3\u58d3|\u8b66\u793a|\u964d\u8a55|\u8d70\u5f31/.test(text);
   const hasGrowth = /\u6210\u9577|\u5275\u9ad8|\u8ca1\u5831|\u71df\u6536|\u8a02\u55ae|\u4e0a\u4fee|\u8cb7\u8d85|\u9700\u6c42/.test(text);
   const importance = hasRate || hasTaiwan || hasSemi ? "\u9ad8" : hasRisk || hasGrowth ? "\u4e2d" : "\u4f4e";
-  const sourceSummary = item.snippet || item.title;
+  const sourceSummary = cleanSnippet && cleanSnippet !== cleanTitle ? cleanSnippet : cleanTitle;
   const matchedDrivers = [
     hasTaiwan ? "\u53f0\u80a1\u98a8\u96aa\u504f\u597d/\u8cc7\u91d1\u9762" : "",
     hasRate ? "\u5229\u7387\u3001\u532f\u7387\u6216\u8cc7\u91d1\u6210\u672c" : "",
@@ -4104,14 +4115,24 @@ function classifyMacroNews(item: NewsItem, topic: string) {
   const reason = matchedDrivers.length
     ? `\u539f\u56e0\uff1a\u65b0\u805e\u4e2d\u547d\u4e2d ${matchedDrivers.join("\u3001")}\uff0c\u9019\u4e9b\u56e0\u5b50\u6703\u5f71\u97ff 1-3 \u500b\u6708\u6ce2\u6bb5\u7684\u8cc7\u91d1\u6d41\u5411\u3001\u4f30\u503c\u5bb9\u5fcd\u5ea6\u6216\u984c\u6750\u6301\u7e8c\u6027\u3002`
     : "\u539f\u56e0\uff1a\u76ee\u524d\u6c92\u6709\u547d\u4e2d\u5229\u7387\u3001\u53f0\u80a1\u3001AI/\u534a\u5c0e\u9ad4\u6216\u660e\u78ba\u98a8\u96aa\u95dc\u9375\u8a5e\uff0c\u56e0\u6b64\u964d\u70ba\u80cc\u666f\u8ffd\u8e64\u3002";
+  const focus = hasRisk
+    ? "\u91cd\u9ede\u5224\u8b80\uff1a\u9019\u5247\u65b0\u805e\u7684\u6838\u5fc3\u4e0d\u662f\u984c\u6750\u52a0\u5206\uff0c\u800c\u662f\u63d0\u9192\u8cc7\u91d1\u6216\u4f30\u503c\u98a8\u96aa\uff0c\u56e0\u6b64\u7be9\u9078\u6642\u8981\u5148\u6aa2\u67e5\u8ffd\u9ad8\u8207\u5931\u6548\u7dda\u3002"
+    : hasSemi || hasGrowth
+      ? "\u91cd\u9ede\u5224\u8b80\uff1a\u9019\u5247\u65b0\u805e\u7684\u6838\u5fc3\u662f AI/\u534a\u5c0e\u9ad4\u6216\u6210\u9577\u52d5\u80fd\u662f\u5426\u5ef6\u7e8c\uff0c\u53ef\u4f5c\u70ba\u4e3b\u984c\u5951\u5408\u5ea6\u52a0\u5206\u3002"
+      : hasRate
+        ? "\u91cd\u9ede\u5224\u8b80\uff1a\u9019\u5247\u65b0\u805e\u7684\u6838\u5fc3\u662f\u5229\u7387\u3001\u532f\u7387\u6216\u8cc7\u91d1\u6210\u672c\uff0c\u6703\u5f71\u97ff\u5916\u8cc7\u98a8\u96aa\u504f\u597d\u8207\u9ad8\u4f30\u503c\u80a1\u5bb9\u5fcd\u5ea6\u3002"
+        : hasTaiwan
+          ? "\u91cd\u9ede\u5224\u8b80\uff1a\u9019\u5247\u65b0\u805e\u7684\u6838\u5fc3\u662f\u53f0\u80a1\u8cc7\u91d1\u9762\u6216\u5927\u76e4\u60c5\u7dd2\uff0c\u6703\u76f4\u63a5\u5f71\u97ff\u4eca\u65e5\u5019\u9078\u80a1\u7684\u512a\u5148\u9806\u5e8f\u3002"
+          : "\u91cd\u9ede\u5224\u8b80\uff1a\u9019\u5247\u65b0\u805e\u76ee\u524d\u672a\u547d\u4e2d\u9ad8\u5f71\u97ff\u5e02\u5834\u4e3b\u8ef8\uff0c\u5148\u4f5c\u70ba\u80cc\u666f\u8ffd\u8e64\u3002";
   const keyPoints = [
-    `\u65b0\u805e\u91cd\u9ede\uff1a${sourceSummary}`,
+    focus,
     matchedDrivers.length ? `\u8fa8\u8b58\u5230\u7684\u4e3b\u8ef8\uff1a${matchedDrivers.join("\u3001")}\u3002` : "\u8fa8\u8b58\u5230\u7684\u4e3b\u8ef8\uff1a\u672a\u547d\u4e2d\u9ad8\u5f71\u97ff\u95dc\u9375\u8a5e\uff0c\u5148\u5217\u80cc\u666f\u8ffd\u8e64\u3002",
+    `\u4f86\u6e90\u6458\u8981\uff1a${sourceSummary || "\u4f86\u6e90\u6458\u8981\u4e0d\u8db3\uff0c\u50c5\u4f9d\u6a19\u984c\u8207\u4e3b\u984c\u95dc\u9375\u8a5e\u5224\u8b80\u3002"}`,
     reason,
   ];
   return {
     topic,
-    title: item.title,
+    title: cleanTitle || item.title,
     link: item.link,
     source: item.source,
     publishedAt: item.publishedAt,
@@ -4948,6 +4969,16 @@ async function loadSwingScreener(universeValue: unknown) {
     .map(item => buildSwingCandidate(item, marketProxy, officialMap.get(item.code) || null))
     .sort((a, b) => b.swingScore - a.swingScore);
   const themeTables = buildSwingThemeTables(candidates, stockItems);
+  const rankingMethod = {
+    horizon: "1-3 months",
+    formula: "\u4e3b\u984c\u5951\u5408\u5ea6 30% + \u6210\u4ea4\u503c 25% + \u6536\u76e4\u50f9\u76f8\u5c0d 20MA 25% + 20MA \u659c\u7387 20%",
+    officialPriceSource: "TWSE STOCK_DAY",
+    fallback: "\u82e5\u500b\u80a1\u975e TWSE \u6216\u5b98\u65b9\u7aef\u9ede\u6682\u6642\u4e0d\u53ef\u7528\uff0c\u8a72\u6b04\u4f4d\u6703\u6a19\u793a fallback\uff0c\u4e0d\u5047\u88dd\u70ba TWSE STOCK_DAY\u3002",
+  };
+  const gate = {
+    required: true,
+    instruction: "\u8acb\u52fe\u9078\u8981\u9032\u5165\u6df1\u5ea6\u6d41\u7a0b\u7684\u80a1\u7968\uff0c\u518d\u57f7\u884c\u53ef\u6bd4\u4f30\u503c\u3001\u6df1\u5ea6\u5206\u6790\u3001\u65e5\u7dda\u6280\u8853\u3001K \u7dda\u8a0a\u865f\u8207\u6700\u7d42\u6574\u5408\u3002",
+  };
   return {
     ok: candidates.length > 0,
     generatedAt: new Date().toISOString(),
@@ -4964,17 +4995,11 @@ async function loadSwingScreener(universeValue: unknown) {
       ranking: candidates.slice(0, 16),
       themeTables,
       source: screener.source,
+      rankingMethod,
+      gate,
     }),
-    rankingMethod: {
-      horizon: "1-3 months",
-      formula: "\u4e3b\u984c\u5951\u5408\u5ea6 30% + \u6210\u4ea4\u503c 25% + \u6536\u76e4\u50f9\u76f8\u5c0d 20MA 25% + 20MA \u659c\u7387 20%",
-      officialPriceSource: "TWSE STOCK_DAY",
-      fallback: "\u82e5\u500b\u80a1\u975e TWSE \u6216\u5b98\u65b9\u7aef\u9ede\u6682\u6642\u4e0d\u53ef\u7528\uff0c\u8a72\u6b04\u4f4d\u6703\u6a19\u793a fallback\uff0c\u4e0d\u5047\u88dd\u70ba TWSE STOCK_DAY\u3002",
-    },
-    gate: {
-      required: true,
-      instruction: "\u8acb\u52fe\u9078\u8981\u9032\u5165\u6df1\u5ea6\u6d41\u7a0b\u7684\u80a1\u7968\uff0c\u518d\u57f7\u884c\u53ef\u6bd4\u4f30\u503c\u3001\u6df1\u5ea6\u5206\u6790\u3001\u65e5\u7dda\u6280\u8853\u3001K \u7dda\u8a0a\u865f\u8207\u6700\u7d42\u6574\u5408\u3002",
-    },
+    rankingMethod,
+    gate,
     errors: [...screener.errors, ...officialErrors],
   };
 }
@@ -5086,6 +5111,23 @@ async function loadSwingDeepAnalysis(codes: string[]) {
 function buildSwingTechnicalFromQuote(quote: QuoteInfo) {
   const latest = quote.analysis.latest;
   const levels = quote.analysis.levels;
+  const support = levels.supportShort;
+  const supportMid = levels.supportMid;
+  const resistance = levels.resistanceShort;
+  const resistanceMid = levels.resistanceMid;
+  const invalidation = round(Math.min(levels.supportMid * 0.97, latest.ma60 * 0.98));
+  const target1 = round(levels.resistanceShort * 1.04);
+  const target2 = round(Math.max(levels.resistanceMid, latest.week52High) * 1.03);
+  const maAlignment = latest.close > latest.ma20 && latest.ma20 > latest.ma60
+    ? "\u50f9\u683c\u5728 20MA \u4e0a\u65b9\uff0c20MA \u9ad8\u65bc 60MA\uff0c\u5c6c\u65bc\u4e2d\u671f\u504f\u591a\u6392\u5217\u3002"
+    : latest.close > latest.ma60
+      ? "\u50f9\u683c\u4ecd\u5728 60MA \u4e0a\u65b9\uff0c\u4f46 20MA \u7d50\u69cb\u9700\u7b49\u5f85\u8f49\u5f37\u78ba\u8a8d\u3002"
+      : "\u50f9\u683c\u4f4e\u65bc\u4e3b\u8981\u5747\u7dda\u6216\u7d50\u69cb\u504f\u5f31\uff0c\u4e0d\u5b9c\u7528\u8ffd\u50f9\u908f\u8f2f\u89e3\u8b80\u3002";
+  const indicatorView = latest.rsi14 > 72
+    ? "\u52d5\u80fd\u5f37\u4f46 RSI \u504f\u71b1\uff0c\u9700\u6ce8\u610f\u4e56\u96e2\u8207\u56de\u6a94\u58d3\u529b\u3002"
+    : latest.rsi14 >= 50
+      ? "RSI \u5728\u591a\u65b9\u5340\uff0c\u82e5 MACD \u8207\u91cf\u80fd\u540c\u6b65\uff0c\u7e8c\u822a\u6a5f\u7387\u8f03\u9ad8\u3002"
+      : "RSI \u5c1a\u672a\u56de\u5230\u591a\u65b9\u5340\uff0c\u61c9\u7b49\u5f85\u8f49\u5f37\u6216\u56de\u6e2c\u78ba\u8a8d\u3002";
   const continuationScore = Math.max(0, Math.min(100, Math.round(
     45 +
     (latest.close > latest.ma20 ? 12 : -8) +
@@ -5103,6 +5145,11 @@ function buildSwingTechnicalFromQuote(quote: QuoteInfo) {
     trend: latest.close > latest.ma20 && latest.ma20 > latest.ma60 ? "\u504f\u591a" : latest.close > latest.ma60 ? "\u6574\u7406" : "\u504f\u5f31",
     continuationScore,
     pullbackRisk: latest.pullback,
+    probabilities: {
+      continuation: continuationScore,
+      pullback: latest.pullback,
+      rangeBound: Math.max(5, Math.min(95, 100 - Math.abs(continuationScore - 50) - Math.max(0, latest.pullback - 65))),
+    },
     indicators: {
       ma5: latest.ma5,
       ma20: latest.ma20,
@@ -5117,18 +5164,33 @@ function buildSwingTechnicalFromQuote(quote: QuoteInfo) {
       atrPct: latest.atrPct,
     },
     levels: {
-      support: levels.supportShort,
-      supportMid: levels.supportMid,
-      resistance: levels.resistanceShort,
-      resistanceMid: levels.resistanceMid,
-      invalidation: round(Math.min(levels.supportMid * 0.97, latest.ma60 * 0.98)),
-      target1: round(levels.resistanceShort * 1.04),
-      target2: round(Math.max(levels.resistanceMid, latest.week52High) * 1.03),
+      support,
+      supportMid,
+      resistance,
+      resistanceMid,
+      invalidation,
+      target1,
+      target2,
+    },
+    framework: [
+      { item: "\u50f9\u683c\u884c\u70ba", view: latest.close > latest.ma20 ? "\u6536\u76e4\u5728 20MA \u4e0a\uff0c\u591a\u65b9\u7d50\u69cb\u4ecd\u5728\u3002" : "\u672a\u7ad9\u7a69 20MA\uff0c\u9700\u7b49\u6536\u56de\u6216\u91cf\u80fd\u78ba\u8a8d\u3002" },
+      { item: "\u79fb\u52d5\u5e73\u5747", view: maAlignment },
+      { item: "\u6280\u8853\u6307\u6a19", view: indicatorView },
+      { item: "\u7e8f\u8ad6\u8fd1\u4f3c", view: latest.close > latest.ma20 ? "\u65e5\u7dda\u53ef\u8996\u70ba\u5411\u4e0a\u6bb5\u843d\u5ef6\u4f38\uff1b\u9700\u7b49\u4f4e\u9031\u671f\u80cc\u96e2\u624d\u78ba\u8a8d\u53cd\u8f49\u3002" : "\u65e5\u7dda\u8f03\u50cf\u5340\u9593\u6216\u56de\u6e2c\u6bb5\uff0c\u4e0d\u5f37\u884c\u5224\u5b9a\u70ba\u4e0a\u653b\u6bb5\u3002" },
+      { item: "\u827e\u7565\u7279\u6ce2\u6d6a", view: latest.close > latest.ma20 ? "\u504f\u5411\u4e3b\u5347\u6bb5\u6216\u7b2c 3/5 \u6ce2\u5ef6\u4f38\u5019\u9078\uff0c\u8dcc\u7834\u5931\u6548\u50f9\u5247\u6ce2\u6d6a\u5047\u8a2d\u964d\u7d1a\u3002" : "\u53ef\u80fd\u4ecd\u5728 ABC \u56de\u6e2c\u6216\u5340\u9593\u6574\u7406\uff0c\u9700\u5148\u7ad9\u56de\u5747\u7dda\u3002" },
+      { item: "\u845b\u862d\u78a7\u6cd5\u5247", view: latest.close > latest.ma20 && latest.ma20 > latest.ma60 ? "\u63a5\u8fd1\u5747\u7dda\u4e0a\u5f4e\u5f8c\u7684\u8da8\u52e2\u8cb7\u9ede\uff1b\u82e5\u96e2 20MA \u904e\u9060\u5247\u6539\u70ba\u7b49\u62c9\u56de\u3002" : "\u5c1a\u672a\u6eff\u8db3\u5f37\u52e2\u5747\u7dda\u8cb7\u9ede\uff0c\u61c9\u7b49\u5f85\u6536\u56de\u6216\u91cd\u65b0\u7ad9\u7a69\u3002" },
+    ],
+    tradingPlan: {
+      continuationEntry: `\u653e\u91cf\u7ad9\u7a69 ${fmt(resistance)} \u5f8c\uff0c\u624d\u628a\u7e8c\u822a\u60c5\u5883\u5347\u7d1a\u3002`,
+      pullbackEntry: `\u56de\u6e2c ${fmt(support)}-${fmt(supportMid)} \u6216 20MA ${fmt(latest.ma20)} \u4e0d\u7834\uff0c\u518d\u89c0\u5bdf\u8f49\u5f37\u8a0a\u865f\u3002`,
+      failureExit: `\u8dcc\u7834 ${fmt(invalidation)} \u4e14\u7121\u6cd5\u5feb\u901f\u6536\u56de\uff0c1-3 \u500b\u6708\u6ce2\u6bb5\u5047\u8a2d\u5931\u6548\u3002`,
+      stopLoss: fmt(invalidation),
+      targets: `${fmt(target1)} - ${fmt(target2)}`,
     },
     scenarios: [
-      `\u7ad9\u7a69 ${fmt(levels.resistanceShort)} \u4e14\u91cf\u80fd\u5927\u65bc 20 \u65e5\u5747\u91cf 1.2 \u500d\uff0c\u7e8c\u6f32\u60c5\u5883\u5347\u6eab\u3002`,
+      `\u7ad9\u7a69 ${fmt(resistance)} \u4e14\u91cf\u80fd\u5927\u65bc 20 \u65e5\u5747\u91cf 1.2 \u500d\uff0c\u7e8c\u6f32\u60c5\u5883\u5347\u6eab\u3002`,
       `\u56de\u6e2c MA20 ${fmt(latest.ma20)} \u4e0d\u7834\uff0c\u504f\u5411\u5065\u5eb7\u6574\u7406\u3002`,
-      `\u8dcc\u7834 ${fmt(Math.min(levels.supportMid * 0.97, latest.ma60 * 0.98))} \u6642\uff0c1-3 \u500b\u6708\u6ce2\u6bb5\u5047\u8a2d\u5931\u6548\u3002`,
+      `\u8dcc\u7834 ${fmt(invalidation)} \u6642\uff0c1-3 \u500b\u6708\u6ce2\u6bb5\u5047\u8a2d\u5931\u6548\u3002`,
     ],
   };
 }
@@ -5159,6 +5221,21 @@ function buildSwingSignalFromTechnical(item: any) {
     stance,
     signal: longSetup ? "long setup" : shortSetup ? "short setup" : "no trade / wait for confirmation",
     strength: longSetup ? Math.min(92, item.continuationScore + 8) : shortSetup ? Math.max(50, 100 - item.continuationScore) : Math.max(30, Math.min(70, item.continuationScore)),
+    context: `\u65e5\u7dda\u8da8\u52e2 ${item.trend || "N/A"}\uff0c\u6536\u76e4 ${fmt(item.close)}\uff0c20MA ${fmt(ind.ma20)}\uff0c60MA ${fmt(ind.ma60)}\u3002`,
+    keyAreas: [
+      `\u652f\u6490\u5340\uff1a${fmt(levels.support)}-${fmt(levels.supportMid)}`,
+      `\u58d3\u529b\u5340\uff1a${fmt(levels.resistance)}-${fmt(levels.resistanceMid)}`,
+      `\u5931\u6548\u50f9\uff1a${fmt(levels.invalidation)}`,
+    ],
+    candleRead: longSetup
+      ? "\u6700\u65b0 K \u7dda\u7d50\u69cb\u504f\u591a\uff1a\u50f9\u683c\u5728\u5747\u7dda\u4e0a\u65b9\uff0c\u4f46\u82e5\u5df2\u9060\u96e2\u652f\u6490\uff0c\u61c9\u7b49\u56de\u6e2c\u6216\u7a81\u7834\u78ba\u8a8d\u3002"
+      : shortSetup
+        ? "\u6700\u65b0 K \u7dda\u7d50\u69cb\u504f\u7a7a\uff1a\u50f9\u683c\u4f4e\u65bc\u4e3b\u8981\u5747\u7dda\uff0c\u53cd\u5f48\u7121\u6cd5\u6536\u56de\u6642\u5bb9\u6613\u5ef6\u4f38\u8ce3\u58d3\u3002"
+        : "\u6700\u65b0 K \u7dda\u4f4d\u7f6e\u4e0d\u5920\u4e7e\u6de8\uff1a\u591a\u7a7a\u689d\u4ef6\u6c92\u6709\u540c\u6b65\uff0c\u5148\u7b49\u7a81\u7834\u3001\u56de\u6e2c\u6216\u6536\u56de\u5747\u7dda\u3002",
+    multiTimeframe: item.trend === "\u504f\u591a"
+      ? "\u65e5\u7dda\u504f\u591a\u6642\uff0c\u4f4e\u9031\u671f\u61c9\u627e\u56de\u6e2c\u4e0d\u7834\u6216\u7a81\u7834\u5f8c\u56de\u6e2c\u8a0a\u865f\u3002"
+      : "\u65e5\u7dda\u5c1a\u672a\u660e\u986f\u504f\u591a\uff0c\u4f4e\u9031\u671f\u8a0a\u865f\u4e0d\u61c9\u8207\u4e0a\u65b9\u58d3\u529b\u5c0d\u505a\u3002",
+    decision: longSetup ? "\u504f\u591a\u5019\u9078\uff0c\u7b49\u78ba\u8a8d\u6216\u56de\u6e2c\u3002" : shortSetup ? "\u504f\u7a7a\uff0c\u53cd\u5f48\u4e0d\u904e\u58d3\u529b\u6642\u98a8\u96aa\u5347\u9ad8\u3002" : "\u4e0d\u4ea4\u6613 / \u7b49\u78ba\u8a8d\u3002",
     requiredConfirmation: longSetup
       ? `\u6536\u76e4\u7ad9\u7a69 ${fmt(levels.resistance)} \u6216\u56de\u6e2c MA20 \u4e0d\u7834\u3002`
       : shortSetup
@@ -5204,17 +5281,56 @@ function buildSwingResearchReport(code: string, v: any, d: any, t: any, s: any) 
     ? `\u8a0a\u865f\uff1a${s.stance || "N/A"} / ${s.signal || "N/A"}\u3002\u78ba\u8a8d\u689d\u4ef6\uff1a${s.requiredConfirmation || "N/A"} \u76ee\u6a19\u5340 ${s.targetZone || "N/A"}\uff0c\u5931\u6548 ${s.invalidation || "N/A"}\u3002`
     : s.message || "\u591a\u7a7a\u8a0a\u865f\u8cc7\u6599\u4e0d\u8db3\u3002";
   const finalStance = s.stance || "\u89c0\u5bdf";
+  const valuationTable = v.ok ? [
+    { metric: "P/E", company: v.target?.per ?? "N/A", peerMedian: v.peerSummary?.medianPer ?? "N/A", interpretation: v.bias || "N/A" },
+    { metric: "P/B", company: v.target?.pbr ?? "N/A", peerMedian: v.peerSummary?.medianPbr ?? "N/A", interpretation: v.bias || "N/A" },
+    { metric: "\u6b96\u5229\u7387", company: v.target?.dividendYield ?? "N/A", peerMedian: v.peerSummary?.medianDividendYield ?? "N/A", interpretation: "\u7528\u65bc\u8f14\u52a9\u5224\u65b7\u5831\u916c\u8207\u4f30\u503c\uff0c\u4e0d\u55ae\u7368\u4f5c\u70ba\u8cb7\u8ce3\u4f9d\u64da\u3002" },
+    { metric: "EV/EBITDA", company: "N/A", peerMedian: "N/A", interpretation: "\u5373\u6642\u6de8\u50b5\u52d9\u8207 EBITDA \u8cc7\u6599\u4e0d\u8db3\uff0c\u4e0d\u786c\u4f30\u3002" },
+  ] : [];
+  const financialSnapshot = d.ok ? [
+    { item: "\u71df\u6536\u6210\u9577", value: d.fundamentals?.revenue?.yoy ?? d.fundamentals?.profitability?.revenueYoY ?? "N/A", view: "\u7528\u65bc\u5224\u65b7 1-3 \u500b\u6708\u984c\u6750\u662f\u5426\u6709\u57fa\u672c\u9762\u652f\u6490\u3002" },
+    { item: "EPS", value: d.fundamentals?.profitability?.eps ?? "N/A", view: "\u82e5 EPS \u8207\u71df\u6536\u540c\u6b65\u6210\u9577\uff0c\u984c\u6750\u6301\u7e8c\u6027\u8f03\u9ad8\u3002" },
+    { item: "\u73fe\u91d1\u6d41", value: d.fundamentals?.cashFlow?.operatingCashFlow ?? d.fundamentals?.cashFlow?.freeCashFlow ?? "N/A", view: "\u7528\u65bc\u6aa2\u67e5\u7372\u5229\u54c1\u8cea\uff1b\u7f3a\u8cc7\u6599\u6642\u4e0d\u88dc\u5047\u6578\u5b57\u3002" },
+    { item: "\u8ca0\u50b5\u8207\u6d41\u52d5\u6027", value: d.fundamentals?.balanceSheet?.debtRatio ?? d.fundamentals?.balanceSheet?.currentRatio ?? "N/A", view: "\u7528\u65bc\u5224\u65b7\u56de\u6a94\u6642\u7684\u8ca1\u52d9\u627f\u53d7\u5ea6\u3002" },
+  ] : [];
+  const strengths = d.ok ? [
+    ...(Array.isArray(d.thesis) ? d.thesis : []),
+    d.catalysts?.[0]?.title ? `\u65b0\u805e\u50ac\u5316\uff1a${d.catalysts[0].title}` : "\u76ee\u524d\u6c92\u6709\u53ef\u76f4\u63a5\u5347\u7d1a\u7684\u65b0\u805e\u50ac\u5316\u3002",
+  ] : [];
+  const klineDetails = s.ok ? {
+    context: s.context,
+    keyAreas: s.keyAreas || [],
+    candleRead: s.candleRead,
+    multiTimeframe: s.multiTimeframe,
+    decision: s.decision,
+    confirmation: s.requiredConfirmation,
+    invalidation: s.invalidation,
+    targetZone: s.targetZone,
+  } : null;
+  const tradingPlan = t.tradingPlan || null;
   return {
     title: `${code} ${d.name || t.name || v.name || FALLBACK_NAMES[code] || ""} \u5f8c\u7e8c\u5206\u6790`,
     reportDate: `${reportDate} \u53f0\u7063\u6642\u9593`,
     latestPrice: `\u6700\u65b0\u53ef\u9a57\u8b49\u50f9\u683c\uff1a${priceDate} \u6536\u76e4 ${fmt(close)}\uff0c\u50f9\u683c\u4f86\u6e90\u4ee5 Yahoo/TWSE \u53ef\u5f97\u8cc7\u6599\u70ba\u4e3b\u3002`,
+    executiveSummary: `\u7814\u7a76\u7acb\u5834\uff1a${finalStance}\u3002\u4f30\u503c\u5224\u65b7\u70ba${v.bias || "N/A"}\uff0c\u6280\u8853\u7d50\u69cb\u70ba${t.trend || "N/A"}\uff0cK \u7dda\u8a0a\u865f\u70ba${s.signal || "N/A"}\u3002`,
     valuation: valuationText,
+    valuationTable,
     peers: peerRows,
     fundamentals: fundamentalText,
+    financialSnapshot,
+    strengths,
     risks: Array.isArray(d.risks) ? d.risks : [],
     technical: technicalText,
+    technicalFramework: t.framework || [],
+    probabilities: t.probabilities || null,
+    tradingPlan,
     kline: klineText,
+    klineDetails,
     scenarios: t.scenarios || [],
+    dataQuality: [
+      "\u8cc7\u6599\u4f86\u6e90\uff1a\u4f30\u503c\u8207\u5831\u50f9\u512a\u5148\u4f7f\u7528\u53ef\u9a57\u8b49\u516c\u958b\u8cc7\u6599\uff0c\u65e5\u7dda\u6280\u8853\u4f7f\u7528\u540c\u4e00\u7d44\u50f9\u683c\u8cc7\u6599\u8a08\u7b97\u3002",
+      "\u9650\u5236\uff1a\u82e5\u4e94\u5e74\u5b8c\u6574\u8ca1\u5831\u3001TTM\u3001EV/EBITDA \u6216\u5206\u6790\u5e2b\u9810\u4f30\u4e0d\u8db3\uff0c\u7cfb\u7d71\u6703\u6a19\u793a N/A\uff0c\u4e0d\u7528\u5047\u8cc7\u6599\u586b\u88dc\u3002",
+    ],
     conclusion: {
       valuation: v.bias || "N/A",
       fundamentals: d.rating?.grade ? `${d.rating.grade} / ${scoreTextValue(d.rating.total)}` : "N/A",

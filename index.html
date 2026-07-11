@@ -2409,7 +2409,8 @@
           </div>`).join("")
         : `<p class="note">\u4eca\u65e5\u6c92\u6709\u9ad8\u4fe1\u5fc3\u6ce2\u6bb5\u5019\u9078\u3002</p>`;
       const meta = payload?.universeMeta || {};
-      const method = payload?.rankingMethod || {};
+      const method = textPayload.rankingMethod || payload?.rankingMethod || {};
+      const gate = textPayload.gate || payload?.gate || {};
       $("swingScreenerLogic").innerHTML = `
         <div class="data-status">
           <p class="note">${escapeHtml(method.formula || "\u4e3b\u984c\u5951\u5408\u3001\u6210\u4ea4\u503c\u3001\u6536\u76e4\u76f8\u5c0d 20MA\u300120MA \u659c\u7387\u3002")}</p>
@@ -2423,7 +2424,7 @@
             <div class="data-status-card"><b>\u5168\u5e02\u5834 universe</b><strong>${meta.fullMarketCompanyCount || "--"} \u6a94</strong></div>
             <div class="data-status-card"><b>\u64cd\u4f5c\u671f\u9593</b><strong>1-3 \u500b\u6708</strong></div>
           </div>
-          <p class="note">${escapeHtml(payload?.gate?.instruction || "")}</p>
+          <p class="note">${escapeHtml(gate.instruction || "")}</p>
           <p class="note">${escapeHtml(textPayload.source || payload?.source || "")}</p>
         </div>`;
     }
@@ -2469,23 +2470,48 @@
       const reportCards = summaryItems.map(row => {
         const report = row.researchReport || {};
         const peerRows = (report.peers || []).map(peer => `<tr><td>${escapeHtml(peer.code || "")} ${escapeHtml(peer.name || "")}</td><td>${peer.per ?? "N/A"}</td><td>${peer.pbr ?? "N/A"}</td><td>${peer.dividendYield ?? "N/A"}</td></tr>`).join("");
+        const valuationDetailRows = (report.valuationTable || []).map(item => `<tr><td>${escapeHtml(item.metric || "")}</td><td>${item.company ?? "N/A"}</td><td>${item.peerMedian ?? "N/A"}</td><td>${escapeHtml(item.interpretation || "")}</td></tr>`).join("");
+        const financialRows = (report.financialSnapshot || []).map(item => `<tr><td>${escapeHtml(item.item || "")}</td><td>${item.value ?? "N/A"}</td><td>${escapeHtml(item.view || "")}</td></tr>`).join("");
+        const frameworkRows = (report.technicalFramework || []).map(item => `<tr><td>${escapeHtml(item.item || "")}</td><td>${escapeHtml(item.view || "")}</td></tr>`).join("");
+        const plan = report.tradingPlan || {};
+        const planRows = [
+          `<tr><td>\u7e8c\u5f37\u689d\u4ef6</td><td>${escapeHtml(plan.continuationEntry || "N/A")}</td></tr>`,
+          `<tr><td>\u62c9\u56de\u689d\u4ef6</td><td>${escapeHtml(plan.pullbackEntry || "N/A")}</td></tr>`,
+          `<tr><td>\u5931\u6548\u689d\u4ef6</td><td>${escapeHtml(plan.failureExit || "N/A")}</td></tr>`,
+          `<tr><td>\u76ee\u6a19\u5340</td><td>${escapeHtml(plan.targets || "N/A")}</td></tr>`
+        ].join("");
+        const kline = report.klineDetails || {};
+        const klineRows = [
+          `<tr><td>\u5716\u8868\u8108\u7d61</td><td>${escapeHtml(kline.context || "N/A")}</td></tr>`,
+          `<tr><td>\u95dc\u9375\u5340\u57df</td><td>${escapeHtml((kline.keyAreas || []).join("\uff1b") || "N/A")}</td></tr>`,
+          `<tr><td>\u6700\u65b0 K \u7dda</td><td>${escapeHtml(kline.candleRead || "N/A")}</td></tr>`,
+          `<tr><td>\u591a\u9031\u671f\u78ba\u8a8d</td><td>${escapeHtml(kline.multiTimeframe || "N/A")}</td></tr>`,
+          `<tr><td>\u6c7a\u7b56</td><td>${escapeHtml(kline.decision || "N/A")}</td></tr>`
+        ].join("");
         const conclusion = report.conclusion || {};
         return `
           <section class="data-status">
             <h3>${escapeHtml(report.title || `${row.code} ${row.name}`)}</h3>
             <p class="note">${escapeHtml(report.reportDate || "")}</p>
             <p>${escapeHtml(report.latestPrice || "")}</p>
+            <p><b>\u57f7\u884c\u6458\u8981\uff1a</b>${escapeHtml(report.executiveSummary || "")}</p>
             <h4>\u540c\u696d\u4f30\u503c</h4>
             ${tableFromRows(["\u540c\u696d", "P/E", "P/B", "\u6b96\u5229\u7387"], [peerRows || `<tr><td colspan="4">N/A</td></tr>`])}
+            ${tableFromRows(["\u6307\u6a19", "\u516c\u53f8", "\u540c\u696d\u4e2d\u4f4d\u6578", "\u89e3\u8b80"], [valuationDetailRows || `<tr><td colspan="4">\u53ef\u6bd4\u4f30\u503c\u8cc7\u6599\u4e0d\u8db3\u3002</td></tr>`])}
             <p>${escapeHtml(report.valuation || "")}</p>
             <h4>\u57fa\u672c\u9762\u5224\u65b7</h4>
             <p>${escapeHtml(report.fundamentals || "")}</p>
+            ${tableFromRows(["\u8ca1\u52d9\u9805\u76ee", "\u6578\u503c", "\u89e3\u8b80"], [financialRows || `<tr><td colspan="3">\u8ca1\u52d9\u7d30\u9805\u8cc7\u6599\u4e0d\u8db3\u3002</td></tr>`])}
+            <ul class="mini-list">${(report.strengths || []).map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>
             <ul class="mini-list">${(report.risks || []).map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>
             <h4>\u65e5\u7dda\u6280\u8853</h4>
             <p>${escapeHtml(report.technical || "")}</p>
+            ${tableFromRows(["\u6846\u67b6", "\u5224\u8b80"], [frameworkRows || `<tr><td colspan="2">\u6280\u8853\u6846\u67b6\u8cc7\u6599\u4e0d\u8db3\u3002</td></tr>`])}
+            ${tableFromRows(["\u4ea4\u6613\u60c5\u5883", "\u689d\u4ef6"], [planRows])}
             <ul class="mini-list">${(report.scenarios || []).map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>
             <h4>K \u7dda\u591a\u7a7a\u8a0a\u865f</h4>
             <p>${escapeHtml(report.kline || "")}</p>
+            ${tableFromRows(["K \u7dda\u9805\u76ee", "\u5224\u8b80"], [klineRows])}
             <h4>\u7d9c\u5408\u7d50\u8ad6</h4>
             ${tableFromRows(["\u9805\u76ee", "\u5224\u65b7"], [
               `<tr><td>\u540c\u696d\u4f30\u503c</td><td>${escapeHtml(conclusion.valuation || "N/A")}</td></tr>`,
@@ -2496,6 +2522,7 @@
               `<tr><td>\u4e3b\u98a8\u96aa</td><td>${escapeHtml(conclusion.mainRisk || "N/A")}</td></tr>`,
               `<tr><td>\u6700\u7d42\u7814\u7a76\u7acb\u5834</td><td>${escapeHtml(conclusion.finalStance || "N/A")}</td></tr>`
             ])}
+            <ul class="mini-list">${(report.dataQuality || []).map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>
           </section>`;
       }).join("");
       const summaryRows = summaryItems.map(row => `
