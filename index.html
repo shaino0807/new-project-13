@@ -2301,9 +2301,10 @@
       const macroText = decodeTree(macro?.text || {});
       const briefing = macroText.briefing || macro?.briefing || {};
       const onePage = briefing.onePage || {};
+      const reasoning = briefing.reasoning || {};
       const textRegime = macroText.regime || {};
       $("swingMacroCards").innerHTML = [
-        valueCard("\u5e02\u5834\u72c0\u614b", textRegime.label || regime.label || "--", textRegime.summary || regime.summary || "\u5c1a\u672a\u8f09\u5165", regime.score >= 72 ? "bull" : regime.score >= 42 ? "warn" : "bear"),
+        valueCard("\u5e02\u5834\u72c0\u614b", textRegime.label || regime.label || "--", `${reasoning.marketConclusion || textRegime.summary || regime.summary || "\u5c1a\u672a\u8f09\u5165"} ${(reasoning.marketReasons || []).slice(0, 2).join(" ")}`, regime.score >= 72 ? "bull" : regime.score >= 42 ? "warn" : "bear"),
         valueCard("\u4eca\u65e5\u5e02\u5834\u4e3b\u8ef8", onePage.marketTheme || "--", briefing.title || "\u6bcf\u65e5\u7e3d\u7d93\u7b56\u7565\u5831\u544a", "neut"),
         valueCard("\u95dc\u9375\u89c0\u5bdf", onePage.keyWatch || "--", onePage.riskTemperature || "\u98a8\u96aa\u6eab\u5ea6\u8a55\u4f30\u4e2d", regime.score >= 72 ? "bull" : "warn"),
         valueCard("\u7be9\u9078\u542b\u610f", onePage.portfolioImpact || "--", "\u65b0\u805e\u53ea\u4f5c\u70ba\u5019\u9078\u52a0\u6b0a\uff0c\u4e0d\u7576\u76f4\u63a5\u9032\u5834\u8a0a\u865f\u3002", "neut"),
@@ -2313,6 +2314,11 @@
           <h3>${escapeHtml(item.name || "")} ${badge(item.view || "\u89c0\u5bdf", "neut")}</h3>
           <ul class="mini-list">${(item.evidence || ["\u5c1a\u7121\u76f4\u63a5\u65b0\u805e\u8b49\u64da"]).map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>
         </div>`).join("");
+      const annotationPanel = (briefing.annotations || []).length ? `
+        <div class="data-status">
+          <h3>\u5224\u8b80\u8a3b\u89e3</h3>
+          <ul class="mini-list">${briefing.annotations.map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>
+        </div>` : "";
       const news = macroText.news || macro?.news?.items || [];
       $("swingMacroNews").innerHTML = news.length ? news.map(item => `
         <div class="news-item">
@@ -2323,10 +2329,14 @@
             ${badge(item.riskFlag || "\u65b0\u805e", item.riskFlag === "\u98a8\u96aa\u8b66\u793a" ? "bear" : item.riskFlag === "\u984c\u6750\u652f\u6490" ? "bull" : "neut")}
             ${badge(item.publishedAt ? String(item.publishedAt).slice(0, 10) : "\u6642\u9593\u672a\u6a19\u793a", "warn")}
           </div>
-          <p><b>\u5206\u6790\uff1a</b>${escapeHtml(item.marketImpact || item.snippet || "")}</p>
+          <p><b>\u65b0\u805e\u91cd\u9ede\uff1a</b></p>
+          <ul class="mini-list">${(item.keyPoints || [item.sourceSummary || item.snippet || item.title || "\u4f86\u6e90\u6458\u8981\u4e0d\u8db3"]).map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>
+          <p><b>\u7d50\u8ad6\uff1a</b>${escapeHtml(item.conclusion || item.marketImpact || "")}</p>
+          <p><b>\u539f\u56e0\uff1a</b>${escapeHtml(item.reason || "\u672a\u547d\u4e2d\u9ad8\u5f71\u97ff\u95dc\u9375\u8a5e\uff0c\u5148\u5217\u5165\u80cc\u666f\u89c0\u5bdf\u3002")}</p>
+          <p><b>\u5e02\u5834\u5f71\u97ff\uff1a</b>${escapeHtml(item.marketImpact || item.snippet || "")}</p>
           <p><b>\u5c0d\u7be9\u9078\u7684\u7528\u6cd5\uff1a</b>${escapeHtml(item.screeningUse || "\u5217\u5165\u80cc\u666f\u8ffd\u8e64\u3002")}</p>
           <p class="note">${escapeHtml(item.source || "\u65b0\u805e")}\uff1b${escapeHtml(item.horizon || "\u6642\u9593\u5c3a\u5ea6\u672a\u5206\u985e")}</p>
-        </div>`).join("") + pulse : `<p class="note">\u76ee\u524d\u7e3d\u7d93\u65b0\u805e\u4f86\u6e90\u66ab\u6642\u4e0d\u53ef\u7528\uff0c\u8acb\u7a0d\u5f8c\u91cd\u65b0\u7522\u751f\u5019\u9078\u3002</p>`;
+        </div>`).join("") + annotationPanel + pulse : `<p class="note">\u76ee\u524d\u7e3d\u7d93\u65b0\u805e\u4f86\u6e90\u66ab\u6642\u4e0d\u53ef\u7528\uff0c\u8acb\u7a0d\u5f8c\u91cd\u65b0\u7522\u751f\u5019\u9078\u3002</p>`;
     }
 
     function selectedSwingCodesFromInput() {
