@@ -4134,9 +4134,15 @@ async function loadNews(code: string, name = FALLBACK_NAMES[code] || code, optio
 
 async function loadSwingMacroNews() {
   const topics = [
-    { key: "taiwan", label: "\u53f0\u80a1", query: "\u53f0\u80a1 \u5927\u76e4 \u7522\u696d \u5916\u8cc7" },
-    { key: "us", label: "\u7f8e\u80a1", query: "S&P 500 Nasdaq Fed earnings Taiwan market" },
-    { key: "rates", label: "\u5229\u7387\u8207\u532f\u7387", query: "\u806f\u6e96\u6703 \u5229\u7387 \u7f8e\u5143 \u65b0\u53f0\u5e63 \u532f\u7387" },
+    { key: "taiwan", label: "\u53f0\u80a1", query: "\u53f0\u80a1 \u5927\u76e4 \u5916\u8cc7 \u671f\u8ca8 \u9078\u64c7\u6b0a" },
+    { key: "us", label: "\u7f8e\u80a1", query: "S&P 500 Nasdaq Dow futures earnings risk sentiment" },
+    { key: "etf", label: "ETF", query: "\u53f0\u7063 ETF \u7f8e\u80a1 ETF \u50b5\u5238 ETF \u8cc7\u91d1\u6d41\u5411" },
+    { key: "rates", label: "\u7f8e\u50b5\u8207\u5229\u7387", query: "US Treasury yield Fed rate CPI PCE bond market" },
+    { key: "fx", label: "\u532f\u7387", query: "\u7f8e\u5143 \u65b0\u53f0\u5e63 \u65e5\u5713 \u532f\u7387 \u5916\u8cc7" },
+    { key: "commodities", label: "\u80fd\u6e90\u8207\u8cb4\u91d1\u5c6c", query: "oil gold copper commodities inflation market" },
+    { key: "crypto", label: "\u52a0\u5bc6\u8ca8\u5e63", query: "Bitcoin Ethereum crypto ETF risk appetite" },
+    { key: "derivatives", label: "\u671f\u8ca8\u8207\u9078\u64c7\u6b0a", query: "\u53f0\u6307\u671f \u9078\u64c7\u6b0a VIX futures options market" },
+    { key: "calendar", label: "\u7e3d\u7d93\u65e5\u66c6", query: "\u7e3d\u7d93\u65e5\u66c6 CPI PCE FOMC nonfarm payrolls Taiwan export orders" },
     { key: "semiconductor", label: "\u534a\u5c0e\u9ad4", query: "\u534a\u5c0e\u9ad4 AI \u53f0\u7a4d\u96fb \u4f9b\u61c9\u93c8" },
   ];
   const results = await settleWithLimit(topics, 2, async topic => {
@@ -4181,7 +4187,7 @@ function articleEvidencePoints(text: string, fallback: string) {
   const source = cleanNewsText(text || fallback || "");
   if (!source) return [];
   const parts = source
-    .split(/[。.!?；;]\s*/)
+    .split(/[\u3002.!?\uff1b;]\s*/)
     .map(part => part.trim())
     .filter(part => part.length >= 18 && part.length <= 180)
     .filter(part => !/\bfunction\b|\bfromCharCode\b|\breturn\b|\bvar\b|\bconst\b|\blet\b|[{}`]/i.test(part));
@@ -4315,35 +4321,125 @@ function classifyMacroNews(item: NewsItem, topic: string, articleText = "", arti
   };
 }
 
-function buildMacroBriefing(riskScore: number, labelZh: string, macroNews: any) {
+function macroDirection(changePct20: number | null | undefined, trend: string | null | undefined, inverse = false) {
+  const value = Number.isFinite(changePct20) ? changePct20 as number : null;
+  const riskOn = trend === "risk-on" || (value !== null && (inverse ? value < 0 : value > 0));
+  const riskOff = trend === "defensive" || (value !== null && (inverse ? value > 2 : value < -2));
+  return riskOn ? "\u504f\u6b63\u5411" : riskOff ? "\u504f\u98a8\u96aa" : "\u4e2d\u6027\u89c0\u5bdf";
+}
+
+function macroAssetRow(name: string, item: any, interpretation: string, inverse = false) {
+  if (!item) {
+    return {
+      name,
+      status: "\u8cc7\u6599\u6682\u7f3a",
+      change: "--",
+      interpretation: `${interpretation}\uff1b\u672c\u6b21\u5373\u6642\u5831\u50f9\u672a\u53d6\u5f97\uff0c\u4e0d\u5f37\u884c\u5224\u8b80\u3002`,
+      sourceUrl: null,
+    };
+  }
+  const change = Number.isFinite(item.changePct20) ? `${item.changePct20 > 0 ? "+" : ""}${item.changePct20}% / 20\u65e5` : "--";
+  return {
+    name,
+    status: macroDirection(item.changePct20, item.trend, inverse),
+    close: item.close,
+    date: item.date,
+    change,
+    interpretation,
+    sourceUrl: item.sourceUrl || null,
+  };
+}
+
+function topicNews(items: any[], topic: string, limit = 2) {
+  return items.filter(item => item.topic === topic).slice(0, limit);
+}
+
+function topicTitles(items: any[], topic: string, limit = 2) {
+  return topicNews(items, topic, limit).map(item => item.title).filter(Boolean);
+}
+
+function buildMacroBriefing(riskScore: number, labelZh: string, macroNews: any, assets: any = {}) {
   const items = Array.isArray(macroNews?.items) ? macroNews.items : [];
   const highItems = items.filter((item: any) => item.importance === "\u9ad8").slice(0, 4);
   const riskItems = items.filter((item: any) => item.riskFlag === "\u98a8\u96aa\u8b66\u793a").slice(0, 3);
   const themeItems = items.filter((item: any) => item.riskFlag === "\u984c\u6750\u652f\u6490").slice(0, 3);
+  const assetRadar = [
+    macroAssetRow("\u53f0\u80a1 / ETF", assets.tw ? { close: assets.tw.close, date: assets.tw.quoteDate, changePct20: assets.tw.analysis?.latest?.ma20 ? round(((assets.tw.close / assets.tw.analysis.latest.ma20) - 1) * 100, 2) : null, trend: assets.tw.analysis?.latest?.close > assets.tw.analysis?.latest?.ma20 ? "risk-on" : "defensive", sourceUrl: assets.tw.sourceUrls?.yahoo || assets.tw.sourceUrls?.twse || null } : null, "\u5224\u65b7\u53f0\u80a1\u958b\u76e4\u98a8\u96aa\u504f\u597d\uff0c\u91cd\u9ede\u770b\u662f\u5426\u7ad9\u7a69 20MA \u8207\u6210\u4ea4\u503c\u6709\u6c92\u6709\u653e\u5927\u3002"),
+    macroAssetRow("\u7f8e\u80a1", assets.spx, "\u7f8e\u80a1\u662f\u53f0\u80a1\u76e4\u524d\u60c5\u7dd2\u7684\u6838\u5fc3\u53c3\u8003\uff1bS&P 500 \u8207 Nasdaq ETF \u540c\u5411\u504f\u5f37\u6642\uff0c\u53f0\u80a1\u96fb\u5b50\u6b0a\u503c\u8f03\u5bb9\u6613\u6709\u627f\u63a5\u8cb7\u76e4\u3002"),
+    macroAssetRow("Nasdaq / ETF", assets.qqq, "\u4ee3\u8868\u6210\u9577\u80a1\u8207 AI \u79d1\u6280\u80a1\u98a8\u96aa\u504f\u597d\uff1b\u82e5\u8f49\u5f31\uff0cAI \u4f3a\u670d\u5668\u8207\u534a\u5c0e\u9ad4\u8ffd\u50f9\u8981\u964d\u7d1a\u3002"),
+    macroAssetRow("\u7f8e\u50b5 / \u5229\u7387", assets.ust10y, "\u7f8e\u50b5\u6b96\u5229\u7387\u4e0a\u884c\u901a\u5e38\u58d3\u6291\u9ad8\u4f30\u503c\u6210\u9577\u80a1\uff1b\u56de\u843d\u5247\u6709\u5229\u8cc7\u91d1\u56de\u6d41\u98a8\u96aa\u8cc7\u7522\u3002", true),
+    macroAssetRow("\u532f\u7387 / USD-TWD", assets.fx, "\u7f8e\u5143\u5c0d\u65b0\u53f0\u5e63\u8d70\u5f37\u6642\uff0c\u5916\u8cc7\u8cb7\u76e4\u901a\u5e38\u8f03\u4fdd\u5b88\uff1b\u65b0\u53f0\u5e63\u8f49\u5f37\u5247\u6709\u5229\u5916\u8cc7\u98a8\u96aa\u504f\u597d\u3002", true),
+    macroAssetRow("\u80fd\u6e90 / \u539f\u6cb9", assets.oil, "\u539f\u6cb9\u4e0a\u884c\u6703\u63d0\u9ad8\u901a\u81a8\u8207\u904b\u8f38\u6210\u672c\u654f\u611f\u5ea6\uff1b\u80fd\u6e90\u80a1\u53ef\u80fd\u53d7\u60e0\uff0c\u4f46\u5927\u76e4\u4f30\u503c\u53ef\u80fd\u627f\u58d3\u3002"),
+    macroAssetRow("\u8cb4\u91d1\u5c6c / \u9ec3\u91d1", assets.gold, "\u9ec3\u91d1\u8f49\u5f37\u901a\u5e38\u4ee3\u8868\u964d\u606f\u9810\u671f\u6216\u907f\u96aa\u9700\u6c42\u5347\u6eab\uff1b\u9700\u540c\u6642\u770b\u7f8e\u50b5\u8207\u7f8e\u5143\u3002"),
+    macroAssetRow("\u52a0\u5bc6\u8ca8\u5e63", assets.crypto, "\u6bd4\u7279\u5e63\u53ef\u4f5c\u70ba\u9ad8\u98a8\u96aa\u8cc7\u7522\u60c5\u7dd2\u6307\u6a19\uff1b\u504f\u5f37\u4e0d\u7b49\u65bc\u53f0\u80a1\u6703\u6f32\uff0c\u4f46\u53ef\u8f14\u52a9\u5224\u65b7\u6295\u6a5f\u98a8\u96aa\u504f\u597d\u3002"),
+    macroAssetRow("\u534a\u5c0e\u9ad4 / \u53f0\u7a4d\u96fb", assets.tsmc ? { close: assets.tsmc.close, date: assets.tsmc.quoteDate, changePct20: assets.tsmc.analysis?.latest?.ma20 ? round(((assets.tsmc.close / assets.tsmc.analysis.latest.ma20) - 1) * 100, 2) : null, trend: assets.tsmc.analysis?.latest?.close > assets.tsmc.analysis?.latest?.ma20 ? "risk-on" : "defensive", sourceUrl: assets.tsmc.sourceUrls?.yahoo || assets.tsmc.sourceUrls?.twse || null } : null, "\u53f0\u80a1\u96fb\u5b50\u6b0a\u503c\u8207 AI \u4f9b\u61c9\u93c8\u7684\u6838\u5fc3 proxy\uff1b\u82e5\u5f37\u65bc\u5927\u76e4\uff0c\u4e3b\u984c\u80a1\u8f03\u5bb9\u6613\u64f4\u6563\u3002"),
+  ];
+  const riskAssets = assetRadar.filter(item => item.status === "\u504f\u98a8\u96aa").map(item => item.name);
+  const supportiveAssets = assetRadar.filter(item => item.status === "\u504f\u6b63\u5411").map(item => item.name);
   const marketReasons = [
-    highItems.length ? `\u9ad8\u91cd\u8981\u5ea6\u65b0\u805e ${highItems.length} \u5247\uff0c\u4e3b\u8981\u843d\u5728 ${[...new Set(highItems.map((item: any) => item.topic))].join("\u3001")}\u3002` : "\u9ad8\u91cd\u8981\u5ea6\u65b0\u805e\u4e0d\u591a\uff0c\u5e02\u5834\u5224\u65b7\u9700\u964d\u4f4e\u78ba\u4fe1\u5ea6\u3002",
-    riskItems.length ? `\u98a8\u96aa\u8b66\u793a ${riskItems.length} \u5247\uff0c\u8ffd\u50f9\u6642\u8981\u52a0\u5927\u5c0d 20MA \u4e56\u96e2\u8207\u5931\u6548\u7dda\u7684\u6aa2\u67e5\u3002` : "\u76ee\u524d\u65b0\u805e\u6d41\u4e2d\u98a8\u96aa\u8b66\u793a\u4e0d\u662f\u4e3b\u8ef8\uff0c\u4f46\u4ecd\u9700\u770b\u5229\u7387\u8207\u532f\u7387\u8b8a\u5316\u3002",
-    themeItems.length ? `\u984c\u6750\u652f\u6490 ${themeItems.length} \u5247\uff0cAI/\u534a\u5c0e\u9ad4\u6216\u6210\u9577\u985e\u80a1\u53ef\u5217\u5165\u512a\u5148\u89c0\u5bdf\u3002` : "\u984c\u6750\u652f\u6490\u8a0a\u865f\u4e0d\u660e\u986f\uff0c\u6392\u884c\u61c9\u66f4\u504f\u91cd\u6210\u4ea4\u503c\u8207\u6280\u8853\u7d50\u69cb\u3002",
+    supportiveAssets.length ? `\u652f\u6490\u98a8\u96aa\u504f\u597d\u7684\u8cc7\u7522\uff1a${supportiveAssets.slice(0, 4).join("\u3001")}\u3002` : "\u76ee\u524d\u6c92\u6709\u5927\u91cf\u8cc7\u7522\u540c\u6b65\u986f\u793a\u98a8\u96aa\u504f\u597d\uff0c\u958b\u76e4\u61c9\u4fdd\u7559\u89c0\u5bdf\u7a7a\u9593\u3002",
+    riskAssets.length ? `\u9700\u9632\u5b88\u7684\u8cc7\u7522\u8a0a\u865f\uff1a${riskAssets.slice(0, 4).join("\u3001")}\uff0c\u82e5\u76e4\u4e2d\u7e8c\u5f31\uff0c\u8ffd\u50f9\u689d\u4ef6\u61c9\u964d\u7d1a\u3002` : "\u8de8\u8cc7\u7522\u98a8\u96aa\u8a0a\u865f\u6682\u4e0d\u6975\u7aef\uff0c\u53ef\u4ee5\u4ee5\u91cf\u50f9\u8207\u4e3b\u984c\u5ef6\u7e8c\u4f5c\u7b2c\u4e00\u5c64\u5224\u8b80\u3002",
+    highItems.length ? `\u9ad8\u91cd\u8981\u5ea6\u65b0\u805e ${highItems.length} \u5247\uff0c\u4e3b\u8981\u843d\u5728 ${[...new Set(highItems.map((item: any) => item.topic))].join("\u3001")}\u3002` : "\u65b0\u805e\u6d41\u4e2d\u9ad8\u91cd\u8981\u5ea6\u8a0a\u865f\u4e0d\u591a\uff0c\u4eca\u65e5\u66f4\u9700\u56de\u5230\u5831\u50f9\u8207\u6210\u4ea4\u503c\u78ba\u8a8d\u3002",
   ];
   const marketConclusion = riskScore >= 72
-    ? "\u7d50\u8ad6\uff1a\u5e02\u5834\u98a8\u96aa\u504f\u597d\u8f03\u5f37\uff0c\u4f46\u4ecd\u53ea\u9069\u5408\u7528\u8da8\u52e2\u8207\u91cf\u80fd\u78ba\u8a8d\u7684\u5019\u9078\u80a1\u3002"
+    ? "\u76e4\u524d\u5e02\u5834\u72c0\u614b\uff1a\u5168\u7403\u98a8\u96aa\u504f\u597d\u504f\u5f37\uff0c\u53f0\u80a1\u958b\u76e4\u53ef\u5148\u770b\u96fb\u5b50\u6b0a\u503c\u3001AI \u4f9b\u61c9\u93c8\u8207\u9ad8\u6210\u4ea4\u503c ETF \u662f\u5426\u6709\u627f\u63a5\u8cb7\u76e4\u3002"
     : riskScore >= 56
-      ? "\u7d50\u8ad6\uff1a\u9078\u64c7\u6027\u504f\u591a\uff0c\u6709\u984c\u6750\u8207\u91cf\u80fd\u7684\u80a1\u7968\u53ef\u512a\u5148\uff0c\u4f46\u4e0d\u61c9\u8ffd\u904e\u71b1\u4e56\u96e2\u3002"
+      ? "\u76e4\u524d\u5e02\u5834\u72c0\u614b\uff1a\u9078\u64c7\u6027\u504f\u591a\uff0c\u4f46\u4e0d\u662f\u5168\u9762\u8ffd\u50f9\u76e4\uff1b\u64cd\u4f5c\u61c9\u96c6\u4e2d\u5728\u6709\u91cf\u80fd\u3001\u6709\u4e3b\u984c\u3001\u4e14\u4e56\u96e2\u672a\u5931\u63a7\u7684\u6a19\u7684\u3002"
       : riskScore >= 42
-        ? "\u7d50\u8ad6\uff1a\u5e02\u5834\u504f\u5340\u9593\uff0c\u7be9\u9078\u9700\u628a\u5931\u6548\u7dda\u8207\u56de\u6e2c\u78ba\u8a8d\u653e\u5728\u7b2c\u4e00\u9806\u4f4d\u3002"
-        : "\u7d50\u8ad6\uff1a\u5e02\u5834\u504f\u9632\u5b88\uff0c\u5019\u9078\u6e05\u55ae\u61c9\u4ee5\u89c0\u5bdf\u8207\u7b49\u5f85\u70ba\u4e3b\u3002";
+        ? "\u76e4\u524d\u5e02\u5834\u72c0\u614b\uff1a\u5340\u9593\u76e4\u6216\u8f2a\u52d5\u76e4\u7684\u6a5f\u7387\u8f03\u9ad8\uff0c\u9700\u5148\u5224\u65b7\u8cc7\u91d1\u6d41\u5411\u662f\u5426\u96c6\u4e2d\u5728\u5c11\u6578\u7522\u696d\uff0c\u907f\u514d\u8ffd\u5230\u8f2a\u52d5\u672b\u7aef\u3002"
+        : "\u76e4\u524d\u5e02\u5834\u72c0\u614b\uff1a\u504f\u9632\u5b88\uff0c\u7b56\u7565\u61c9\u5148\u770b\u8cc7\u91d1\u907f\u96aa\u8def\u5f91\uff0c\u4e0d\u5c07\u500b\u5225\u65b0\u805e\u5229\u591a\u76f4\u63a5\u7576\u6210\u8cb7\u9032\u7406\u7531\u3002";
+  const marketFocus = [
+    {
+      title: "\u80a1\u5e02\u8207 ETF",
+      body: topicTitles(items, "\u53f0\u80a1", 1)[0] || topicTitles(items, "\u7f8e\u80a1", 1)[0] || "\u76e4\u524d\u5148\u770b\u53f0\u80a1 ETF\u3001\u96fb\u5b50\u6b0a\u503c\u8207\u7f8e\u80a1\u6307\u6578\u662f\u5426\u540c\u6b65\u3002",
+      watch: "\u82e5\u53f0\u80a1\u958b\u9ad8\u4f46\u6210\u4ea4\u503c\u6c92\u6709\u653e\u5927\uff0c\u5f37\u52e2\u80a1\u61c9\u964d\u4f4e\u8ffd\u50f9\u6b0a\u91cd\u3002",
+    },
+    {
+      title: "\u5229\u7387\u3001\u7f8e\u50b5\u8207\u532f\u7387",
+      body: topicTitles(items, "\u7f8e\u50b5\u8207\u5229\u7387", 1)[0] || topicTitles(items, "\u532f\u7387", 1)[0] || "\u7f8e\u50b5\u6b96\u5229\u7387\u8207 USD/TWD \u662f\u5224\u65b7\u5916\u8cc7\u98a8\u96aa\u504f\u597d\u7684\u4e3b\u8ef8\u3002",
+      watch: "\u82e5\u6b96\u5229\u7387\u8207\u7f8e\u5143\u540c\u6b65\u8d70\u5f37\uff0c\u9ad8\u4f30\u503c\u6210\u9577\u80a1\u7684\u8ffd\u50f9\u689d\u4ef6\u8981\u66f4\u56b4\u683c\u3002",
+    },
+    {
+      title: "\u80fd\u6e90\u3001\u8cb4\u91d1\u5c6c\u8207\u901a\u81a8",
+      body: topicTitles(items, "\u80fd\u6e90\u8207\u8cb4\u91d1\u5c6c", 1)[0] || "\u539f\u6cb9\u3001\u9ec3\u91d1\u8207\u9285\u50f9\u7528\u4f86\u89c0\u5bdf\u901a\u81a8\u58d3\u529b\u3001\u907f\u96aa\u9700\u6c42\u8207\u666f\u6c23\u5faa\u74b0\u3002",
+      watch: "\u82e5\u539f\u6cb9\u6025\u6f32\u4f46\u9ec3\u91d1\u4e5f\u8f49\u5f37\uff0c\u8868\u793a\u5e02\u5834\u53ef\u80fd\u540c\u6642\u64d4\u5fc3\u901a\u81a8\u8207\u98a8\u96aa\u4e8b\u4ef6\u3002",
+    },
+    {
+      title: "\u52a0\u5bc6\u8ca8\u5e63\u8207\u6295\u6a5f\u98a8\u96aa",
+      body: topicTitles(items, "\u52a0\u5bc6\u8ca8\u5e63", 1)[0] || "\u6bd4\u7279\u5e63\u8207\u52a0\u5bc6 ETF \u7528\u4f86\u88dc\u5145\u5224\u65b7\u6295\u6a5f\u60c5\u7dd2\uff0c\u4e0d\u55ae\u7368\u4f5c\u70ba\u53f0\u80a1\u8cb7\u8ce3\u8a0a\u865f\u3002",
+      watch: "\u82e5\u52a0\u5bc6\u8ca8\u5e63\u8f49\u5f31\u4f46\u7f8e\u80a1\u4ecd\u5f37\uff0c\u4ee3\u8868\u98a8\u96aa\u504f\u597d\u6c92\u6709\u5168\u9762\u64f4\u6563\uff0c\u5009\u4f4d\u61c9\u4fdd\u5b88\u3002",
+    },
+    {
+      title: "\u671f\u8ca8\u3001\u9078\u64c7\u6b0a\u8207\u6ce2\u52d5\u7387",
+      body: topicTitles(items, "\u671f\u8ca8\u8207\u9078\u64c7\u6b0a", 1)[0] || "\u671f\u8ca8\u6b63\u9006\u50f9\u5dee\u3001\u9078\u64c7\u6b0a\u672a\u5e73\u5009\u8207 VIX \u53ef\u8f14\u52a9\u5224\u65b7\u958b\u76e4\u8ffd\u50f9\u98a8\u96aa\u3002",
+      watch: "\u82e5\u671f\u8ca8\u958b\u9ad8\u4f46\u9078\u64c7\u6b0a\u907f\u96aa\u90e8\u4f4d\u589e\u52a0\uff0c\u8ffd\u50f9\u4e0d\u61c9\u653e\u5927\u90e8\u4f4d\u3002",
+    },
+    {
+      title: "\u7e3d\u7d93\u65e5\u66c6",
+      body: topicTitles(items, "\u7e3d\u7d93\u65e5\u66c6", 1)[0] || "\u76e4\u524d\u9700\u7559\u610f CPI\u3001PCE\u3001FOMC\u3001\u975e\u8fb2\u5c31\u696d\u3001\u53f0\u7063\u5916\u92b7\u8a02\u55ae\u8207\u51fa\u53e3\u6578\u64da\u3002",
+      watch: "\u82e5\u91cd\u8981\u6578\u64da\u516c\u5e03\u524d\u5e02\u5834\u5df2\u5927\u6f32\uff0c\u61c9\u6e1b\u5c11\u76e4\u4e2d\u8ffd\u9ad8\uff0c\u7b49\u6578\u64da\u843d\u5730\u5f8c\u518d\u8a55\u4f30\u3002",
+    },
+  ];
+  const keyObservations = [
+    "\u5148\u770b\u7f8e\u80a1\u8207 Nasdaq ETF\uff1a\u82e5\u7f8e\u80a1\u5f37\u800c\u53f0\u80a1\u958b\u76e4\u6210\u4ea4\u503c\u4e5f\u653e\u5927\uff0c\u5e02\u5834\u60c5\u7dd2\u504f\u5411\u98a8\u96aa\u504f\u597d\uff1b\u82e5\u53ea\u662f\u958b\u9ad8\u91cf\u7e2e\uff0c\u5bb9\u6613\u8b8a\u6210\u8ffd\u9ad8\u56de\u843d\u3002",
+    "\u518d\u770b\u7f8e\u50b5\u8207 USD/TWD\uff1a\u6b96\u5229\u7387\u4e0a\u884c\u6216\u65b0\u53f0\u5e63\u8f49\u5f31\u6642\uff0c\u5916\u8cc7\u53ef\u80fd\u964d\u4f4e\u5c0d\u53f0\u80a1\u9ad8\u4f30\u503c\u80a1\u7684\u63a5\u53d7\u5ea6\u3002",
+    "\u6aa2\u67e5\u80fd\u6e90\u8207\u9ec3\u91d1\uff1a\u539f\u6cb9\u5927\u6f32\u504f\u901a\u81a8\u98a8\u96aa\uff0c\u9ec3\u91d1\u5927\u6f32\u504f\u907f\u96aa\u6216\u964d\u606f\u9810\u671f\uff1b\u5169\u8005\u540c\u6b65\u8d70\u5f37\u6642\u8981\u66f4\u5c0f\u5fc3\u6ce2\u52d5\u3002",
+    "\u6700\u5f8c\u5c0d\u7167\u65b0\u805e\u4e3b\u8ef8\uff1a\u82e5\u65b0\u805e\u53ea\u6709\u984c\u6750\u4f46\u6c92\u6709\u6210\u4ea4\u503c\u8207 20MA \u7d50\u69cb\u914d\u5408\uff0c\u4e0d\u7d0d\u5165\u76e4\u4e2d\u512a\u5148\u4ea4\u6613\u540d\u55ae\u3002",
+  ];
   const today = new Date().toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" });
   return {
-    title: `\u6bcf\u65e5\u7e3d\u9ad4\u5e02\u5834\u7b56\u7565\u5831\u544a\uff5c${today} \u53f0\u7063\u6642\u9593`,
+    title: `\u53f0\u7063\u76e4\u524d\u7e3d\u7d93\u7b56\u7565\u5831\u544a\uff5c${today} \u53f0\u7063\u6642\u9593`,
     onePage: {
-      marketTheme: highItems[0]?.conclusion || highItems[0]?.title || "\u4eca\u65e5\u7e3d\u7d93\u8207\u7522\u696d\u65b0\u805e\u6682\u7121\u660e\u78ba\u55ae\u4e00\u4e3b\u8ef8\u3002",
+      marketTheme: marketFocus.map(item => item.title).slice(0, 4).join("\u3001"),
       riskTemperature: `${labelZh} / ${riskScore}`,
-      keyWatch: riskItems[0] ? `${riskItems[0].conclusion} ${riskItems[0].reason}` : "\u7d50\u8ad6\uff1a\u4eca\u65e5\u512a\u5148\u89c0\u5bdf\u7f8e\u80a1\u98a8\u96aa\u504f\u597d\u3001\u532f\u7387\u8207\u53f0\u80a1\u91cf\u80fd\u662f\u5426\u540c\u6b65\u3002\u539f\u56e0\uff1a\u82e5\u4e09\u8005\u4e0d\u540c\u6b65\uff0c\u5f37\u52e2\u80a1\u5f88\u5bb9\u6613\u5f9e\u8ffd\u50f9\u8f49\u6210\u62c9\u56de\u7b49\u5f85\u3002",
-      portfolioImpact: themeItems[0]?.screeningUse || "\u7be9\u9078\u6642\u4ee5 1-3 \u500b\u6708\u8da8\u52e2\u3001\u6210\u4ea4\u503c\u8207 20MA \u7d50\u69cb\u70ba\u4e3b\uff0c\u4e0d\u76f4\u63a5\u628a\u65b0\u805e\u7576\u8cb7\u9ede\u3002",
+      keyWatch: keyObservations[0],
+      portfolioImpact: "\u9019\u500b\u5340\u584a\u53ea\u5b9a\u7fa9\u76e4\u524d\u5e02\u5834\u74b0\u5883\uff0c\u5f8c\u7e8c\u9078\u80a1\u4ecd\u9700\u56de\u5230\u6210\u4ea4\u503c\u300120MA\u3001\u5931\u6548\u7dda\u8207\u500b\u80a1\u8cc7\u6599\u3002",
     },
     reasoning: {
       marketConclusion,
       marketReasons,
+      marketFocus,
+      keyObservations,
       keyNews: highItems.slice(0, 3).map((item: any) => ({
         topic: item.topic,
         title: item.title,
@@ -4352,26 +4448,19 @@ function buildMacroBriefing(riskScore: number, labelZh: string, macroNews: any) 
       })),
     },
     annotations: [
-      "\u5224\u65b7\u908f\u8f2f\uff1a\u5148\u7528\u7e3d\u9ad4\u8207\u65b0\u805e\u8a0a\u865f\u5b9a\u7fa9\u98a8\u96aa\u6eab\u5ea6\uff0c\u518d\u56de\u5230\u6210\u4ea4\u503c\u300120MA \u8207\u5931\u6548\u7dda\u7be9\u9078\u80a1\u7968\u3002",
-      "\u65b0\u805e\u4e0d\u7576\u4f5c\u76f4\u63a5\u8cb7\u9ede\uff1a\u53ea\u6709\u7576\u984c\u6750\u3001\u91cf\u80fd\u3001\u6280\u8853\u7d50\u69cb\u540c\u6642\u6210\u7acb\uff0c\u624d\u63d0\u9ad8\u5019\u9078\u512a\u5148\u5ea6\u3002",
+      "\u5224\u65b7\u908f\u8f2f\uff1a\u5148\u770b\u8de8\u8cc7\u7522\u98a8\u96aa\u6eab\u5ea6\uff0c\u518d\u770b\u53f0\u80a1\u958b\u76e4\u91cf\u50f9\uff0c\u6700\u5f8c\u624d\u628a\u65b0\u805e\u984c\u6750\u5c0d\u5230\u500b\u80a1\u3002",
+      "\u76e4\u524d\u7e3d\u7d93\u4e0d\u662f\u8cb7\u9032\u6307\u4ee4\uff1a\u5b83\u53ea\u544a\u8a34\u4f60\u4eca\u5929\u61c9\u8a72\u653e\u5927\u98a8\u96aa\u3001\u964d\u4f4e\u90e8\u4f4d\uff0c\u6216\u53ea\u505a\u89c0\u5bdf\u3002",
       "\u82e5\u65b0\u805e\u4f86\u6e90\u53ea\u63d0\u4f9b\u6a19\u984c\u8207\u6458\u8981\uff0c\u7cfb\u7d71\u6703\u6a19\u70ba\u300c\u4f86\u6e90\u6458\u8981\u5224\u8b80\u300d\uff0c\u4e0d\u6703\u5047\u88dd\u5df2\u8b80\u5b8c\u4ed8\u8cbb\u5168\u6587\u3002",
     ],
-    crossAssetPulse: [
-      { name: "\u53f0\u80a1", view: riskScore >= 56 ? "\u9078\u64c7\u6027\u504f\u591a" : "\u9700\u7b49\u5f85\u78ba\u8a8d", evidence: items.filter((item: any) => item.topic === "\u53f0\u80a1").slice(0, 2).map((item: any) => item.title) },
-      { name: "\u7f8e\u80a1", view: riskScore >= 72 ? "\u98a8\u96aa\u504f\u597d\u652f\u6490" : "\u5f71\u97ff\u53f0\u80a1\u8ffd\u50f9\u60c5\u7dd2", evidence: items.filter((item: any) => item.topic === "\u7f8e\u80a1").slice(0, 2).map((item: any) => item.title) },
-      { name: "\u5229\u7387\u8207\u532f\u7387", view: "\u8a55\u4f30\u8cc7\u91d1\u6210\u672c\u8207\u5916\u8cc7\u6d41\u5411", evidence: items.filter((item: any) => item.topic === "\u5229\u7387\u8207\u532f\u7387").slice(0, 2).map((item: any) => item.title) },
-      { name: "\u534a\u5c0e\u9ad4", view: "\u6ce2\u6bb5\u5019\u9078\u4e3b\u984c\u6838\u5fc3", evidence: items.filter((item: any) => item.topic === "\u534a\u5c0e\u9ad4").slice(0, 2).map((item: any) => item.title) },
-    ],
+    assetRadar,
+    crossAssetPulse: assetRadar.map(item => ({ name: item.name, view: item.status, evidence: [item.interpretation] })),
     scenarios: [
-      { name: "\u57fa\u6e96\u60c5\u5883", view: "\u53ea\u505a\u6709\u6210\u4ea4\u503c\u8207 20MA \u7d50\u69cb\u652f\u6490\u7684\u5019\u9078\uff0c\u4e0d\u8ffd\u904e\u71b1\u4e56\u96e2\u3002" },
-      { name: "\u6b63\u5411\u60c5\u5883", view: "\u82e5\u91cf\u80fd\u653e\u5927\u4e14\u91cd\u9ede\u65b0\u805e\u504f\u6210\u9577\uff0c\u63d0\u9ad8 AI\u3001\u534a\u5c0e\u9ad4\u8207\u96fb\u5b50\u4f9b\u61c9\u93c8\u512a\u5148\u5ea6\u3002" },
-      { name: "\u98a8\u96aa\u60c5\u5883", view: "\u82e5\u5229\u7387\u3001\u532f\u7387\u6216\u7f8e\u80a1\u8f49\u5f31\uff0c\u5019\u9078\u80a1\u964d\u7d1a\u70ba\u89c0\u5bdf\uff0c\u5fc5\u9808\u7b49\u56de\u6e2c\u4e0d\u7834\u518d\u8a55\u4f30\u3002" },
+      { name: "\u958b\u76e4\u504f\u591a", view: "\u7f8e\u80a1\u8207 Nasdaq ETF \u5f37\u3001USD/TWD \u4e0d\u6025\u5347\u3001\u53f0\u80a1\u958b\u76e4\u6210\u4ea4\u503c\u653e\u5927\uff1a\u53ef\u7528\u5c0f\u90e8\u4f4d\u505a\u5f37\u52e2\u4e3b\u984c\u3002" },
+      { name: "\u958b\u76e4\u9707\u76ea", view: "\u6307\u6578\u958b\u9ad8\u4f46\u532f\u7387\u8207\u7f8e\u50b5\u4e0d\u914d\u5408\uff1a\u5148\u770b 30-60 \u5206\u9418\u6210\u4ea4\u503c\u8207\u9818\u6f32\u80a1\u662f\u5426\u64f4\u6563\u3002" },
+      { name: "\u98a8\u96aa\u964d\u6eab", view: "\u7f8e\u80a1\u8f49\u5f31\u3001\u7f8e\u50b5/\u7f8e\u5143\u540c\u6b65\u58d3\u529b\u4e0a\u5347\uff1a\u964d\u4f4e\u8ffd\u50f9\uff0c\u53ea\u4fdd\u7559\u4f4e\u4e56\u96e2\u8207\u652f\u6490\u660e\u78ba\u6a19\u7684\u3002" },
     ],
-    watchList: [
-      "\u4eca\u65e5\u65b0\u805e\u662f\u5426\u5c0d\u53f0\u80a1\u6210\u4ea4\u503c\u8207\u5916\u8cc7\u4ea4\u6613\u65b9\u5411\u6709\u76f4\u63a5\u5f71\u97ff\u3002",
-      "\u534a\u5c0e\u9ad4\u8207 AI \u4f9b\u61c9\u93c8\u65b0\u805e\u662f\u5426\u53ea\u662f\u984c\u6750\uff0c\u6216\u540c\u6642\u6709\u71df\u6536\u3001\u8a02\u55ae\u8207\u6210\u4ea4\u503c\u652f\u6490\u3002",
-      "\u5019\u9078\u80a1\u7ad9\u4e0a 20MA \u5f8c\u662f\u5426\u96e2\u5747\u7dda\u904e\u9060\uff0c\u82e5\u904e\u9060\u5247\u7b49\u62c9\u56de\u3002",
-    ],
+    watchList: keyObservations,
+    sourceUrls: assetRadar.map(item => ({ name: item.name, url: item.sourceUrl })).filter(item => item.url),
   };
 }
 
@@ -5089,13 +5178,23 @@ async function loadSwingMacro() {
     fetchYahooSymbolChart("^GSPC", "S&P 500", "6mo"),
     fetchYahooSymbolChart("TWD=X", "USD/TWD", "6mo"),
     loadQuote("2330"),
+    fetchYahooSymbolChart("^TNX", "US 10Y Treasury Yield", "6mo"),
+    fetchYahooSymbolChart("BTC-USD", "Bitcoin", "6mo"),
+    fetchYahooSymbolChart("CL=F", "WTI Crude Oil Futures", "6mo"),
+    fetchYahooSymbolChart("GC=F", "Gold Futures", "6mo"),
+    fetchYahooSymbolChart("QQQ", "Nasdaq 100 ETF", "6mo"),
     loadSwingMacroNews(),
   ]);
   const tw = settled[0].status === "fulfilled" ? settled[0].value : null;
   const spx = settled[1].status === "fulfilled" ? settled[1].value : null;
   const fx = settled[2].status === "fulfilled" ? settled[2].value : null;
   const tsmc = settled[3].status === "fulfilled" ? settled[3].value : null;
-  const macroNews = settled[4].status === "fulfilled" ? settled[4].value : { ok: false, items: [], errors: [] };
+  const ust10y = settled[4].status === "fulfilled" ? settled[4].value : null;
+  const crypto = settled[5].status === "fulfilled" ? settled[5].value : null;
+  const oil = settled[6].status === "fulfilled" ? settled[6].value : null;
+  const gold = settled[7].status === "fulfilled" ? settled[7].value : null;
+  const qqq = settled[8].status === "fulfilled" ? settled[8].value : null;
+  const macroNews = settled[9].status === "fulfilled" ? settled[9].value : { ok: false, items: [], errors: [] };
   const riskScore = [
     tw ? (tw.analysis.latest.close > tw.analysis.latest.ma20 ? 25 : 8) : 0,
     spx ? (spx.trend === "risk-on" ? 25 : spx.trend === "range-bound" ? 14 : 4) : 0,
@@ -5107,7 +5206,8 @@ async function loadSwingMacro() {
     label === "selective risk-on" ? "\u9078\u64c7\u6027\u504f\u591a" :
     label === "range-bound" ? "\u5340\u9593\u76e4" :
     label === "defensive" ? "\u504f\u9632\u5b88" : "\u98a8\u96aa\u504f\u7a7a";
-  const briefing = buildMacroBriefing(riskScore, labelZh, macroNews);
+  const macroAssets = { tw, spx, fx, tsmc, ust10y, crypto, oil, gold, qqq };
+  const briefing = buildMacroBriefing(riskScore, labelZh, macroNews, macroAssets);
   return {
     ok: true,
     generatedAt: new Date().toISOString(),
@@ -5147,6 +5247,11 @@ async function loadSwingMacro() {
       usProxy: spx,
       fxProxy: fx,
       semiconductorProxy: tsmc ? { label: "2330", date: tsmc.quoteDate, close: tsmc.close, source: tsmc.source, sourceUrls: tsmc.sourceUrls } : null,
+      bondProxy: ust10y,
+      cryptoProxy: crypto,
+      oilProxy: oil,
+      goldProxy: gold,
+      nasdaqProxy: qqq,
     },
     news: macroNews,
     screeningImplications: [
