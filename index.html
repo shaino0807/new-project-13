@@ -522,14 +522,6 @@
 
     <div id="swingPage" class="page-view" hidden>
       <section class="panel">
-        <div class="control-row">
-          <h2>Dino K&#x68d2;&#x5224;&#x65b7;&#x7b56;&#x7565;</h2>
-          <button type="button" id="refreshSwingBtn">&#x91cd;&#x65b0;&#x7522;&#x751f;&#x5019;&#x9078;</button>
-        </div>
-        <p class="note">&#x56db;&#x6bb5;&#x5f0f;&#x6ce2;&#x6bb5;&#x5de5;&#x4f5c;&#x6d41;&#xff1a;&#x5148;&#x770b;&#x7e3d;&#x7d93;&#x8207;&#x65b0;&#x805e;&#xff0c;&#x518d;&#x505a;&#x53f0;&#x80a1;&#x7be9;&#x9078;&#xff0c;&#x4e2d;&#x9593;&#x505c;&#x4e0b;&#x4f86;&#x8b93;&#x4f7f;&#x7528;&#x8005;&#x9078;&#x80a1;&#xff0c;&#x6700;&#x5f8c;&#x624d;&#x57f7;&#x884c;&#x500b;&#x80a1;&#x6df1;&#x5ea6;&#x3001;&#x65e5;&#x7dda;&#x6280;&#x8853;&#x8207; K &#x7dda;&#x591a;&#x7a7a;&#x6574;&#x5408;&#x3002;</p>
-        <div class="flow-steps" id="swingFlowSteps"></div>
-      </section>
-      <section class="panel">
         <h2>1. &#x7e3d;&#x7d93;&#x8207;&#x6700;&#x65b0;&#x65b0;&#x805e;</h2>
         <div class="client-grid" id="swingMacroCards"></div>
         <div class="news-list" id="swingMacroNews"><p class="note">&#x7b49;&#x5f85;&#x7e3d;&#x7d93;&#x65b0;&#x805e;&#x8f09;&#x5165;&#x3002;</p></div>
@@ -2308,10 +2300,19 @@
       const marketFocus = reasoning.marketFocus || [];
       const keyObservations = reasoning.keyObservations || briefing.watchList || [];
       const assetRadar = briefing.assetRadar || [];
+      const observationRows = keyObservations.map(item => typeof item === "string" ? {
+        indicator: "\u76e4\u524d\u6307\u6a19",
+        watch: item,
+        sentiment: "",
+        market: "",
+        institutions: "",
+        policy: "",
+        summary: item
+      } : item);
       $("swingMacroCards").innerHTML = [
         valueCard("\u5e02\u5834\u72c0\u614b", textRegime.label || regime.label || "--", reasoning.marketConclusion || textRegime.summary || regime.summary || "\u5c1a\u672a\u8f09\u5165", regime.score >= 72 ? "bull" : regime.score >= 42 ? "warn" : "bear"),
-        valueCard("\u4eca\u65e5\u5e02\u5834\u4e3b\u8ef8", onePage.marketTheme || "\u91d1\u878d\u5e02\u5834\u4e3b\u8ef8\u6574\u7406\u4e2d", briefing.title || "\u53f0\u7063\u76e4\u524d\u7e3d\u7d93\u7b56\u7565\u5831\u544a", "neut"),
-        valueCard("\u95dc\u9375\u89c0\u5bdf", onePage.riskTemperature || "\u98a8\u96aa\u6eab\u5ea6\u8a55\u4f30\u4e2d", onePage.keyWatch || "\u5148\u770b\u7f8e\u80a1\u3001\u7f8e\u50b5\u3001\u532f\u7387\u8207\u53f0\u80a1\u91cf\u50f9\u662f\u5426\u540c\u6b65\u3002", regime.score >= 72 ? "bull" : "warn"),
+        valueCard("\u4eca\u65e5\u5e02\u5834\u4e3b\u8ef8", onePage.marketTheme || "\u5c1a\u672a\u5f62\u6210\u55ae\u4e00\u4e3b\u8ef8", onePage.marketThemeReason || briefing.title || "\u53f0\u7063\u76e4\u524d\u7e3d\u7d93\u7b56\u7565\u5831\u544a", "neut"),
+        valueCard("\u95dc\u9375\u89c0\u5bdf", observationRows[0]?.indicator || "\u512a\u5148\u89c0\u5bdf\u6307\u6a19", observationRows[0]?.summary || onePage.keyWatch || "\u5148\u770b\u7f8e\u80a1\u3001\u7f8e\u50b5\u3001\u532f\u7387\u8207\u53f0\u80a1\u91cf\u50f9\u662f\u5426\u540c\u6b65\u3002", regime.score >= 72 ? "bull" : "warn"),
       ].join("");
       const marketStatus = `
         <div class="data-status">
@@ -2334,7 +2335,20 @@
       const observationPanel = `
         <div class="data-status">
           <h3>\u95dc\u9375\u89c0\u5bdf</h3>
-          <ul class="mini-list">${keyObservations.map(x => `<li>${escapeHtml(x)}</li>`).join("") || `<li>\u76e4\u524d\u5148\u6aa2\u67e5\u7f8e\u80a1\u3001\u7f8e\u50b5\u3001\u532f\u7387\u8207\u53f0\u80a1\u91cf\u50f9\u662f\u5426\u540c\u6b65\u3002</li>`}</ul>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>\u6307\u6a19</th><th>\u600e\u9ebc\u770b</th><th>\u5e02\u5834\u60c5\u7dd2</th><th>\u5e02\u5834\u52d5\u4f5c</th><th>\u6a5f\u69cb\u53ef\u80fd\u52d5\u4f5c</th><th>\u653f\u5e9c\u53ef\u80fd\u52d5\u4f5c</th></tr></thead>
+              <tbody>${observationRows.map(item => `
+                <tr>
+                  <td>${escapeHtml(item.indicator || "\u6307\u6a19")}</td>
+                  <td>${escapeHtml(item.watch || item.summary || "")}</td>
+                  <td>${escapeHtml(item.sentiment || "")}</td>
+                  <td>${escapeHtml(item.market || "")}</td>
+                  <td>${escapeHtml(item.institutions || "")}</td>
+                  <td>${escapeHtml(item.policy || "")}</td>
+                </tr>`).join("") || `<tr><td colspan="6">\u76e4\u524d\u5148\u6aa2\u67e5\u7f8e\u80a1\u3001\u7f8e\u50b5\u3001\u532f\u7387\u8207\u53f0\u80a1\u91cf\u50f9\u662f\u5426\u540c\u6b65\u3002</td></tr>`}</tbody>
+            </table>
+          </div>
         </div>`;
       const assetPanel = `
         <div class="data-status">
@@ -2352,11 +2366,6 @@
             </table>
           </div>
         </div>`;
-      const annotationPanel = (briefing.annotations || []).length ? `
-        <div class="data-status">
-          <h3>\u5224\u8b80\u8a3b\u89e3</h3>
-          <ul class="mini-list">${briefing.annotations.map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>
-        </div>` : "";
       const sourcePanel = (briefing.sourceUrls || []).length ? `
         <div class="data-status">
           <h3>\u5831\u50f9\u8207\u8cc7\u6599\u4f86\u6e90</h3>
@@ -2385,7 +2394,7 @@
           <p><b>\u5c0d\u7be9\u9078\u7684\u7528\u6cd5\uff1a</b>${escapeHtml(item.screeningUse || "\u5217\u5165\u80cc\u666f\u8ffd\u8e64\u3002")}</p>
           <p class="note">${escapeHtml(item.source || "\u65b0\u805e")}\uff1b${escapeHtml(item.horizon || "\u6642\u9593\u5c3a\u5ea6\u672a\u5206\u985e")}\uff1b${escapeHtml(item.articleReadStatus || "\u50c5\u8b80\u53d6 RSS \u6a19\u984c\u8207\u6458\u8981")}</p>
         </div>`).join("")}` : `<p class="note">\u76ee\u524d\u7e3d\u7d93\u65b0\u805e\u4f86\u6e90\u66ab\u6642\u4e0d\u53ef\u7528\uff0c\u8acb\u7a0d\u5f8c\u91cd\u65b0\u7522\u751f\u5019\u9078\u3002</p>`;
-      $("swingMacroNews").innerHTML = marketStatus + focusPanel + observationPanel + assetPanel + annotationPanel + sourcePanel + newsPanel;
+      $("swingMacroNews").innerHTML = marketStatus + focusPanel + observationPanel + assetPanel + sourcePanel + newsPanel;
     }
 
     function selectedSwingCodesFromInput() {
