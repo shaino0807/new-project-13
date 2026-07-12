@@ -1,0 +1,4 @@
+interface:
+  display_name: "Comparable Company Analysis"
+  short_description: "Create public-company trading comps valuation reports."
+  default_prompt: "Use $comparable-company-analysis to prepare a trading comps valuation report for a target company."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Taiwan Stock Swing Orchestrator"
+  short_description: "1-3 month Taiwan stock swing workflow"
+  default_prompt: "請用 taiwan-stock-swing-orchestrator 先分析最新總經，再篩選 1-3 個月台股波段候選股，等我指定股票後完成可比公司估值、個股投資分析、日線技術分析與 K 線做多做空整合分析。"

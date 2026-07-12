@@ -118,3 +118,5 @@ Steps:
 7. Return to 股票深度頁 and run 2330.
 
 Expected: The internal workflow explainer and 重新產生候選 button are not visible to normal users. The macro/news block explains article-specific key points, reasons, market impact, screening use, source, horizon, and whether article content or RSS summary was read. The screener table shows detailed 1-3 month setup descriptions, main evidence, research invalidation line with conditions, and priority. The thematic block shows five tables with readable business/theme notes and clear units for institutional net buy. The source panel shows full-market universe count plus the scored seed count. Deep analysis requires selected or manually entered stock codes and does not break the original stock analysis page.
+
+Additional expected orchestration check: Deep analysis calls the project-local skill orchestration report endpoint, shows the orchestrator/specialist contract, shows the generated report draft, and keeps the original stock analysis page usable after returning from Dino.

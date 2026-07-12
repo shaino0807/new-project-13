@@ -1,0 +1,8 @@
+interface:
+  display_name: "K-Line Long/Short Signal"
+  short_description: "Analyze candlestick charts for long, short, or no-trade signals."
+  brand_color: "#0F766E"
+  default_prompt: "Use $kline-long-short-signal to analyze this latest K-line chart for long, short, or no-trade signals."
+
+policy:
+  allow_implicit_invocation: true

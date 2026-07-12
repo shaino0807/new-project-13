@@ -71,6 +71,38 @@ function encodeTextTree(value: any): any {
   return value;
 }
 
+const SWING_SKILL_BUNDLE = {
+  version: "project-local-2026-07-12",
+  sourceRoot: "project-skills",
+  orchestrator: {
+    name: "taiwan-stock-swing-orchestrator",
+    path: "project-skills/taiwan-stock-swing-orchestrator/SKILL.md",
+  },
+  specialists: [
+    { stage: "macro", name: "senior-macro-strategist", path: "project-skills/senior-macro-strategist/SKILL.md" },
+    { stage: "screener", name: "taiwan-stock-screener", path: "project-skills/taiwan-stock-screener/SKILL.md" },
+    { stage: "valuation", name: "comparable-company-analysis", path: "project-skills/comparable-company-analysis/SKILL.md" },
+    { stage: "deep-analysis", name: "senior-stock-investment-analysis", path: "project-skills/senior-stock-investment-analysis/SKILL.md" },
+    { stage: "technical", name: "daily-market-technical-analysis", path: "project-skills/daily-market-technical-analysis/SKILL.md" },
+    { stage: "signal", name: "kline-long-short-signal", path: "project-skills/kline-long-short-signal/SKILL.md" },
+  ],
+  stageOrder: ["macro", "screener", "user-selection-gate", "valuation", "deep-analysis", "technical", "signal", "summary"],
+  gate: {
+    required: true,
+    input: "selected stock codes",
+    rule: "macro and screener run first; valuation, deep analysis, technical, signal, and final synthesis run only after user-selected codes are present",
+  },
+  outputContract: [
+    "macroView",
+    "candidateTables",
+    "valuationComparison",
+    "fundamentalThesis",
+    "dailyTechnicalFramework",
+    "klineLongShortSignal",
+    "finalResearchReport",
+  ],
+};
+
 async function fetchJson(url: string, timeoutMs = 9000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -5709,18 +5741,12 @@ function buildSwingResearchReport(code: string, v: any, d: any, t: any, s: any) 
   };
 }
 
-async function loadSwingSummary(codes: string[]) {
-  const [valuation, deep, technical, signal] = await Promise.all([
-    loadSwingValuation(codes),
-    loadSwingDeepAnalysis(codes),
-    loadSwingTechnical(codes),
-    loadSwingSignal(codes),
-  ]);
+function buildSwingSummaryFromStages(codes: string[], valuation: any, deep: any, technical: any, signal: any) {
   const byCode = (items: any[]) => new Map(items.map(item => [item.code, item]));
-  const valuationMap = byCode(valuation.items);
-  const deepMap = byCode(deep.items);
-  const technicalMap = byCode(technical.items);
-  const signalMap = byCode(signal.items);
+  const valuationMap = byCode(valuation.items || []);
+  const deepMap = byCode(deep.items || []);
+  const technicalMap = byCode(technical.items || []);
+  const signalMap = byCode(signal.items || []);
   const rows = codes.map(code => {
     const v: any = valuationMap.get(code) || {};
     const d: any = deepMap.get(code) || {};
@@ -5756,6 +5782,135 @@ async function loadSwingSummary(codes: string[]) {
       "\u6240\u6709\u5019\u9078\u90fd\u5fc5\u9808\u5148\u5b9a\u7fa9\u5931\u6548\u50f9\uff0c\u8dcc\u7834\u5f8c\u505c\u6b62\u539f\u672c\u6ce2\u6bb5\u5047\u8a2d\u3002",
       "\u82e5\u8cc7\u6599\u8986\u84cb\u7387\u4e0d\u8db3\u6216\u65b0\u805e\u4f86\u6e90\u903e\u6642\uff0c\u8a72\u6a94\u53ea\u4fdd\u7559\u89c0\u5bdf\uff0c\u4e0d\u5347\u7d1a\u70ba\u9ad8\u4fe1\u5fc3\u5019\u9078\u3002",
     ],
+  };
+}
+
+async function loadSwingSummary(codes: string[]) {
+  const [valuation, deep, technical] = await Promise.all([
+    loadSwingValuation(codes),
+    loadSwingDeepAnalysis(codes),
+    loadSwingTechnical(codes),
+  ]);
+  const signalItems = (technical.items || []).map(buildSwingSignalFromTechnical);
+  const signal = {
+    ok: true,
+    generatedAt: new Date().toISOString(),
+    items: signalItems,
+    text: encodeTextTree({ items: signalItems }),
+  };
+  return buildSwingSummaryFromStages(codes, valuation, deep, technical, signal);
+}
+
+function buildSwingOrchestratedMarkdown(payload: any) {
+  const summaryRows = payload.summary?.rows || [];
+  const lines = [
+    "# Dino K\u68d2\u5224\u65b7\u7b56\u7565\uff5cSkill Orchestrated Report",
+    "",
+    `\u7522\u751f\u6642\u9593\uff1a${payload.generatedAt}`,
+    `\u4f7f\u7528\u5951\u7d04\uff1a${SWING_SKILL_BUNDLE.orchestrator.name} + ${SWING_SKILL_BUNDLE.specialists.length} specialist skills`,
+    `\u9078\u80a1 gate\uff1a${payload.gate?.status || "N/A"}\uff0c\u6a19\u7684\uff1a${(payload.selectedCodes || []).join(", ") || "N/A"}`,
+    "",
+    "## \u7de8\u6392\u9806\u5e8f",
+    ...SWING_SKILL_BUNDLE.stageOrder.map((stage, index) => `${index + 1}. ${stage}`),
+    "",
+    "## \u6700\u7d42\u6574\u5408",
+  ];
+  for (const row of summaryRows) {
+    const levels = row.keyLevels || {};
+    lines.push(
+      "",
+      `### ${row.code} ${row.name || ""}`,
+      `- \u7814\u7a76\u7acb\u5834\uff1a${row.finalStance || "N/A"}`,
+      `- \u4f30\u503c\uff1a${row.valuationBias || "N/A"}\uff1b\u57fa\u672c\u9762\uff1a${row.fundamentalBias || "N/A"}`,
+      `- \u65e5\u7dda\u6280\u8853\uff1a${row.technicalBias || "N/A"}\uff1bK \u7dda\uff1a${row.klineSignal || "N/A"}`,
+      `- \u689d\u4ef6\uff1a${row.scenario || "N/A"}`,
+      `- \u95dc\u9375\u4f4d\u968e\uff1a\u652f\u6490 ${fmt(levels.support)} / \u58d3\u529b ${fmt(levels.resistance)} / \u5931\u6548 ${fmt(levels.invalidation)}`,
+      `- \u4e3b\u50ac\u5316\uff1a${row.mainCatalyst || "N/A"}`,
+      `- \u4e3b\u98a8\u96aa\uff1a${row.mainRisk || "N/A"}`
+    );
+  }
+  lines.push(
+    "",
+    "## \u98a8\u96aa\u63a7\u5236",
+    ...((payload.summary?.riskControls || []).map((item: string) => `- ${item}`))
+  );
+  return lines.join("\n");
+}
+
+async function loadSwingOrchestratedReport(codes: string[], universeValue?: unknown) {
+  const generatedAt = new Date().toISOString();
+  const macro = {
+    ok: true,
+    reusedFrom: "client workflow gate",
+    note: "Macro/news stage is loaded before user selection and is not recomputed in the deep-analysis endpoint.",
+  };
+  const screener = {
+    ok: true,
+    reusedFrom: "client workflow gate",
+    note: "Screener stage is loaded before user selection and is not recomputed in the deep-analysis endpoint.",
+    universe: universeValue || null,
+  };
+  const gate = {
+    required: true,
+    status: codes.length ? "passed" : "blocked",
+    selectedCodes: codes,
+    instruction: "\u8acb\u5148\u5b8c\u6210\u5019\u9078\u6e05\u55ae\u5f8c\u9078\u53d6\u80a1\u7968\uff0c\u518d\u555f\u52d5\u4f30\u503c\u3001\u500b\u80a1\u6df1\u5ea6\u3001\u6280\u8853\u8207 K \u7dda\u7d9c\u5408\u5831\u544a\u3002",
+  };
+  if (!codes.length) {
+    return {
+      ok: false,
+      generatedAt,
+      contract: SWING_SKILL_BUNDLE,
+      orchestration: { mode: "project-local-skill-contract", stageOrder: SWING_SKILL_BUNDLE.stageOrder },
+      gate,
+      stages: { macro, screener },
+      text: encodeTextTree({ contract: SWING_SKILL_BUNDLE, gate }),
+    };
+  }
+  const [valuation, deep, technical] = await Promise.all([
+    loadSwingValuation(codes),
+    loadSwingDeepAnalysis(codes),
+    loadSwingTechnical(codes),
+  ]);
+  const signalItems = (technical.items || []).map(buildSwingSignalFromTechnical);
+  const signal = {
+    ok: true,
+    generatedAt: new Date().toISOString(),
+    items: signalItems,
+    text: encodeTextTree({ items: signalItems }),
+  };
+  const summary = buildSwingSummaryFromStages(codes, valuation, deep, technical, signal);
+  const reportPayload: any = {
+    ok: true,
+    generatedAt,
+    selectedCodes: codes,
+    contract: SWING_SKILL_BUNDLE,
+    orchestration: {
+      mode: "project-local-skill-contract",
+      sourceRoot: SWING_SKILL_BUNDLE.sourceRoot,
+      stageOrder: SWING_SKILL_BUNDLE.stageOrder,
+      specialistCount: SWING_SKILL_BUNDLE.specialists.length,
+      reusedStageOutputs: true,
+    },
+    gate,
+    stages: { macro, screener, valuation, deep, technical, signal, summary },
+    macro,
+    screener,
+    valuation,
+    deep,
+    technical,
+    signal,
+    summary,
+  };
+  const reportMarkdown = buildSwingOrchestratedMarkdown(reportPayload);
+  return {
+    ...reportPayload,
+    text: encodeTextTree({
+      contract: SWING_SKILL_BUNDLE,
+      gate,
+      orchestration: reportPayload.orchestration,
+      reportMarkdown,
+    }),
   };
 }
 
@@ -5948,6 +6103,19 @@ export const handler = router({
       return json({
         ok: false,
         message: `Unable to build swing summary: ${err instanceof Error ? err.message : String(err)}`,
+      }, 502);
+    }
+  }],
+
+  "GET /api/swing/orchestrated-report": [async ({ query }: any) => {
+    const codes = parseSwingCodes(query.codes || query.code);
+    if (!codes.length) return error("Missing stock codes", 400);
+    try {
+      return json(await loadSwingOrchestratedReport(codes, query.universe), 200);
+    } catch (err) {
+      return json({
+        ok: false,
+        message: `Unable to build swing orchestrated report: ${err instanceof Error ? err.message : String(err)}`,
       }, 502);
     }
   }],

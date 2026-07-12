@@ -1,0 +1,7 @@
+interface:
+  display_name: "Senior Macro Strategist"
+  short_description: "每日跨資產市場報告與部位追蹤分析"
+  default_prompt: "Use $senior-macro-strategist to prepare a verified Traditional Chinese daily macro market brief before Taiwan market open."
+
+policy:
+  allow_implicit_invocation: true

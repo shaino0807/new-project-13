@@ -113,6 +113,7 @@
     .value-card p { font-size:12px; line-height:1.55; margin:.24rem 0 0; }
     .data-status { border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.72rem; margin:.65rem 0; }
     .data-status h3 { margin:0 0 .45rem; font-size:.9rem; }
+    .report-pre { white-space:pre-wrap; overflow:auto; max-height:420px; border:.5px solid #ece9e4; border-radius:8px; background:#fff; padding:.65rem; font-size:12px; line-height:1.65; }
     .data-status-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.5rem; }
     .data-status-card { border:.5px solid #ece9e4; border-radius:8px; background:#fff; padding:.52rem; min-width:0; }
     .data-status-card b { display:block; font-size:11px; color:var(--muted); margin-bottom:.18rem; }
@@ -782,6 +783,13 @@
       const api = await waitForAppApi();
       const { data } = await api.get(`/api/swing/${stage}?codes=${encodeURIComponent(codes.join(","))}`);
       if (!data || !data.ok) throw new Error(data?.message || `Dino ${stage} \u8f09\u5165\u5931\u6557`);
+      return data;
+    }
+
+    async function getSwingOrchestratedReport(codes) {
+      const api = await waitForAppApi();
+      const { data } = await api.get(`/api/swing/orchestrated-report?codes=${encodeURIComponent(codes.join(","))}`);
+      if (!data || !data.ok) throw new Error(data?.message || "Dino skill orchestration report \u8f09\u5165\u5931\u6557");
       return data;
     }
 
@@ -2520,12 +2528,35 @@
     }
 
     function renderSwingDeep(payload) {
-      const summaryText = decodeTree(payload.summary?.text || {});
-      const valuationText = decodeTree(payload.valuation?.text || {});
-      const deepText = decodeTree(payload.deep?.text || {});
-      const technicalText = decodeTree(payload.technical?.text || {});
-      const signalText = decodeTree(payload.signal?.text || {});
-      const summaryItems = summaryText.rows || payload.summary?.rows || [];
+      const stagePayload = payload.stages || payload;
+      const contract = decodeTree(payload.text?.contract || payload.contract || {});
+      const orchestration = decodeTree(payload.text?.orchestration || payload.orchestration || {});
+      const reportMarkdown = decodeText(payload.text?.reportMarkdown || "");
+      const summaryText = decodeTree(stagePayload.summary?.text || {});
+      const valuationText = decodeTree(stagePayload.valuation?.text || {});
+      const deepText = decodeTree(stagePayload.deep?.text || {});
+      const technicalText = decodeTree(stagePayload.technical?.text || {});
+      const signalText = decodeTree(stagePayload.signal?.text || {});
+      const summaryItems = summaryText.rows || stagePayload.summary?.rows || [];
+      const specialistRows = (contract.specialists || []).map(skill => `
+        <tr><td>${escapeHtml(skill.stage || "")}</td><td>${escapeHtml(skill.name || "")}</td><td>${escapeHtml(skill.path || "")}</td></tr>`).join("");
+      const contractPanel = contract.orchestrator ? `
+        <section class="data-status">
+          <h3>Skill orchestration contract</h3>
+          <div class="data-status-grid">
+            <div class="data-status-card"><b>Orchestrator</b><strong>${escapeHtml(contract.orchestrator.name || "")}</strong></div>
+            <div class="data-status-card"><b>Specialists</b><strong>${(contract.specialists || []).length}</strong></div>
+            <div class="data-status-card"><b>Gate</b><strong>${escapeHtml(payload.gate?.status || "")}</strong></div>
+            <div class="data-status-card"><b>Mode</b><strong>${escapeHtml(orchestration.mode || "")}</strong></div>
+          </div>
+          <p class="note">${escapeHtml(contract.gate?.rule || "")}</p>
+          ${tableFromRows(["Stage", "Skill", "Project-local source"], [specialistRows || `<tr><td colspan="3">N/A</td></tr>`])}
+        </section>` : "";
+      const reportPanel = reportMarkdown ? `
+        <section class="data-status">
+          <h3>\u7de8\u6392\u5f0f\u5831\u544a\u7a3f</h3>
+          <pre class="report-pre">${escapeHtml(reportMarkdown)}</pre>
+        </section>` : "";
       const reportCards = summaryItems.map(row => {
         const report = row.researchReport || {};
         const peerRows = (report.peers || []).map(peer => `<tr><td>${escapeHtml(peer.code || "")} ${escapeHtml(peer.name || "")}</td><td>${peer.per ?? "N/A"}</td><td>${peer.pbr ?? "N/A"}</td><td>${peer.dividendYield ?? "N/A"}</td></tr>`).join("");
@@ -2593,13 +2624,13 @@
           <td>${escapeHtml(row.klineSignal)}</td>
           <td>${escapeHtml(row.scenario)}</td>
         </tr>`).join("");
-      const valuationRows = (valuationText.items || payload.valuation?.items || []).map(item => `
+      const valuationRows = (valuationText.items || stagePayload.valuation?.items || []).map(item => `
         <tr><td>${escapeHtml(item.code || "")} ${escapeHtml(item.name || "")}</td><td>${escapeHtml(item.bias || item.message || "N/A")}</td><td>${item.target?.per ?? "N/A"}</td><td>${item.target?.pbr ?? "N/A"}</td><td>${item.peerSummary?.count ?? 0}</td><td>${escapeHtml((item.limitations || []).join(" "))}</td></tr>`).join("");
-      const technicalRows = (technicalText.items || payload.technical?.items || []).map(item => `
+      const technicalRows = (technicalText.items || stagePayload.technical?.items || []).map(item => `
         <tr><td>${escapeHtml(item.code || "")} ${escapeHtml(item.name || "")}</td><td>${escapeHtml(item.trend || item.message || "N/A")}</td><td>${scoreText(item.continuationScore)}</td><td>${scoreText(item.pullbackRisk)}</td><td>${item.levels ? `${fmt(item.levels.support)} / ${fmt(item.levels.resistance)}` : "N/A"}</td><td>${item.levels ? fmt(item.levels.invalidation) : "N/A"}</td></tr>`).join("");
-      const signalRows = (signalText.items || payload.signal?.items || []).map(item => `
+      const signalRows = (signalText.items || stagePayload.signal?.items || []).map(item => `
         <tr><td>${escapeHtml(item.code || "")} ${escapeHtml(item.name || "")}</td><td>${escapeHtml(item.signal || item.message || "N/A")}</td><td>${escapeHtml(item.strength || "N/A")}</td><td>${escapeHtml(item.stance || "N/A")}</td><td>${escapeHtml(item.requiredConfirmation || "N/A")}</td><td>${escapeHtml(item.invalidation || "N/A")}</td></tr>`).join("");
-      const deepCards = (deepText.items || payload.deep?.items || []).map(item => `
+      const deepCards = (deepText.items || stagePayload.deep?.items || []).map(item => `
         <div class="data-status">
           <h3>${escapeHtml(item.code || "")} ${escapeHtml(item.name || "")} ${badge(item.rating?.grade || "N/A", item.rating?.grade === "A" ? "bull" : item.rating?.grade === "B" ? "warn" : "neut")}</h3>
           <ul class="mini-list">${(item.thesis || [item.message || "\u8cc7\u6599\u4e0d\u8db3"]).map(x => `<li>${escapeHtml(x)}</li>`).join("")}</ul>
@@ -2607,6 +2638,8 @@
           <p class="note">\u98a8\u96aa\uff1a${escapeHtml((item.risks || []).join("\uff1b") || "\u8cc7\u6599\u4e0d\u8db3")}</p>
         </div>`).join("");
       $("swingDeepResults").innerHTML = `
+        ${contractPanel}
+        ${reportPanel}
         <section>
           <h3>\u7814\u7a76\u5831\u544a\u5f0f\u5206\u6790</h3>
           ${reportCards || `<p class="note">\u5c1a\u7121\u5831\u544a\u5f0f\u5206\u6790\u3002</p>`}
@@ -2640,16 +2673,9 @@
         return;
       }
       renderSwingFlow("deep");
-      $("swingDeepResults").innerHTML = `<p class="note">\u6b63\u5728\u57f7\u884c Dino \u6df1\u5ea6\u6d41\u7a0b\uff1a\u53ef\u6bd4\u4f30\u503c\u3001\u500b\u80a1\u6df1\u5ea6\u3001\u65e5\u7dda\u6280\u8853\u3001K \u7dda\u8a0a\u865f\u8207\u6700\u7d42\u6574\u5408\u3002</p>`;
+      $("swingDeepResults").innerHTML = `<p class="note">\u6b63\u5728\u57f7\u884c Dino skill orchestration report\uff1a\u4f9d project-skills orchestrator \u9806\u5e8f\u7522\u751f\u53ef\u6bd4\u4f30\u503c\u3001\u500b\u80a1\u6df1\u5ea6\u3001\u65e5\u7dda\u6280\u8853\u3001K \u7dda\u8a0a\u865f\u8207\u6700\u7d42\u6574\u5408\u3002</p>`;
       try {
-        const [valuation, deep, technical, signal, summary] = await Promise.all([
-          getSwingStage("valuation", swingSelectedCodes),
-          getSwingStage("deep-analysis", swingSelectedCodes),
-          getSwingStage("technical", swingSelectedCodes),
-          getSwingStage("signal", swingSelectedCodes),
-          getSwingStage("summary", swingSelectedCodes),
-        ]);
-        swingDeepPayload = { valuation, deep, technical, signal, summary };
+        swingDeepPayload = await getSwingOrchestratedReport(swingSelectedCodes);
         renderSwingDeep(swingDeepPayload);
       } catch (err) {
         $("swingDeepResults").innerHTML = `<p class="note">${escapeHtml(err.message || "\u6df1\u5ea6\u6d41\u7a0b\u5931\u6557")}</p>`;
