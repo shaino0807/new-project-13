@@ -75,9 +75,9 @@ Description: Verifies each stock search requests the aggregated backend route an
 
 Steps:
 1. Navigate to the app.
-2. Run 2330 analysis.
+2. Use the top stock code/name field in the hero form, not the lower Agent question field, to run 2330 analysis.
 3. Wait for fundamentals to finish loading.
-4. Run 2344 analysis.
+4. Use the same top stock code/name field and the analysis button, not the Agent question button, to run 2344 analysis.
 5. Wait for fundamentals to update to the new stock.
 
 Expected: Available rows include numeric values and source dates. Unavailable upstream data is marked clearly instead of inventing values.
@@ -120,3 +120,7 @@ Steps:
 Expected: The internal workflow explainer and 重新產生候選 button are not visible to normal users. The macro/news block explains article-specific key points, reasons, market impact, screening use, source, horizon, and whether article content or RSS summary was read. The screener table shows detailed 1-3 month setup descriptions, main evidence, research invalidation line with conditions, and priority. The thematic block shows five tables with readable business/theme notes and clear units for institutional net buy. The source panel shows full-market universe count plus the scored seed count. Deep analysis requires selected or manually entered stock codes and does not break the original stock analysis page.
 
 Additional expected orchestration check: Deep analysis calls the project-local skill orchestration report endpoint, shows the orchestrator/specialist contract, shows the generated report draft, and keeps the original stock analysis page usable after returning from Dino.
+
+Additional expected LLM report check: The deep report request sends a compact macro/screener prompt context, the backend attempts the fixed OpenAI Responses prompt pipeline when enabled, the UI shows the LLM status/model or a missing-secret/error fallback, and the final Traditional Chinese Markdown report still renders when the LLM layer is unavailable.
+
+Additional expected reader/pipeline check: Dino deep analysis creates a background report job with POST /api/swing/orchestrated-report/jobs, polls GET /api/swing/orchestrated-report/jobs/:id, exposes the sequential specialist chain (macro, screener, gate, valuation, fundamental, technical, K-line, final synthesis), shows job progress while running, then renders the Markdown report reader first and presents the prior tables as evidence-provider tables rather than the final analysis report.

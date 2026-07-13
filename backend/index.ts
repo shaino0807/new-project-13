@@ -1,4 +1,4 @@
-import { router, json, error, secrets } from "@appdeploy/sdk";
+import { router, json, error, secrets, db } from "@appdeploy/sdk";
 
 type DailyBar = {
   date: string;
@@ -102,6 +102,28 @@ const SWING_SKILL_BUNDLE = {
     "finalResearchReport",
   ],
 };
+
+const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
+const SWING_REPORT_JOB_TABLE = "swing_report_jobs_v1";
+let openAiApiKeyPromise: Promise<string> | null = null;
+let openAiReportModelPromise: Promise<string> | null = null;
+
+async function getOpenAiApiKey() {
+  if (!openAiApiKeyPromise) {
+    openAiApiKeyPromise = secrets.readSecret("OPENAI_API_KEY").catch(() => "");
+  }
+  const key = await openAiApiKeyPromise;
+  if (!key) openAiApiKeyPromise = null;
+  return key;
+}
+
+async function getOpenAiReportModel() {
+  if (!openAiReportModelPromise) {
+    openAiReportModelPromise = secrets.readSecret("OPENAI_REPORT_MODEL").catch(() => "");
+  }
+  const model = await openAiReportModelPromise;
+  return String(model || "gpt-4.1-nano").trim() || "gpt-4.1-nano";
+}
 
 async function fetchJson(url: string, timeoutMs = 9000) {
   const controller = new AbortController();
@@ -5837,14 +5859,873 @@ function buildSwingOrchestratedMarkdown(payload: any) {
   return lines.join("\n");
 }
 
-async function loadSwingOrchestratedReport(codes: string[], universeValue?: unknown) {
+function parseSwingPromptContext(value: unknown) {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw.slice(0, 9000));
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+async function readRequestJson(ctx: any) {
+  if (ctx?.body && typeof ctx.body === "object") return ctx.body;
+  if (ctx?.body && typeof ctx.body === "string") {
+    try {
+      return JSON.parse(ctx.body);
+    } catch {
+      return {};
+    }
+  }
+  if (ctx?.request && typeof ctx.request.json === "function") {
+    try {
+      return await ctx.request.json();
+    } catch {
+      return {};
+    }
+  }
+  if (ctx?.req && typeof ctx.req.json === "function") {
+    try {
+      return await ctx.req.json();
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
+function compactText(value: unknown, max = 420) {
+  return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+function compactRows(rows: any[], mapper: (row: any) => any, limit = 8) {
+  return (Array.isArray(rows) ? rows : []).slice(0, limit).map(mapper);
+}
+
+function buildSwingLlmPromptData(payload: any, promptContext: any) {
+  const stage = payload.stages || payload;
+  const valuationItems = stage.valuation?.items || [];
+  const deepItems = stage.deep?.items || [];
+  const technicalItems = stage.technical?.items || [];
+  const signalItems = stage.signal?.items || [];
+  const summaryRows = stage.summary?.rows || [];
+  return {
+    contract: {
+      orchestrator: SWING_SKILL_BUNDLE.orchestrator.name,
+      specialists: SWING_SKILL_BUNDLE.specialists.map(item => ({ stage: item.stage, name: item.name })),
+      stageOrder: SWING_SKILL_BUNDLE.stageOrder,
+      gate: SWING_SKILL_BUNDLE.gate,
+    },
+    generatedAt: payload.generatedAt,
+    selectedCodes: payload.selectedCodes || [],
+    marketContext: promptContext?.macro || stage.macro || null,
+    screenerContext: promptContext?.screener || stage.screener || null,
+    valuation: compactRows(valuationItems, item => ({
+      code: item.code,
+      name: item.name,
+      bias: item.bias || item.message,
+      target: item.target,
+      peerSummary: item.peerSummary,
+      limitations: item.limitations,
+    }), 6),
+    fundamentalDeepDive: compactRows(deepItems, item => ({
+      code: item.code,
+      name: item.name,
+      rating: item.rating,
+      thesis: (item.thesis || []).slice(0, 5),
+      catalysts: compactRows(item.catalysts || [], c => ({ title: c.title, source: c.source, publishedAt: c.publishedAt }), 3),
+      risks: (item.risks || []).slice(0, 5),
+      dataStatus: item.dataStatus,
+    }), 6),
+    dailyTechnical: compactRows(technicalItems, item => ({
+      code: item.code,
+      name: item.name,
+      date: item.date,
+      close: item.close,
+      trend: item.trend || item.message,
+      indicators: item.indicators,
+      levels: item.levels,
+      probabilities: item.probabilities,
+      tradingPlan: item.tradingPlan,
+      scenarios: item.scenarios,
+    }), 6),
+    klineSignal: compactRows(signalItems, item => ({
+      code: item.code,
+      name: item.name,
+      signal: item.signal || item.message,
+      strength: item.strength,
+      stance: item.stance,
+      requiredConfirmation: item.requiredConfirmation,
+      invalidation: item.invalidation,
+      targetZone: item.targetZone,
+    }), 6),
+    finalSynthesis: compactRows(summaryRows, row => ({
+      code: row.code,
+      name: row.name,
+      finalStance: row.finalStance,
+      valuationBias: row.valuationBias,
+      fundamentalBias: row.fundamentalBias,
+      technicalBias: row.technicalBias,
+      klineSignal: row.klineSignal,
+      scenario: row.scenario,
+      keyLevels: row.keyLevels,
+      mainCatalyst: row.mainCatalyst,
+      mainRisk: row.mainRisk,
+    }), 6),
+    riskControls: stage.summary?.riskControls || [],
+  };
+}
+
+function buildSwingLlmInstructions() {
+  return [
+    "You are the report-generation layer for a Taiwan stock 1-3 month swing-trading workflow.",
+    "Write Traditional Chinese Markdown only. Use a senior macro strategist + stock screener + comparable valuation + fundamental analyst + daily technical analyst + K-line long/short signal style.",
+    "Do not invent unavailable financial, valuation, news, or price data. If a field is missing, write N/A or explicitly say data is unavailable.",
+    "Do not give direct investment advice or guaranteed predictions. Frame outputs as research stance, watchlist, conditions, invalidation, and risk controls.",
+    "Use the selected stock codes as the gate-approved scope. Do not add unrelated tickers.",
+    "Required Markdown structure: # title, ## \u5e02\u5834\u8207\u984c\u6750\u80cc\u666f, ## Screener \u5019\u9078\u908f\u8f2f, ## \u4f7f\u7528\u8005\u9078\u80a1 Gate, one ## section per selected stock, ## \u6700\u7d42\u89c0\u5bdf\u6e05\u55ae, ## \u98a8\u96aa\u8207\u5931\u6548\u689d\u4ef6.",
+    "For each selected stock include: valuation read, fundamental thesis, daily technical read, K-line long/short signal, key levels, continuation condition, pullback condition, invalidation, and 1-3 month final stance.",
+  ].join("\n");
+}
+
+function buildSwingLlmUserPrompt(promptData: any) {
+  const jsonText = JSON.stringify(promptData).slice(0, 3500);
+  return [
+    "\u8acb\u6839\u64da\u4e0b\u5217 JSON \u7522\u751f\u63a5\u8fd1 Codex skill `taiwan-stock-swing-orchestrator` \u7684\u7e41\u9ad4\u4e2d\u6587 Markdown \u5831\u544a\u3002",
+    "\u91cd\u9ede\uff1a\u8981\u628a\u5e02\u5834\u80cc\u666f\u3001screener \u5019\u9078\u908f\u8f2f\u3001\u4f7f\u7528\u8005\u9078\u80a1\u3001\u4f30\u503c\u3001\u57fa\u672c\u9762\u3001\u65e5\u7dda\u6280\u8853\u8207 K \u7dda\u8a0a\u865f\u6574\u5408\u6210\u4e00\u4efd\u53ef\u8b80\u7684\u7814\u7a76\u5831\u544a\u3002",
+    "\u4e0d\u8981\u8f38\u51fa JSON\u3002\u4e0d\u8981\u52a0\u5165\u672a\u5728\u8cc7\u6599\u4e2d\u51fa\u73fe\u7684\u8ca1\u5831\u6578\u5b57\u6216\u65b0\u805e\u3002",
+    "",
+    "```json",
+    jsonText,
+    "```",
+  ].join("\n");
+}
+
+function extractOpenAiText(payload: any) {
+  if (typeof payload?.output_text === "string" && payload.output_text.trim()) return payload.output_text.trim();
+  const parts: string[] = [];
+  for (const item of payload?.output || []) {
+    for (const content of item?.content || []) {
+      if (typeof content?.text === "string") parts.push(content.text);
+    }
+  }
+  return parts.join("\n").trim();
+}
+
+async function generateSwingLlmReport(reportPayload: any, promptContext: any) {
+  const apiKey = await getOpenAiApiKey();
+  const model = await getOpenAiReportModel();
+  const promptData = buildSwingLlmPromptData(reportPayload, promptContext);
+  const promptPreview = {
+    selectedCodes: promptData.selectedCodes,
+    marketContextAvailable: Boolean(promptData.marketContext),
+    screenerContextAvailable: Boolean(promptData.screenerContext),
+    valuationRows: promptData.valuation.length,
+    deepRows: promptData.fundamentalDeepDive.length,
+    technicalRows: promptData.dailyTechnical.length,
+    signalRows: promptData.klineSignal.length,
+  };
+  if (!apiKey) {
+    return {
+      ok: false,
+      status: "missing_secret",
+      provider: "openai_responses",
+      mode: "single_final_editor_with_stage_contract",
+      model,
+      message: "OPENAI_API_KEY AppDeploy secret is not configured.",
+      promptPreview,
+      steps: SWING_SKILL_BUNDLE.stageOrder.map(stage => ({ stage, status: "skipped_missing_secret" })),
+      markdown: "",
+    };
+  }
+  const timeoutMs = 12000;
+  try {
+    const res = await Promise.race([
+      fetch(OPENAI_RESPONSES_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          instructions: buildSwingLlmInstructions(),
+          input: buildSwingLlmUserPrompt(promptData),
+        max_output_tokens: 420,
+          store: false,
+        }),
+      }),
+      new Promise<Response>((_, reject) => {
+        setTimeout(() => reject(new Error(`OpenAI report generation timed out after ${timeoutMs}ms.`)), timeoutMs);
+      }),
+    ]) as Response;
+    const raw = await res.text();
+    let data: any = null;
+    try {
+      data = raw ? JSON.parse(raw) : null;
+    } catch {
+      data = null;
+    }
+    if (!res.ok) {
+      return {
+        ok: false,
+        status: "api_error",
+        provider: "openai_responses",
+        mode: "single_final_editor_with_stage_contract",
+        model,
+        httpStatus: res.status,
+        message: compactText(data?.error?.message || raw || "OpenAI report generation failed.", 600),
+        promptPreview,
+        steps: SWING_SKILL_BUNDLE.stageOrder.map(stage => ({ stage, status: "skipped_api_error" })),
+        markdown: "",
+      };
+    }
+    const markdown = extractOpenAiText(data);
+    return {
+      ok: Boolean(markdown),
+      status: markdown ? "generated" : "empty_output",
+      provider: "openai_responses",
+      mode: "single_final_editor_with_stage_contract",
+      model,
+      responseId: data?.id || null,
+      usage: data?.usage || null,
+      promptPreview,
+      steps: SWING_SKILL_BUNDLE.stageOrder.map(stage => ({ stage, status: markdown ? "covered_in_final_editor" : "empty_output" })),
+      markdown,
+      message: markdown ? "\u5df2\u7531 LLM prompt pipeline \u7522\u751f\u7e41\u4e2d Markdown \u5831\u544a\u3002" : "OpenAI response did not include text output.",
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      status: err instanceof Error && /timed out|AbortError/i.test(`${err.name} ${err.message}`) ? "timeout" : "exception",
+      provider: "openai_responses",
+      mode: "single_final_editor_with_stage_contract",
+      model,
+      message: err instanceof Error ? err.message : String(err),
+      promptPreview,
+      steps: SWING_SKILL_BUNDLE.stageOrder.map(stage => ({ stage, status: "skipped_exception" })),
+      markdown: "",
+    };
+  }
+}
+
+async function callOpenAiReportStep(apiKey: string, model: string, instructions: string, input: string, maxOutputTokens: number, timeoutMs: number) {
+  try {
+    const res = await Promise.race([
+      fetch(OPENAI_RESPONSES_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          instructions,
+          input,
+          max_output_tokens: maxOutputTokens,
+          store: false,
+        }),
+      }),
+      new Promise<Response>((_, reject) => {
+        setTimeout(() => reject(new Error(`OpenAI report step timed out after ${timeoutMs}ms.`)), timeoutMs);
+      }),
+    ]) as Response;
+    const raw = await res.text();
+    let data: any = null;
+    try {
+      data = raw ? JSON.parse(raw) : null;
+    } catch {
+      data = null;
+    }
+    if (!res.ok) {
+      return {
+        ok: false,
+        status: "api_error",
+        httpStatus: res.status,
+        message: compactText(data?.error?.message || raw || "OpenAI report step failed.", 600),
+        text: "",
+      };
+    }
+    const text = extractOpenAiText(data);
+    return {
+      ok: Boolean(text),
+      status: text ? "generated" : "empty_output",
+      responseId: data?.id || null,
+      usage: data?.usage || null,
+      text,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      status: err instanceof Error && /timed out|AbortError/i.test(`${err.name} ${err.message}`) ? "timeout" : "exception",
+      message: err instanceof Error ? err.message : String(err),
+      text: "",
+    };
+  }
+}
+
+function specialistInstructions(role: string, task: string) {
+  return [
+    `You are ${role} inside the taiwan-stock-swing-orchestrator backend report runner.`,
+    "Write Traditional Chinese Markdown only.",
+    "Use only the evidence JSON and previous specialist outputs. Do not invent missing numbers, news, peers, or price levels.",
+    "Keep this as research framing, scenarios, invalidation, and risk controls. Do not write direct buy/sell instructions.",
+    task,
+  ].join("\n");
+}
+
+function buildSpecialistInput(promptData: any, previousOutputs: any[], focus: string, maxChars = 20000) {
+  const previous = previousOutputs.map(item => ({
+    stage: item.stage,
+    skill: item.skill,
+    markdown: compactText(item.markdown, 1600),
+  }));
+  return JSON.stringify({
+    focus,
+    evidenceProvider: "backend_data_api",
+    promptData,
+    previous,
+  }).slice(0, maxChars);
+}
+
+function fallbackStepMarkdown(stage: string, promptData: any) {
+  if (stage === "macro") {
+    return [
+      "## \u5e02\u5834\u8207\u984c\u6750\u80cc\u666f",
+      compactText(promptData.marketContext?.marketConclusion || promptData.marketContext?.regime?.summary || "\u5e02\u5834\u80cc\u666f\u7531 evidence provider \u63d0\u4f9b\uff0cLLM \u5c1a\u672a\u7522\u751f\u7d50\u8ad6\u3002", 900),
+    ].join("\n\n");
+  }
+  if (stage === "screener") {
+    return [
+      "## Screener \u5019\u9078\u908f\u8f2f",
+      compactText(promptData.screenerContext?.rankingMethod?.formula || promptData.screenerContext?.rankingMethod?.rankingFormula || "\u4ee5\u4e3b\u984c\u5951\u5408\u3001\u6210\u4ea4\u503c\u300120MA \u4f4d\u7f6e\u8207\u659c\u7387\u4f5c\u70ba\u5019\u9078 evidence\u3002", 900),
+    ].join("\n\n");
+  }
+  return "";
+}
+
+async function generateSwingSpecialistChainReport(reportPayload: any, promptContext: any) {
+  const apiKey = await getOpenAiApiKey();
+  const model = await getOpenAiReportModel();
+  const promptData = buildSwingLlmPromptData(reportPayload, promptContext);
+  const promptPreview = {
+    selectedCodes: promptData.selectedCodes,
+    marketContextAvailable: Boolean(promptData.marketContext),
+    screenerContextAvailable: Boolean(promptData.screenerContext),
+    valuationRows: promptData.valuation.length,
+    deepRows: promptData.fundamentalDeepDive.length,
+    technicalRows: promptData.dailyTechnical.length,
+    signalRows: promptData.klineSignal.length,
+  };
+  const stages = [
+    {
+      stage: "macro",
+      skill: "senior-macro-strategist",
+      role: "a senior macro strategist",
+      task: "Produce the market regime and 1-3 month screening implications. Keep it concise and evidence-linked.",
+      maxTokens: 350,
+    },
+    {
+      stage: "screener",
+      skill: "taiwan-stock-screener",
+      role: "a Taiwan stock screener",
+      task: "Explain the candidate screening logic, selected-stock gate, and why the chosen stocks proceed to deeper analysis.",
+      maxTokens: 350,
+    },
+    {
+      stage: "valuation",
+      skill: "comparable-company-analysis",
+      role: "a comparable-company valuation analyst",
+      task: "For each selected stock, explain relative valuation, peer limitations, premium/discount bias, and missing-data constraints.",
+      maxTokens: 450,
+    },
+    {
+      stage: "fundamental",
+      skill: "senior-stock-investment-analysis",
+      role: "a senior stock investment analyst",
+      task: "For each selected stock, produce a 1-3 month fundamental thesis, catalysts, risks, and data-quality notes.",
+      maxTokens: 450,
+    },
+    {
+      stage: "technical",
+      skill: "daily-market-technical-analysis",
+      role: "a daily market technical analyst",
+      task: "For each selected stock, interpret trend, moving averages, RSI/MACD if available, support, resistance, scenarios, and invalidation.",
+      maxTokens: 450,
+    },
+    {
+      stage: "kline",
+      skill: "kline-long-short-signal",
+      role: "a K-line long/short signal analyst",
+      task: "For each selected stock, decide conditional long setup, short setup, or wait/no-trade using daily technical alignment.",
+      maxTokens: 400,
+    },
+    {
+      stage: "final",
+      skill: "taiwan-stock-swing-orchestrator",
+      role: "the final editor and orchestrator",
+      task: "Synthesize every previous specialist output into one polished Traditional Chinese Markdown report with sections: title, market background, screener logic, gate, one section per selected stock, final watchlist, and risk/invalidation controls.",
+      maxTokens: 1000,
+    },
+  ];
+  if (!apiKey) {
+    return {
+      ok: false,
+      status: "missing_secret",
+      provider: "openai_responses",
+      mode: "sequential_specialist_chain",
+      model,
+      message: "OPENAI_API_KEY AppDeploy secret is not configured.",
+      promptPreview,
+      steps: stages.map(item => ({ stage: item.stage, skill: item.skill, status: "skipped_missing_secret" })),
+      markdown: "",
+    };
+  }
+  const outputs: any[] = [];
+  for (const stage of stages) {
+    const input = buildSpecialistInput(promptData, outputs, stage.stage, stage.stage === "final" ? 14000 : 10000);
+    const result = await callOpenAiReportStep(
+      apiKey,
+      model,
+      specialistInstructions(stage.role, stage.task),
+      input,
+      stage.maxTokens,
+      stage.stage === "final" ? 22000 : 18000
+    );
+    outputs.push({
+      stage: stage.stage,
+      skill: stage.skill,
+      status: result.status,
+      ok: result.ok,
+      responseId: result.responseId || null,
+      usage: result.usage || null,
+      message: result.message || "",
+      markdown: result.ok ? result.text : fallbackStepMarkdown(stage.stage, promptData),
+    });
+    if (!result.ok && ["api_error", "timeout", "exception"].includes(result.status)) {
+      break;
+    }
+  }
+  const finalOutput = outputs.find(item => item.stage === "final" && item.ok);
+  return {
+    ok: Boolean(finalOutput?.markdown),
+    status: finalOutput?.markdown ? "generated" : outputs.some(item => !item.ok) ? "partial_or_failed" : "empty_output",
+    provider: "openai_responses",
+    mode: "sequential_specialist_chain",
+    model,
+    promptPreview,
+    steps: outputs.map(item => ({
+      stage: item.stage,
+      skill: item.skill,
+      status: item.status,
+      ok: item.ok,
+      responseId: item.responseId,
+      usage: item.usage,
+      message: item.message,
+    })),
+    markdown: finalOutput?.markdown || "",
+    intermediateMarkdown: outputs.filter(item => item.stage !== "final").map(item => ({
+      stage: item.stage,
+      skill: item.skill,
+      markdown: item.markdown,
+    })),
+    message: finalOutput?.markdown
+      ? "\u5df2\u7531\u9806\u5e8f specialist prompt chain \u7522\u751f\u7e41\u4e2d Markdown \u5831\u544a\u3002"
+      : "Sequential specialist prompt chain did not complete; deterministic fallback report is used.",
+  };
+}
+
+const SWING_BACKGROUND_STAGES = [
+  {
+    stage: "macro",
+    skill: "senior-macro-strategist",
+    role: "a senior macro strategist",
+    task: "Produce the market regime and 1-3 month screening implications. Keep it concise and evidence-linked.",
+    maxTokens: 420,
+    timeoutMs: 22000,
+  },
+  {
+    stage: "screener",
+    skill: "taiwan-stock-screener",
+    role: "a Taiwan stock screener",
+    task: "Explain the candidate screening logic, selected-stock gate, and why the chosen stocks proceed to deeper analysis.",
+    maxTokens: 420,
+    timeoutMs: 22000,
+  },
+  {
+    stage: "user-selection-gate",
+    skill: "taiwan-stock-swing-orchestrator",
+    role: "the user-selection gate",
+    task: "Confirm that only user-selected stock codes proceed to valuation, fundamental, technical, K-line signal, and final synthesis.",
+    maxTokens: 0,
+    timeoutMs: 0,
+  },
+  {
+    stage: "valuation",
+    skill: "comparable-company-analysis",
+    role: "a comparable-company valuation analyst",
+    task: "For each selected stock, explain relative valuation, peer limitations, premium/discount bias, and missing-data constraints.",
+    maxTokens: 560,
+    timeoutMs: 24000,
+  },
+  {
+    stage: "deep-analysis",
+    skill: "senior-stock-investment-analysis",
+    role: "a senior stock investment analyst",
+    task: "For each selected stock, produce a 1-3 month fundamental thesis, catalysts, risks, and data-quality notes.",
+    maxTokens: 560,
+    timeoutMs: 24000,
+  },
+  {
+    stage: "technical",
+    skill: "daily-market-technical-analysis",
+    role: "a daily market technical analyst",
+    task: "For each selected stock, interpret trend, moving averages, RSI/MACD if available, support, resistance, scenarios, and invalidation.",
+    maxTokens: 560,
+    timeoutMs: 24000,
+  },
+  {
+    stage: "signal",
+    skill: "kline-long-short-signal",
+    role: "a K-line long/short signal analyst",
+    task: "For each selected stock, decide conditional long setup, short setup, or wait/no-trade using daily technical alignment.",
+    maxTokens: 500,
+    timeoutMs: 22000,
+  },
+  {
+    stage: "summary",
+    skill: "taiwan-stock-swing-orchestrator",
+    role: "the final editor and orchestrator",
+    task: "Synthesize every previous specialist output into one polished Traditional Chinese Markdown report with sections: title, market background, screener logic, gate, one section per selected stock, final watchlist, and risk/invalidation controls.",
+    maxTokens: 1400,
+    timeoutMs: 28000,
+  },
+];
+
+function initialSwingJobSteps() {
+  return SWING_BACKGROUND_STAGES.map(item => ({
+    stage: item.stage,
+    skill: item.skill,
+    status: "pending",
+    ok: false,
+    message: "",
+  }));
+}
+
+function swingJobGate(codes: string[]) {
+  return {
+    required: true,
+    status: codes.length ? "passed" : "blocked",
+    selectedCodes: codes,
+    instruction: "\u8acb\u5148\u5b8c\u6210\u5019\u9078\u6e05\u55ae\u5f8c\u9078\u53d6\u80a1\u7968\uff0c\u518d\u555f\u52d5\u4f30\u503c\u3001\u500b\u80a1\u6df1\u5ea6\u3001\u6280\u8853\u8207 K \u7dda\u7d9c\u5408\u5831\u544a\u3002",
+  };
+}
+
+function buildSwingJobReportPayload(job: any) {
+  const evidence = job.evidence || {};
+  const macro = evidence.macro || job.promptContext?.macro || {
+    ok: true,
+    reusedFrom: "client workflow gate",
+    note: "Macro/news stage is loaded before user selection and is not recomputed in the background report job.",
+  };
+  const screener = evidence.screener || job.promptContext?.screener || {
+    ok: true,
+    reusedFrom: "client workflow gate",
+    note: "Screener stage is loaded before user selection and is not recomputed in the background report job.",
+    universe: job.universe || null,
+  };
+  const valuation = evidence.valuation || { ok: false, items: [], text: encodeTextTree({ items: [] }) };
+  const deep = evidence.deep || { ok: false, items: [], text: encodeTextTree({ items: [] }) };
+  const technical = evidence.technical || { ok: false, items: [], text: encodeTextTree({ items: [] }) };
+  const signal = evidence.signal || { ok: false, items: [], text: encodeTextTree({ items: [] }) };
+  const summary = evidence.summary || { ok: false, rows: [], riskControls: [], text: encodeTextTree({ rows: [] }) };
+  return {
+    ok: true,
+    generatedAt: job.createdAt || new Date().toISOString(),
+    selectedCodes: job.codes || [],
+    contract: SWING_SKILL_BUNDLE,
+    orchestration: {
+      mode: "background_polling_specialist_chain",
+      sourceRoot: SWING_SKILL_BUNDLE.sourceRoot,
+      stageOrder: SWING_BACKGROUND_STAGES.map(item => item.stage),
+      specialistCount: SWING_SKILL_BUNDLE.specialists.length,
+      reusedStageOutputs: true,
+      jobId: job.id || null,
+    },
+    gate: swingJobGate(job.codes || []),
+    evidenceProvider: "backend_data_api",
+    stages: { macro, screener, valuation, deep, technical, signal, summary },
+    evidence: { macro, screener, valuation, deep, technical, signal, summary },
+    macro,
+    screener,
+    valuation,
+    deep,
+    technical,
+    signal,
+    summary,
+  };
+}
+
+function buildSwingJobResult(job: any) {
+  const reportPayload: any = buildSwingJobReportPayload(job);
+  const fallbackMarkdown = buildSwingOrchestratedMarkdown(reportPayload);
+  const outputs = Array.isArray(job.outputs) ? job.outputs : [];
+  const finalOutput = outputs.find(item => item.stage === "summary" && item.ok);
+  const llm = {
+    ok: Boolean(finalOutput?.markdown),
+    status: finalOutput?.markdown ? "generated" : outputs.some(item => !item.ok) ? "partial_or_failed" : "empty_output",
+    provider: "openai_responses",
+    mode: "background_polling_specialist_chain",
+    model: job.model || null,
+    jobId: job.id || null,
+    promptPreview: job.promptPreview || null,
+    steps: job.steps || [],
+    intermediateMarkdown: outputs.filter(item => item.stage !== "summary").map(item => ({
+      stage: item.stage,
+      skill: item.skill,
+      markdown: item.markdown,
+    })),
+    markdown: finalOutput?.markdown || "",
+    message: finalOutput?.markdown
+      ? "\u5df2\u7531 background polling specialist chain \u7522\u751f\u7e41\u4e2d Markdown \u5831\u544a\u3002"
+      : "Background specialist chain did not complete; deterministic fallback report is used.",
+  };
+  const reportMarkdown = llm.ok && llm.markdown ? llm.markdown : fallbackMarkdown;
+  return {
+    ...reportPayload,
+    llm,
+    reportMarkdown,
+    fallbackReportMarkdown: fallbackMarkdown,
+    text: encodeTextTree({
+      contract: SWING_SKILL_BUNDLE,
+      gate: reportPayload.gate,
+      orchestration: reportPayload.orchestration,
+      reportMarkdown,
+      llm,
+    }),
+  };
+}
+
+function publicSwingJob(job: any, includeResult = false) {
+  const stageCount = SWING_BACKGROUND_STAGES.length;
+  const completed = (job.steps || []).filter((step: any) => ["generated", "passed", "fallback", "skipped_disabled", "timeout", "api_error", "exception"].includes(step.status)).length;
+  const currentStage = SWING_BACKGROUND_STAGES[Math.min(job.currentStageIndex || 0, stageCount - 1)]?.stage || "summary";
+  const done = ["generated", "partial_or_failed", "failed", "disabled"].includes(job.status);
+  return {
+    ok: true,
+    jobId: job.id,
+    status: job.status,
+    done,
+    currentStage,
+    progress: {
+      completed,
+      total: stageCount,
+      percent: Math.round((Math.min(completed, stageCount) / stageCount) * 100),
+    },
+    stageOrder: SWING_BACKGROUND_STAGES.map(item => item.stage),
+    steps: job.steps || [],
+    pollAfterMs: done ? 0 : 1200,
+    message: job.message || "",
+    result: includeResult || done ? buildSwingJobResult(job) : null,
+  };
+}
+
+async function readSwingReportJob(id: string) {
+  const [record] = await db.get<any>(SWING_REPORT_JOB_TABLE, [id]);
+  return record ? { ...record, id } : null;
+}
+
+async function saveSwingReportJob(id: string, job: any) {
+  const { id: _id, ...record } = job;
+  const [ok] = await db.update(SWING_REPORT_JOB_TABLE, [{ id, record }]);
+  if (!ok) throw new Error("Unable to update swing report job.");
+}
+
+async function createSwingReportJob(codes: string[], universeValue: unknown, promptContext: any, llmEnabled = true) {
+  const now = new Date().toISOString();
+  const model = await getOpenAiReportModel();
+  const evidence = {
+    macro: promptContext?.macro || null,
+    screener: promptContext?.screener || null,
+  };
+  const record = {
+    status: llmEnabled ? "queued" : "disabled",
+    createdAt: now,
+    updatedAt: now,
+    codes,
+    universe: universeValue || null,
+    promptContext: promptContext || null,
+    llmEnabled,
+    model,
+    currentStageIndex: 0,
+    steps: initialSwingJobSteps(),
+    outputs: [],
+    evidence,
+    message: llmEnabled ? "Background specialist chain queued." : "LLM report generation disabled by request.",
+  };
+  const [id] = await db.add(SWING_REPORT_JOB_TABLE, [record]);
+  if (!id) throw new Error("Unable to create swing report job.");
+  return { ...record, id };
+}
+
+async function ensureSwingJobEvidence(job: any, stage: string) {
+  job.evidence = job.evidence || {};
+  if (stage === "valuation" && !job.evidence.valuation) {
+    job.evidence.valuation = await withTimeout(loadSwingValuation(job.codes || []), 45000, "valuation stage timed out");
+  }
+  if (stage === "deep-analysis" && !job.evidence.deep) {
+    job.evidence.deep = await withTimeout(loadSwingDeepAnalysis(job.codes || []), 45000, "fundamental stage timed out");
+  }
+  if (stage === "technical" && !job.evidence.technical) {
+    job.evidence.technical = await withTimeout(loadSwingTechnical(job.codes || []), 45000, "technical stage timed out");
+  }
+  if (stage === "signal" && !job.evidence.signal) {
+    const signalItems = ((job.evidence.technical || {}).items || []).map(buildSwingSignalFromTechnical);
+    job.evidence.signal = {
+      ok: true,
+      generatedAt: new Date().toISOString(),
+      items: signalItems,
+      text: encodeTextTree({ items: signalItems }),
+    };
+  }
+  if (stage === "summary" && !job.evidence.summary) {
+    if (!job.evidence.valuation) job.evidence.valuation = await withTimeout(loadSwingValuation(job.codes || []), 45000, "valuation stage timed out");
+    if (!job.evidence.deep) job.evidence.deep = await withTimeout(loadSwingDeepAnalysis(job.codes || []), 45000, "fundamental stage timed out");
+    if (!job.evidence.technical) job.evidence.technical = await withTimeout(loadSwingTechnical(job.codes || []), 45000, "technical stage timed out");
+    if (!job.evidence.signal) {
+      const signalItems = ((job.evidence.technical || {}).items || []).map(buildSwingSignalFromTechnical);
+      job.evidence.signal = {
+        ok: true,
+        generatedAt: new Date().toISOString(),
+        items: signalItems,
+        text: encodeTextTree({ items: signalItems }),
+      };
+    }
+    job.evidence.summary = buildSwingSummaryFromStages(job.codes || [], job.evidence.valuation, job.evidence.deep, job.evidence.technical, job.evidence.signal);
+  }
+}
+
+async function advanceSwingReportJob(jobId: string) {
+  const job = await readSwingReportJob(jobId);
+  if (!job) return null;
+  if (["generated", "partial_or_failed", "failed", "disabled"].includes(job.status)) return job;
+  const stageDef = SWING_BACKGROUND_STAGES[job.currentStageIndex || 0];
+  if (!stageDef) {
+    job.status = "partial_or_failed";
+    job.updatedAt = new Date().toISOString();
+    job.message = "Background specialist chain ended without final synthesis.";
+    await saveSwingReportJob(jobId, job);
+    return job;
+  }
+  const steps = Array.isArray(job.steps) ? job.steps : initialSwingJobSteps();
+  const stepIndex = steps.findIndex((step: any) => step.stage === stageDef.stage);
+  if (stepIndex >= 0) {
+    steps[stepIndex] = { ...steps[stepIndex], status: "running", message: "" };
+  }
+  job.status = "running";
+  job.steps = steps;
+  job.updatedAt = new Date().toISOString();
+  await saveSwingReportJob(jobId, job);
+
+  try {
+    if (stageDef.stage === "user-selection-gate") {
+      if (stepIndex >= 0) {
+        steps[stepIndex] = { ...steps[stepIndex], status: "passed", ok: true, message: "Selected stock gate passed." };
+      }
+      job.outputs = [...(job.outputs || []), {
+        stage: stageDef.stage,
+        skill: stageDef.skill,
+        status: "passed",
+        ok: true,
+        markdown: `## \u4f7f\u7528\u8005\u9078\u80a1 Gate\n\n\u5df2\u901a\u904e\uff1a${(job.codes || []).join(", ")}`,
+      }];
+    } else {
+      await ensureSwingJobEvidence(job, stageDef.stage);
+      const apiKey = await getOpenAiApiKey();
+      const model = job.model || await getOpenAiReportModel();
+      const reportPayload = buildSwingJobReportPayload(job);
+      const promptData = buildSwingLlmPromptData(reportPayload, job.promptContext);
+      job.promptPreview = {
+        selectedCodes: promptData.selectedCodes,
+        valuationRows: promptData.valuation.length,
+        deepRows: promptData.fundamentalDeepDive.length,
+        technicalRows: promptData.dailyTechnical.length,
+        signalRows: promptData.klineSignal.length,
+      };
+      let result: any;
+      if (!apiKey) {
+        result = { ok: false, status: "missing_secret", message: "OPENAI_API_KEY AppDeploy secret is not configured.", text: fallbackStepMarkdown(stageDef.stage, promptData) };
+      } else {
+        result = await callOpenAiReportStep(
+          apiKey,
+          model,
+          specialistInstructions(stageDef.role, stageDef.task),
+          buildSpecialistInput(promptData, job.outputs || [], stageDef.stage, stageDef.stage === "summary" ? 14000 : 10000),
+          stageDef.maxTokens,
+          stageDef.timeoutMs
+        );
+      }
+      const markdown = result.ok ? result.text : fallbackStepMarkdown(stageDef.stage, promptData);
+      if (stepIndex >= 0) {
+        steps[stepIndex] = {
+          ...steps[stepIndex],
+          status: result.ok ? "generated" : result.status,
+          ok: Boolean(result.ok),
+          responseId: result.responseId || null,
+          usage: result.usage || null,
+          message: result.message || "",
+        };
+      }
+      job.outputs = [...(job.outputs || []), {
+        stage: stageDef.stage,
+        skill: stageDef.skill,
+        status: result.ok ? "generated" : result.status,
+        ok: Boolean(result.ok),
+        responseId: result.responseId || null,
+        usage: result.usage || null,
+        message: result.message || "",
+        markdown,
+      }];
+    }
+    job.currentStageIndex = (job.currentStageIndex || 0) + 1;
+    job.steps = steps;
+    job.updatedAt = new Date().toISOString();
+    if (job.currentStageIndex >= SWING_BACKGROUND_STAGES.length) {
+      const result = buildSwingJobResult(job);
+      job.status = result.llm.ok ? "generated" : "partial_or_failed";
+      job.message = result.llm.message;
+    } else {
+      job.status = "running";
+      job.message = `Completed ${stageDef.stage}; waiting for next poll.`;
+    }
+  } catch (err) {
+    if (stepIndex >= 0) {
+      steps[stepIndex] = {
+        ...steps[stepIndex],
+        status: "exception",
+        ok: false,
+        message: err instanceof Error ? err.message : String(err),
+      };
+    }
+    job.steps = steps;
+    job.status = "partial_or_failed";
+    job.updatedAt = new Date().toISOString();
+    job.message = `Background stage ${stageDef.stage} failed: ${err instanceof Error ? err.message : String(err)}`;
+  }
+  await saveSwingReportJob(jobId, job);
+  return job;
+}
+
+async function loadSwingOrchestratedReport(codes: string[], universeValue?: unknown, promptContext?: any, options: { llm?: boolean } = {}) {
   const generatedAt = new Date().toISOString();
-  const macro = {
+  const macro = promptContext?.macro || {
     ok: true,
     reusedFrom: "client workflow gate",
     note: "Macro/news stage is loaded before user selection and is not recomputed in the deep-analysis endpoint.",
   };
-  const screener = {
+  const screener = promptContext?.screener || {
     ok: true,
     reusedFrom: "client workflow gate",
     note: "Screener stage is loaded before user selection and is not recomputed in the deep-analysis endpoint.",
@@ -5893,7 +6774,9 @@ async function loadSwingOrchestratedReport(codes: string[], universeValue?: unkn
       reusedStageOutputs: true,
     },
     gate,
+    evidenceProvider: "backend_data_api",
     stages: { macro, screener, valuation, deep, technical, signal, summary },
+    evidence: { macro, screener, valuation, deep, technical, signal, summary },
     macro,
     screener,
     valuation,
@@ -5902,14 +6785,27 @@ async function loadSwingOrchestratedReport(codes: string[], universeValue?: unkn
     signal,
     summary,
   };
-  const reportMarkdown = buildSwingOrchestratedMarkdown(reportPayload);
+  const fallbackMarkdown = buildSwingOrchestratedMarkdown(reportPayload);
+  const llm = options.llm === false ? {
+    ok: false,
+    status: "disabled",
+    provider: "deterministic_fallback",
+    model: null,
+    message: "LLM report generation disabled by request.",
+    markdown: "",
+  } : await generateSwingLlmReport(reportPayload, promptContext);
+  const reportMarkdown = llm.ok && llm.markdown ? llm.markdown : fallbackMarkdown;
   return {
     ...reportPayload,
+    llm,
+    reportMarkdown,
+    fallbackReportMarkdown: fallbackMarkdown,
     text: encodeTextTree({
       contract: SWING_SKILL_BUNDLE,
       gate,
       orchestration: reportPayload.orchestration,
       reportMarkdown,
+      llm,
     }),
   };
 }
@@ -6110,8 +7006,58 @@ export const handler = router({
   "GET /api/swing/orchestrated-report": [async ({ query }: any) => {
     const codes = parseSwingCodes(query.codes || query.code);
     if (!codes.length) return error("Missing stock codes", 400);
+    const promptContext = parseSwingPromptContext(query.promptContext || query.context);
+    const llmEnabled = String(query.llm || "1") !== "0";
     try {
-      return json(await loadSwingOrchestratedReport(codes, query.universe), 200);
+      return json(await loadSwingOrchestratedReport(codes, query.universe, promptContext, { llm: llmEnabled }), 200);
+    } catch (err) {
+      return json({
+        ok: false,
+        message: `Unable to build swing orchestrated report: ${err instanceof Error ? err.message : String(err)}`,
+      }, 502);
+    }
+  }],
+
+  "POST /api/swing/orchestrated-report/jobs": [async (ctx: any) => {
+    const body = await readRequestJson(ctx);
+    const codes = parseSwingCodes(Array.isArray(body.codes) ? body.codes.join(",") : body.codes || body.code);
+    if (!codes.length) return error("Missing stock codes", 400);
+    const promptContext = body.promptContext || body.context || null;
+    const llmEnabled = body.llm !== false && String(body.llm ?? "1") !== "0";
+    try {
+      const job = await createSwingReportJob(codes, body.universe, promptContext, llmEnabled);
+      return json(publicSwingJob(job), 202);
+    } catch (err) {
+      return json({
+        ok: false,
+        message: `Unable to create swing report job: ${err instanceof Error ? err.message : String(err)}`,
+      }, 502);
+    }
+  }],
+
+  "GET /api/swing/orchestrated-report/jobs/:id": [async ({ params }: any) => {
+    const id = String(params?.id || "").trim();
+    if (!id) return error("Missing report job id", 400);
+    try {
+      const job = await advanceSwingReportJob(id);
+      if (!job) return error("Report job not found", 404);
+      return json(publicSwingJob(job, ["generated", "partial_or_failed", "failed", "disabled"].includes(job.status)), 200);
+    } catch (err) {
+      return json({
+        ok: false,
+        message: `Unable to advance swing report job: ${err instanceof Error ? err.message : String(err)}`,
+      }, 502);
+    }
+  }],
+
+  "POST /api/swing/orchestrated-report": [async (ctx: any) => {
+    const body = await readRequestJson(ctx);
+    const codes = parseSwingCodes(Array.isArray(body.codes) ? body.codes.join(",") : body.codes || body.code);
+    if (!codes.length) return error("Missing stock codes", 400);
+    const promptContext = body.promptContext || body.context || null;
+    const llmEnabled = body.llm !== false && String(body.llm ?? "1") !== "0";
+    try {
+      return json(await loadSwingOrchestratedReport(codes, body.universe, promptContext, { llm: llmEnabled }), 200);
     } catch (err) {
       return json({
         ok: false,

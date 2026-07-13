@@ -36,6 +36,26 @@ $bridgeTemplate = @'
           throw new Error(data?.message || "API request failed: " + response.status);
         }
         return { data };
+      },
+      async post(path, body) {
+        const apiBase = "__APPDEPLOY_API_BASE__";
+        const normalizedPath = path.startsWith("/") ? path : "/" + path;
+        const response = await fetch(apiBase + normalizedPath, {
+          method: "POST",
+          headers: { "Accept": "application/json", "Content-Type": "application/json" },
+          body: JSON.stringify(body || {})
+        });
+        const text = await response.text();
+        let data = null;
+        try {
+          data = text ? JSON.parse(text) : null;
+        } catch (error) {
+          throw new Error("\u5f8c\u7aef\u56de\u50b3\u4e0d\u662f JSON\uff0c\u8acb\u6aa2\u67e5 AppDeploy API\u3002");
+        }
+        if (!response.ok) {
+          throw new Error(data?.message || "API request failed: " + response.status);
+        }
+        return { data };
       }
     };
     window.dispatchEvent(new Event("app-api-ready"));

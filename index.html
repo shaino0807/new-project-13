@@ -114,6 +114,13 @@
     .data-status { border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.72rem; margin:.65rem 0; }
     .data-status h3 { margin:0 0 .45rem; font-size:.9rem; }
     .report-pre { white-space:pre-wrap; overflow:auto; max-height:420px; border:.5px solid #ece9e4; border-radius:8px; background:#fff; padding:.65rem; font-size:12px; line-height:1.65; }
+    .markdown-report { border:.5px solid #e7e5e1; border-radius:8px; background:#fff; padding:1rem; line-height:1.75; }
+    .markdown-report h1 { font-size:1.35rem; margin:0 0 .75rem; }
+    .markdown-report h2 { font-size:1rem; margin:1rem 0 .45rem; padding-top:.65rem; border-top:.5px solid #ece9e4; }
+    .markdown-report h3 { font-size:.92rem; margin:.8rem 0 .35rem; }
+    .markdown-report p { margin:.35rem 0; }
+    .markdown-report ul { margin:.35rem 0 .65rem; padding-left:1.1rem; }
+    .evidence-heading { margin:1rem 0 .25rem; font-size:.95rem; }
     .data-status-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.5rem; }
     .data-status-card { border:.5px solid #ece9e4; border-radius:8px; background:#fff; padding:.52rem; min-width:0; }
     .data-status-card b { display:block; font-size:11px; color:var(--muted); margin-bottom:.18rem; }
@@ -722,6 +729,25 @@
             throw new Error(data?.message || `API HTTP ${response.status}`);
           }
           return { data, status: response.status };
+        },
+        async post(path, body) {
+          const normalizedPath = String(path).startsWith("/") ? String(path) : `/${path}`;
+          const response = await fetch(appDeployApiBase + normalizedPath, {
+            method: "POST",
+            headers: { "Accept": "application/json", "Content-Type": "application/json" },
+            body: JSON.stringify(body || {})
+          });
+          const text = await response.text();
+          let data = null;
+          try {
+            data = text ? JSON.parse(text) : null;
+          } catch (err) {
+            throw new Error(`API \u56de\u50b3\u683c\u5f0f\u4e0d\u662f JSON\uff1a${text.slice(0, 120)}`);
+          }
+          if (!response.ok) {
+            throw new Error(data?.message || `API HTTP ${response.status}`);
+          }
+          return { data, status: response.status };
         }
       };
       return window.directAppApi;
@@ -786,11 +812,148 @@
       return data;
     }
 
-    async function getSwingOrchestratedReport(codes) {
+    function promptClip(value, max = 260) {
+      return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, max);
+    }
+
+    function buildSwingPromptDigest() {
+      const macro = swingWorkflow?.macro || {};
+      const macroText = decodeTree(macro.text || {});
+      const briefing = macroText.briefing || macro.briefing || {};
+      const reasoning = briefing.reasoning || {};
+      const screener = swingWorkflow?.screener || {};
+      const screenerText = decodeTree(screener.text || {});
+      const ranking = screenerText.ranking || screener.ranking || [];
+      const themeTables = screenerText.themeTables || screener.themeTables || [];
+      return {
+        macro: {
+          generatedAt: macro.generatedAt || null,
+          regime: macroText.regime || macro.regime || null,
+          marketTheme: promptClip(briefing.onePage?.marketTheme || ""),
+          marketThemeReason: promptClip(briefing.onePage?.marketThemeReason || briefing.title || ""),
+          marketConclusion: promptClip(reasoning.marketConclusion || ""),
+          marketReasons: (reasoning.marketReasons || []).slice(0, 4).map(x => promptClip(x, 220)),
+          marketFocus: (reasoning.marketFocus || []).slice(0, 3).map(item => ({
+            title: promptClip(item.title, 80),
+            body: promptClip(item.body, 220),
+            watch: promptClip(item.watch, 160),
+          })),
+          keyObservations: (reasoning.keyObservations || briefing.watchList || []).slice(0, 4).map(item => typeof item === "string" ? promptClip(item, 220) : {
+            indicator: promptClip(item.indicator, 120),
+            watch: promptClip(item.watch || item.summary, 220),
+            market: promptClip(item.market, 160),
+            institutions: promptClip(item.institutions, 160),
+            policy: promptClip(item.policy, 160),
+          }),
+          news: (macroText.news || macro.news?.items || []).slice(0, 5).map(item => ({
+            topic: promptClip(item.topic, 60),
+            title: promptClip(item.title, 160),
+            conclusion: promptClip(item.conclusion || item.marketImpact, 220),
+            screeningUse: promptClip(item.screeningUse, 180),
+            source: promptClip(item.source, 80),
+          })),
+        },
+        screener: {
+          generatedAt: screener.generatedAt || null,
+          meta: screenerText.meta || screener.meta || null,
+          rankingMethod: screenerText.rankingMethod || screener.rankingMethod || null,
+          topCandidates: (ranking || []).slice(0, 10).map(item => ({
+            code: item.code,
+            name: item.name,
+            latestClose: item.latestClose,
+            swingScore: item.swingScore,
+            watchPriority: item.watchPriority,
+            setupType: promptClip(item.setupType, 80),
+            setupDetail: promptClip(item.setupDetail, 260),
+            primaryEvidence: (item.primaryEvidence || []).slice(0, 4).map(x => promptClip(x, 140)),
+            invalidationNote: promptClip(item.invalidationNote || item.keyRisk, 240),
+          })),
+          themes: (themeTables || []).slice(0, 5).map(table => ({
+            title: promptClip(table.title, 100),
+            description: promptClip(table.description, 180),
+            rows: (table.rows || []).slice(0, 3).map(row => ({
+              code: row.code,
+              name: row.name,
+              close: row.close,
+              focus: promptClip(row.focus || row.condition || row.liquidityNote || row.foreignNetBuyText || "", 160),
+            })),
+          })),
+        },
+      };
+    }
+
+    function buildSwingPromptDigestLite(codes) {
+      const full = buildSwingPromptDigest();
+      const selected = new Set(codes || []);
+      const selectedCandidates = (full.screener.topCandidates || []).filter(item => selected.has(item.code));
+      return {
+        macro: {
+          generatedAt: full.macro.generatedAt,
+          regime: full.macro.regime,
+          marketTheme: full.macro.marketTheme,
+          marketConclusion: full.macro.marketConclusion,
+          marketReasons: (full.macro.marketReasons || []).slice(0, 2),
+          marketFocus: (full.macro.marketFocus || []).slice(0, 2),
+        },
+        screener: {
+          generatedAt: full.screener.generatedAt,
+          meta: full.screener.meta,
+          rankingMethod: full.screener.rankingMethod,
+          topCandidates: (selectedCandidates.length ? selectedCandidates : full.screener.topCandidates || []).slice(0, 4),
+        },
+      };
+    }
+
+    function wait(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function renderSwingJobProgress(job) {
+      const steps = job?.steps || [];
+      const rows = steps.map(step => `
+        <tr>
+          <td>${escapeHtml(step.stage || "")}</td>
+          <td>${escapeHtml(step.skill || "")}</td>
+          <td>${escapeHtml(step.status || "")}</td>
+          <td>${escapeHtml(step.message || "")}</td>
+        </tr>`).join("");
+      const progress = job?.progress || {};
+      $("swingDeepResults").innerHTML = `
+        <section class="data-status">
+          <h3>Dino background specialist chain</h3>
+          <div class="data-status-grid">
+            <div class="data-status-card"><b>Job</b><strong>${escapeHtml(job?.jobId || "--")}</strong></div>
+            <div class="data-status-card"><b>Status</b><strong>${escapeHtml(job?.status || "queued")}</strong></div>
+            <div class="data-status-card"><b>Current stage</b><strong>${escapeHtml(job?.currentStage || "--")}</strong></div>
+            <div class="data-status-card"><b>Progress</b><strong>${Number.isFinite(Number(progress.percent)) ? progress.percent : 0}%</strong></div>
+          </div>
+          <p class="note">\u5f8c\u7aef\u6b63\u5728\u4f9d macro \u2192 screener \u2192 gate \u2192 valuation \u2192 fundamental \u2192 technical \u2192 K-line \u2192 final synthesis \u9806\u5e8f\u63a8\u9032\uff0c\u9019\u500b\u756b\u9762\u6703\u81ea\u52d5\u8f2a\u8a62\u7d50\u679c\u3002</p>
+          ${tableFromRows(["Stage", "Skill", "Status", "Message"], [rows || `<tr><td colspan="4">\u6b63\u5728\u5efa\u7acb\u5de5\u4f5c\u3002</td></tr>`])}
+        </section>`;
+    }
+
+    async function getSwingOrchestratedReport(codes, onProgress) {
       const api = await waitForAppApi();
-      const { data } = await api.get(`/api/swing/orchestrated-report?codes=${encodeURIComponent(codes.join(","))}`);
-      if (!data || !data.ok) throw new Error(data?.message || "Dino skill orchestration report \u8f09\u5165\u5931\u6557");
-      return data;
+      const promptContext = buildSwingPromptDigest();
+      const body = { codes, llm: true, promptContext };
+      const requester = typeof api.post === "function" ? api : directAppApi();
+      const starter = await requester.post("/api/swing/orchestrated-report/jobs", body);
+      let job = starter.data;
+      if (!job || !job.ok || !job.jobId) throw new Error(job?.message || "Dino background report job \u5efa\u7acb\u5931\u6557");
+      if (typeof onProgress === "function") onProgress(job);
+      const getter = typeof api.get === "function" ? api : directAppApi();
+      for (let attempt = 0; attempt < 40; attempt += 1) {
+        await wait(Math.max(700, Number(job.pollAfterMs || 1200)));
+        const { data } = await getter.get(`/api/swing/orchestrated-report/jobs/${encodeURIComponent(job.jobId)}`);
+        job = data;
+        if (!job || !job.ok) throw new Error(job?.message || "Dino background report job \u8f2a\u8a62\u5931\u6557");
+        if (typeof onProgress === "function") onProgress(job);
+        if (job.done) {
+          if (job.result && job.result.ok) return job.result;
+          throw new Error(job.message || "Dino background report job \u672a\u7522\u751f\u7d50\u679c");
+        }
+      }
+      throw new Error("Dino background report job \u8f2a\u8a62\u8d85\u6642");
     }
 
     function fallbackGrade(score) {
@@ -2527,11 +2690,58 @@
       return `<div class="table-wrap"><table><thead><tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
     }
 
+    function inlineMarkdown(text) {
+      return escapeHtml(text)
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+        .replace(/`([^`]+)`/g, "<code>$1</code>");
+    }
+
+    function markdownToHtml(markdown) {
+      const lines = String(markdown || "").split(/\r?\n/);
+      const out = [];
+      let listOpen = false;
+      const closeList = () => {
+        if (listOpen) {
+          out.push("</ul>");
+          listOpen = false;
+        }
+      };
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line) {
+          closeList();
+          continue;
+        }
+        if (/^###\s+/.test(line)) {
+          closeList();
+          out.push(`<h3>${inlineMarkdown(line.replace(/^###\s+/, ""))}</h3>`);
+        } else if (/^##\s+/.test(line)) {
+          closeList();
+          out.push(`<h2>${inlineMarkdown(line.replace(/^##\s+/, ""))}</h2>`);
+        } else if (/^#\s+/.test(line)) {
+          closeList();
+          out.push(`<h1>${inlineMarkdown(line.replace(/^#\s+/, ""))}</h1>`);
+        } else if (/^[-*]\s+/.test(line)) {
+          if (!listOpen) {
+            out.push("<ul>");
+            listOpen = true;
+          }
+          out.push(`<li>${inlineMarkdown(line.replace(/^[-*]\s+/, ""))}</li>`);
+        } else {
+          closeList();
+          out.push(`<p>${inlineMarkdown(line)}</p>`);
+        }
+      }
+      closeList();
+      return out.join("");
+    }
+
     function renderSwingDeep(payload) {
       const stagePayload = payload.stages || payload;
       const contract = decodeTree(payload.text?.contract || payload.contract || {});
       const orchestration = decodeTree(payload.text?.orchestration || payload.orchestration || {});
-      const reportMarkdown = decodeText(payload.text?.reportMarkdown || "");
+      const llm = decodeTree(payload.text?.llm || payload.llm || {});
+      const reportMarkdown = decodeText(payload.text?.reportMarkdown || payload.reportMarkdown || payload.fallbackReportMarkdown || "");
       const summaryText = decodeTree(stagePayload.summary?.text || {});
       const valuationText = decodeTree(stagePayload.valuation?.text || {});
       const deepText = decodeTree(stagePayload.deep?.text || {});
@@ -2540,6 +2750,8 @@
       const summaryItems = summaryText.rows || stagePayload.summary?.rows || [];
       const specialistRows = (contract.specialists || []).map(skill => `
         <tr><td>${escapeHtml(skill.stage || "")}</td><td>${escapeHtml(skill.name || "")}</td><td>${escapeHtml(skill.path || "")}</td></tr>`).join("");
+      const llmStepRows = (llm.steps || []).map(step => `
+        <tr><td>${escapeHtml(step.stage || "")}</td><td>${escapeHtml(step.skill || "")}</td><td>${escapeHtml(step.status || "")}</td><td>${escapeHtml(step.message || "")}</td></tr>`).join("");
       const contractPanel = contract.orchestrator ? `
         <section class="data-status">
           <h3>Skill orchestration contract</h3>
@@ -2547,15 +2759,18 @@
             <div class="data-status-card"><b>Orchestrator</b><strong>${escapeHtml(contract.orchestrator.name || "")}</strong></div>
             <div class="data-status-card"><b>Specialists</b><strong>${(contract.specialists || []).length}</strong></div>
             <div class="data-status-card"><b>Gate</b><strong>${escapeHtml(payload.gate?.status || "")}</strong></div>
-            <div class="data-status-card"><b>Mode</b><strong>${escapeHtml(orchestration.mode || "")}</strong></div>
+            <div class="data-status-card"><b>Report engine</b><strong>${escapeHtml(llm.ok ? "LLM" : "Fallback")}</strong></div>
           </div>
           <p class="note">${escapeHtml(contract.gate?.rule || "")}</p>
+          <p class="note">LLM: ${escapeHtml(llm.status || "unknown")} ${llm.model ? ` / ${escapeHtml(llm.model)}` : ""}${llm.message ? ` / ${escapeHtml(llm.message)}` : ""}</p>
+          ${llmStepRows ? tableFromRows(["Stage", "Specialist", "Status", "Message"], [llmStepRows]) : ""}
           ${tableFromRows(["Stage", "Skill", "Project-local source"], [specialistRows || `<tr><td colspan="3">N/A</td></tr>`])}
         </section>` : "";
       const reportPanel = reportMarkdown ? `
         <section class="data-status">
-          <h3>\u7de8\u6392\u5f0f\u5831\u544a\u7a3f</h3>
-          <pre class="report-pre">${escapeHtml(reportMarkdown)}</pre>
+          <h3>${llm.ok ? "LLM \u7e41\u4e2d Markdown \u5831\u544a" : "\u7de8\u6392\u5f0f\u5831\u544a\u7a3f\uff08fallback\uff09"}</h3>
+          <p class="note">${escapeHtml(llm.ok ? "\u5df2\u7531\u5f8c\u7aef prompt pipeline \u7522\u751f\u3002" : (llm.message || "\u4f7f\u7528\u898f\u5247\u578b fallback \u5831\u544a\u3002"))}</p>
+          <article class="markdown-report">${markdownToHtml(reportMarkdown)}</article>
         </section>` : "";
       const reportCards = summaryItems.map(row => {
         const report = row.researchReport || {};
@@ -2640,6 +2855,7 @@
       $("swingDeepResults").innerHTML = `
         ${contractPanel}
         ${reportPanel}
+        <h3 class="evidence-heading">\u8868\u683c\u8b49\u64da\uff08Evidence provider\uff09</h3>
         <section>
           <h3>\u7814\u7a76\u5831\u544a\u5f0f\u5206\u6790</h3>
           ${reportCards || `<p class="note">\u5c1a\u7121\u5831\u544a\u5f0f\u5206\u6790\u3002</p>`}
@@ -2673,9 +2889,9 @@
         return;
       }
       renderSwingFlow("deep");
-      $("swingDeepResults").innerHTML = `<p class="note">\u6b63\u5728\u57f7\u884c Dino skill orchestration report\uff1a\u4f9d project-skills orchestrator \u9806\u5e8f\u7522\u751f\u53ef\u6bd4\u4f30\u503c\u3001\u500b\u80a1\u6df1\u5ea6\u3001\u65e5\u7dda\u6280\u8853\u3001K \u7dda\u8a0a\u865f\u8207\u6700\u7d42\u6574\u5408\u3002</p>`;
+      $("swingDeepResults").innerHTML = `<p class="note">\u6b63\u5728\u5efa\u7acb Dino background specialist chain job\uff1a\u5f8c\u7aef\u6703\u4f9d\u9806\u5e8f\u7522\u751f\u5b8c\u6574\u5831\u544a\uff0c\u9019\u500b\u756b\u9762\u6703\u81ea\u52d5\u66f4\u65b0\u9032\u5ea6\u3002</p>`;
       try {
-        swingDeepPayload = await getSwingOrchestratedReport(swingSelectedCodes);
+        swingDeepPayload = await getSwingOrchestratedReport(swingSelectedCodes, renderSwingJobProgress);
         renderSwingDeep(swingDeepPayload);
       } catch (err) {
         $("swingDeepResults").innerHTML = `<p class="note">${escapeHtml(err.message || "\u6df1\u5ea6\u6d41\u7a0b\u5931\u6557")}</p>`;
