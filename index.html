@@ -884,8 +884,8 @@
 
     function buildSwingPromptDigestLite(codes) {
       const full = buildSwingPromptDigest();
-      const selected = new Set(codes || []);
-      const selectedCandidates = (full.screener.topCandidates || []).filter(item => selected.has(item.code));
+      const selected = new Set((codes || []).map(code => String(code || "").trim()));
+      const selectedCandidates = (full.screener.topCandidates || []).filter(item => selected.has(String(item.code || "").trim()));
       return {
         macro: {
           generatedAt: full.macro.generatedAt,
@@ -899,7 +899,7 @@
           generatedAt: full.screener.generatedAt,
           meta: full.screener.meta,
           rankingMethod: full.screener.rankingMethod,
-          topCandidates: (selectedCandidates.length ? selectedCandidates : full.screener.topCandidates || []).slice(0, 4),
+          topCandidates: selectedCandidates.slice(0, Math.max(1, selected.size || 1)),
         },
       };
     }
@@ -934,7 +934,7 @@
 
     async function getSwingOrchestratedReport(codes, onProgress) {
       const api = await waitForAppApi();
-      const promptContext = buildSwingPromptDigest();
+      const promptContext = buildSwingPromptDigestLite(codes);
       const body = { codes, llm: true, promptContext };
       const requester = typeof api.post === "function" ? api : directAppApi();
       const starter = await requester.post("/api/swing/orchestrated-report/jobs", body);

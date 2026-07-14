@@ -5870,6 +5870,79 @@ function parseSwingPromptContext(value: unknown) {
   }
 }
 
+function selectedCodeSet(codes: unknown) {
+  const list = Array.isArray(codes) ? codes : parseSwingCodes(codes);
+  return new Set(list.map(code => cleanCode(String(code))).filter(Boolean));
+}
+
+function rowCode(row: any) {
+  return cleanCode(String(row?.code || row?.ticker || row?.symbol || ""));
+}
+
+function filterRowsBySelected(rows: any[], codes: unknown) {
+  const selected = selectedCodeSet(codes);
+  if (!selected.size) return [];
+  return (Array.isArray(rows) ? rows : []).filter(row => {
+    const code = rowCode(row);
+    return code && selected.has(code);
+  });
+}
+
+function sanitizeThemeRowsBySelected(tables: any[], codes: unknown) {
+  return (Array.isArray(tables) ? tables : [])
+    .map(table => ({
+      ...table,
+      rows: filterRowsBySelected(table?.rows || [], codes),
+    }))
+    .filter(table => table.rows.length);
+}
+
+function sanitizeScreenerContextBySelected(screener: any, codes: unknown) {
+  if (!screener || typeof screener !== "object") return screener || null;
+  const selectedTop = filterRowsBySelected(screener.topCandidates || screener.ranking || [], codes);
+  return {
+    ...screener,
+    topCandidates: selectedTop,
+    ranking: filterRowsBySelected(screener.ranking || screener.topCandidates || [], codes),
+    themes: sanitizeThemeRowsBySelected(screener.themes || screener.themeTables || [], codes),
+    themeTables: sanitizeThemeRowsBySelected(screener.themeTables || screener.themes || [], codes),
+  };
+}
+
+function sanitizeSwingPromptContext(promptContext: any, codes: unknown) {
+  if (!promptContext || typeof promptContext !== "object") return null;
+  return {
+    ...promptContext,
+    screener: sanitizeScreenerContextBySelected(promptContext.screener, codes),
+  };
+}
+
+function validateSelectedTickerScope(markdown: unknown, selectedCodes: unknown) {
+  const selected = selectedCodeSet(selectedCodes);
+  const outOfScope = new Set<string>();
+  const text = String(markdown || "");
+  for (const match of text.match(/\b\d{4,6}\b/g) || []) {
+    const code = cleanCode(match);
+    if (/^(19|20)\d{2}$/.test(code)) continue;
+    if (selected.has(code)) continue;
+    outOfScope.add(code);
+  }
+  for (const item of TAIWAN_SCREENING_UNIVERSE) {
+    if (selected.has(item.code)) continue;
+    if (item.name.length >= 4 && text.toLowerCase().includes(item.name.toLowerCase())) {
+      outOfScope.add(item.code);
+    }
+  }
+  return { ok: outOfScope.size === 0, outOfScope: [...outOfScope].slice(0, 10) };
+}
+
+function removeOutOfScopeTickerLines(markdown: unknown, selectedCodes: unknown) {
+  return String(markdown || "")
+    .split(/\r?\n/)
+    .filter(line => validateSelectedTickerScope(line, selectedCodes).ok)
+    .join("\n");
+}
+
 async function readRequestJson(ctx: any) {
   if (ctx?.body && typeof ctx.body === "object") return ctx.body;
   if (ctx?.body && typeof ctx.body === "string") {
@@ -5906,11 +5979,13 @@ function compactRows(rows: any[], mapper: (row: any) => any, limit = 8) {
 
 function buildSwingLlmPromptData(payload: any, promptContext: any) {
   const stage = payload.stages || payload;
-  const valuationItems = stage.valuation?.items || [];
-  const deepItems = stage.deep?.items || [];
-  const technicalItems = stage.technical?.items || [];
-  const signalItems = stage.signal?.items || [];
-  const summaryRows = stage.summary?.rows || [];
+  const selectedCodes = payload.selectedCodes || [];
+  const safePromptContext = sanitizeSwingPromptContext(promptContext, selectedCodes);
+  const valuationItems = filterRowsBySelected(stage.valuation?.items || [], selectedCodes);
+  const deepItems = filterRowsBySelected(stage.deep?.items || [], selectedCodes);
+  const technicalItems = filterRowsBySelected(stage.technical?.items || [], selectedCodes);
+  const signalItems = filterRowsBySelected(stage.signal?.items || [], selectedCodes);
+  const summaryRows = filterRowsBySelected(stage.summary?.rows || [], selectedCodes);
   return {
     contract: {
       orchestrator: SWING_SKILL_BUNDLE.orchestrator.name,
@@ -5919,9 +5994,9 @@ function buildSwingLlmPromptData(payload: any, promptContext: any) {
       gate: SWING_SKILL_BUNDLE.gate,
     },
     generatedAt: payload.generatedAt,
-    selectedCodes: payload.selectedCodes || [],
-    marketContext: promptContext?.macro || stage.macro || null,
-    screenerContext: promptContext?.screener || stage.screener || null,
+    selectedCodes,
+    marketContext: safePromptContext?.macro || stage.macro || null,
+    screenerContext: safePromptContext?.screener || sanitizeScreenerContextBySelected(stage.screener, selectedCodes),
     valuation: compactRows(valuationItems, item => ({
       code: item.code,
       name: item.name,
@@ -5978,13 +6053,16 @@ function buildSwingLlmPromptData(payload: any, promptContext: any) {
   };
 }
 
-function buildSwingLlmInstructions() {
+function buildSwingLlmInstructions(selectedCodes: string[] = []) {
+  const allowed = selectedCodes.length ? selectedCodes.join(", ") : "none";
   return [
     "You are the report-generation layer for a Taiwan stock 1-3 month swing-trading workflow.",
     "Write Traditional Chinese Markdown only. Use a senior macro strategist + stock screener + comparable valuation + fundamental analyst + daily technical analyst + K-line long/short signal style.",
     "Do not invent unavailable financial, valuation, news, or price data. If a field is missing, write N/A or explicitly say data is unavailable.",
     "Do not give direct investment advice or guaranteed predictions. Frame outputs as research stance, watchlist, conditions, invalidation, and risk controls.",
-    "Use the selected stock codes as the gate-approved scope. Do not add unrelated tickers.",
+    `Allowed selectedCodes: ${allowed}. Only analyze these Taiwan ticker codes. Do not add, compare, rank, or discuss any other Taiwan ticker code.`,
+    "Any non-selected Taiwan ticker code in the final Markdown invalidates the report.",
+    "Stage requirements: macro regime and screening implications; selected-only screener gate; comparable valuation with peer-data limitations; selected-stock fundamental thesis; daily technical scenario levels; K-line long/short/no-trade signal; final integrated table, ranked watchlist, and risk controls.",
     "Required Markdown structure: # title, ## \u5e02\u5834\u8207\u984c\u6750\u80cc\u666f, ## Screener \u5019\u9078\u908f\u8f2f, ## \u4f7f\u7528\u8005\u9078\u80a1 Gate, one ## section per selected stock, ## \u6700\u7d42\u89c0\u5bdf\u6e05\u55ae, ## \u98a8\u96aa\u8207\u5931\u6548\u689d\u4ef6.",
     "For each selected stock include: valuation read, fundamental thesis, daily technical read, K-line long/short signal, key levels, continuation condition, pullback condition, invalidation, and 1-3 month final stance.",
   ].join("\n");
@@ -6051,7 +6129,7 @@ async function generateSwingLlmReport(reportPayload: any, promptContext: any) {
         },
         body: JSON.stringify({
           model,
-          instructions: buildSwingLlmInstructions(),
+          instructions: buildSwingLlmInstructions(promptData.selectedCodes),
           input: buildSwingLlmUserPrompt(promptData),
         max_output_tokens: 420,
           store: false,
@@ -6083,6 +6161,22 @@ async function generateSwingLlmReport(reportPayload: any, promptContext: any) {
       };
     }
     const markdown = extractOpenAiText(data);
+    const tickerValidation = validateSelectedTickerScope(markdown, promptData.selectedCodes);
+    if (markdown && !tickerValidation.ok) {
+      return {
+        ok: false,
+        status: "ticker_validation_failed",
+        provider: "openai_responses",
+        mode: "single_final_editor_with_stage_contract",
+        model,
+        responseId: data?.id || null,
+        usage: data?.usage || null,
+        message: `Final report mentioned out-of-scope ticker codes: ${tickerValidation.outOfScope.join(", ")}`,
+        promptPreview,
+        steps: SWING_SKILL_BUNDLE.stageOrder.map(stage => ({ stage, status: "ticker_validation_failed" })),
+        markdown: "",
+      };
+    }
     return {
       ok: Boolean(markdown),
       status: markdown ? "generated" : "empty_output",
@@ -6166,12 +6260,48 @@ async function callOpenAiReportStep(apiKey: string, model: string, instructions:
   }
 }
 
-function specialistInstructions(role: string, task: string) {
+const SWING_STAGE_SECTION_RULES: Record<string, string[]> = {
+  macro: [
+    "Sections: market regime label; Taiwan and US equity risk appetite; rates, USD/TWD, liquidity, inflation, and central-bank path; semiconductor/AI supply-chain context; key 1-3 month events; screening implications.",
+    "Do not introduce individual Taiwan ticker codes outside selectedCodes. Broad macro indexes and sectors are allowed when evidence-backed.",
+  ],
+  screener: [
+    "Sections: selected-only gate recap; screening method; why each selected stock proceeded; liquidity/trend/revenue or EPS/capital-flow evidence when available; risk or invalidation note per selected code.",
+    "Do not show or rank non-selected candidates, even if they exist in the screener evidence.",
+  ],
+  valuation: [
+    "Sections: target company and valuation date; peer selection logic; available EV/revenue, EV/EBITDA, P/E, growth, margin, and market-cap evidence; premium/discount/in-line bias; 3-5 best peers; data limitations.",
+    "If peer data is incomplete, mark N/A and explain the limitation. Do not fabricate multiples.",
+  ],
+  "deep-analysis": [
+    "Sections: executive summary; financial performance and health; valuation; business model and moat; growth catalysts; management/governance when available; risks; final research stance.",
+    "Adapt the senior-stock report to the 1-3 month swing horizon and mark unavailable five-year/TTM fields clearly.",
+  ],
+  technical: [
+    "Sections: target/data timestamp; trend and price action; moving averages; RSI/MACD/Bollinger/ATR when available; support/resistance; continuation, pullback, and failure scenarios; limitation note.",
+    "Use scenario levels and invalidation. Do not write direct trade instructions.",
+  ],
+  signal: [
+    "Sections: signal decision per selected code; key support/resistance boxes; latest candle behavior; long/short/no-trade rationale; confirmation required; invalidation; confidence.",
+    "Require alignment with the daily technical stage before calling a setup strong.",
+  ],
+  summary: [
+    "Sections: title; market background; selected-only screener logic; user-selection gate; one section per selected stock; integrated table with valuation/fundamental/technical/K-line/final stance; ranked watchlist; risk and invalidation controls.",
+    "Before finalizing, ensure every ticker code in the Markdown is in selectedCodes. If not, rewrite the report.",
+  ],
+};
+
+function specialistInstructions(role: string, task: string, selectedCodes: string[] = [], stage = "") {
+  const allowed = selectedCodes.length ? selectedCodes.join(", ") : "none";
+  const sectionRules = SWING_STAGE_SECTION_RULES[stage] || [];
   return [
     `You are ${role} inside the taiwan-stock-swing-orchestrator backend report runner.`,
     "Write Traditional Chinese Markdown only.",
     "Use only the evidence JSON and previous specialist outputs. Do not invent missing numbers, news, peers, or price levels.",
+    `Hard scope: allowed selectedCodes are ${allowed}. Only analyze those Taiwan ticker codes. Do not add, compare, rank, or discuss any other Taiwan ticker code.`,
+    "If evidence mentions broader screener candidates, treat them as out of scope unless their code is in selectedCodes.",
     "Keep this as research framing, scenarios, invalidation, and risk controls. Do not write direct buy/sell instructions.",
+    ...sectionRules,
     task,
   ].join("\n");
 }
@@ -6180,11 +6310,12 @@ function buildSpecialistInput(promptData: any, previousOutputs: any[], focus: st
   const previous = previousOutputs.map(item => ({
     stage: item.stage,
     skill: item.skill,
-    markdown: compactText(item.markdown, 1600),
+    markdown: compactText(removeOutOfScopeTickerLines(item.markdown, promptData.selectedCodes), 1600),
   }));
   return JSON.stringify({
     focus,
     evidenceProvider: "backend_data_api",
+    selectedCodes: promptData.selectedCodes,
     promptData,
     previous,
   }).slice(0, maxChars);
@@ -6289,7 +6420,7 @@ async function generateSwingSpecialistChainReport(reportPayload: any, promptCont
     const result = await callOpenAiReportStep(
       apiKey,
       model,
-      specialistInstructions(stage.role, stage.task),
+      specialistInstructions(stage.role, stage.task, promptData.selectedCodes, stage.stage),
       input,
       stage.maxTokens,
       stage.stage === "final" ? 22000 : 18000
@@ -6309,6 +6440,33 @@ async function generateSwingSpecialistChainReport(reportPayload: any, promptCont
     }
   }
   const finalOutput = outputs.find(item => item.stage === "final" && item.ok);
+  const finalValidation = validateSelectedTickerScope(finalOutput?.markdown || "", promptData.selectedCodes);
+  if (finalOutput?.markdown && !finalValidation.ok) {
+    return {
+      ok: false,
+      status: "ticker_validation_failed",
+      provider: "openai_responses",
+      mode: "sequential_specialist_chain",
+      model,
+      promptPreview,
+      steps: outputs.map(item => ({
+        stage: item.stage,
+        skill: item.skill,
+        status: item.stage === "final" ? "ticker_validation_failed" : item.status,
+        ok: item.stage === "final" ? false : item.ok,
+        responseId: item.responseId,
+        usage: item.usage,
+        message: item.stage === "final" ? `Final synthesis mentioned out-of-scope ticker codes: ${finalValidation.outOfScope.join(", ")}` : item.message,
+      })),
+      markdown: "",
+      intermediateMarkdown: outputs.filter(item => item.stage !== "final").map(item => ({
+        stage: item.stage,
+        skill: item.skill,
+        markdown: item.markdown,
+      })),
+      message: `Final synthesis failed ticker validation: ${finalValidation.outOfScope.join(", ")}`,
+    };
+  }
   return {
     ok: Boolean(finalOutput?.markdown),
     status: finalOutput?.markdown ? "generated" : outputs.some(item => !item.ok) ? "partial_or_failed" : "empty_output",
@@ -6546,9 +6704,10 @@ async function saveSwingReportJob(id: string, job: any) {
 async function createSwingReportJob(codes: string[], universeValue: unknown, promptContext: any, llmEnabled = true) {
   const now = new Date().toISOString();
   const model = await getOpenAiReportModel();
+  const safePromptContext = sanitizeSwingPromptContext(promptContext, codes);
   const evidence = {
-    macro: promptContext?.macro || null,
-    screener: promptContext?.screener || null,
+    macro: safePromptContext?.macro || null,
+    screener: safePromptContext?.screener || null,
   };
   const record = {
     status: llmEnabled ? "queued" : "disabled",
@@ -6556,7 +6715,7 @@ async function createSwingReportJob(codes: string[], universeValue: unknown, pro
     updatedAt: now,
     codes,
     universe: universeValue || null,
-    promptContext: promptContext || null,
+    promptContext: safePromptContext,
     llmEnabled,
     model,
     currentStageIndex: 0,
@@ -6658,14 +6817,42 @@ async function advanceSwingReportJob(jobId: string) {
       if (!apiKey) {
         result = { ok: false, status: "missing_secret", message: "OPENAI_API_KEY AppDeploy secret is not configured.", text: fallbackStepMarkdown(stageDef.stage, promptData) };
       } else {
+        const instructions = specialistInstructions(stageDef.role, stageDef.task, promptData.selectedCodes, stageDef.stage);
+        const input = buildSpecialistInput(promptData, job.outputs || [], stageDef.stage, stageDef.stage === "summary" ? 14000 : 10000);
         result = await callOpenAiReportStep(
           apiKey,
           model,
-          specialistInstructions(stageDef.role, stageDef.task),
-          buildSpecialistInput(promptData, job.outputs || [], stageDef.stage, stageDef.stage === "summary" ? 14000 : 10000),
+          instructions,
+          input,
           stageDef.maxTokens,
           stageDef.timeoutMs
         );
+        if (stageDef.stage === "summary" && result.ok) {
+          const tickerValidation = validateSelectedTickerScope(result.text, promptData.selectedCodes);
+          if (!tickerValidation.ok) {
+            const retryResult = await callOpenAiReportStep(
+              apiKey,
+              model,
+              [
+                instructions,
+                `Ticker validation failed because the prior final synthesis mentioned out-of-scope ticker codes: ${tickerValidation.outOfScope.join(", ")}.`,
+                `Rewrite the final synthesis from scratch. Allowed selectedCodes are ${promptData.selectedCodes.join(", ")}. Exclude every other Taiwan ticker code.`,
+              ].join("\n"),
+              input,
+              stageDef.maxTokens,
+              stageDef.timeoutMs
+            );
+            const retryValidation = validateSelectedTickerScope(retryResult.text, promptData.selectedCodes);
+            result = retryResult.ok && retryValidation.ok
+              ? { ...retryResult, status: "generated_after_ticker_retry", message: "Final synthesis passed selected ticker validation after one retry." }
+              : {
+                  ok: false,
+                  status: "ticker_validation_failed",
+                  message: `Final synthesis mentioned out-of-scope ticker codes: ${(retryValidation.outOfScope.length ? retryValidation.outOfScope : tickerValidation.outOfScope).join(", ")}`,
+                  text: "",
+                };
+          }
+        }
       }
       const markdown = result.ok ? result.text : fallbackStepMarkdown(stageDef.stage, promptData);
       if (stepIndex >= 0) {
@@ -6720,12 +6907,13 @@ async function advanceSwingReportJob(jobId: string) {
 
 async function loadSwingOrchestratedReport(codes: string[], universeValue?: unknown, promptContext?: any, options: { llm?: boolean } = {}) {
   const generatedAt = new Date().toISOString();
-  const macro = promptContext?.macro || {
+  const safePromptContext = sanitizeSwingPromptContext(promptContext, codes);
+  const macro = safePromptContext?.macro || {
     ok: true,
     reusedFrom: "client workflow gate",
     note: "Macro/news stage is loaded before user selection and is not recomputed in the deep-analysis endpoint.",
   };
-  const screener = promptContext?.screener || {
+  const screener = safePromptContext?.screener || {
     ok: true,
     reusedFrom: "client workflow gate",
     note: "Screener stage is loaded before user selection and is not recomputed in the deep-analysis endpoint.",
@@ -6793,7 +6981,7 @@ async function loadSwingOrchestratedReport(codes: string[], universeValue?: unkn
     model: null,
     message: "LLM report generation disabled by request.",
     markdown: "",
-  } : await generateSwingLlmReport(reportPayload, promptContext);
+  } : await generateSwingLlmReport(reportPayload, safePromptContext);
   const reportMarkdown = llm.ok && llm.markdown ? llm.markdown : fallbackMarkdown;
   return {
     ...reportPayload,
