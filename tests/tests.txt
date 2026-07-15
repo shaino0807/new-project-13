@@ -8,7 +8,7 @@ Steps:
 1. Navigate to the app without a `code` query parameter.
 2. Wait for the page to fully load.
 
-Expected: The hero shows 台股技術分析 Agent and a 待輸入 / 待載入 state. It must not show 2330 台積電, a default close price, or a default pullback probability before user input.
+Expected: The hero shows 台股波段觀察分析庫 with the 股票 / 報價 / 分析 / 價值雷達 data-status tiles in 待輸入 / 待載入 / 待啟動 states. It must not show 2330 台積電, a default close price, or a default pullback probability before user input.
 
 ## Test 2 - Visitor can analyze 2344
 Viewport: desktop
@@ -18,8 +18,9 @@ Steps:
 1. Navigate to the app.
 2. Type 2344 in the stock code or name field.
 3. Click the analysis button.
-4. Wait for the heading and metrics to update.
-5. Change monthly budget to 5000.
+4. Wait for the homepage decision cards to show 今日結論, 追高風險, 支撐, 壓力, and 失效.
+5. Click the deep-workspace arrow and confirm 股票深度頁 is visible.
+6. Change monthly budget to 5000.
 
 Expected: The page shows 2344 with stock metrics, technical sections, value radar, allocation guide, fundamentals, news, charts, and source/status text. Budget-dependent sections update without reloading the page.
 
@@ -30,8 +31,9 @@ Description: Verifies the Agent panel answers questions about the currently load
 Steps:
 1. Navigate to the app.
 2. Run 2330 analysis.
-3. Click an Agent prompt.
-4. Wait for the Agent response.
+3. Click the deep-workspace arrow and open 股票深度頁.
+4. Click an Agent prompt.
+5. Wait for the Agent response.
 
 Expected: The Agent log shows the user's question and an Agent answer with key points, actions, watchlist items, and a disclaimer.
 
@@ -43,7 +45,8 @@ Steps:
 1. Navigate to the app.
 2. Type 2454 in the stock code field.
 3. Click the analysis button.
-4. Scroll through the page.
+4. Click the deep-workspace arrow.
+5. Scroll through the page.
 
 Expected: Price, MACD, RSI/KD, volume, Bollinger, support/resistance charts, probability summary, value radar, chase-risk warning, fundamentals, news, strategy, and Agent sections are visible.
 
@@ -54,7 +57,8 @@ Description: Verifies the Agent remains usable on a narrow viewport without shri
 Steps:
 1. Navigate to the app on a mobile-width viewport.
 2. Enter 0050 and run analysis.
-3. Scroll from top to bottom.
+3. Confirm the homepage status tiles and 今日操作判斷 cards remain readable.
+4. Click the deep-workspace arrow and scroll from top to bottom.
 
 Expected: The input, metric cards, charts, ranking tables, risk tables, and Agent panel are readable. Dense tables scroll horizontally inside their panels when needed.
 
@@ -110,12 +114,13 @@ Description: Verifies Dino focuses on usable customer output rather than interna
 
 Steps:
 1. Navigate to the app.
-2. Click Dino K棒判斷策略.
-3. Wait for macro/news, 1-3 month screener, thematic tables, and source panel to load.
-4. Select at least one candidate stock or enter 2330, 2454 manually.
-5. Click 進入深度流程.
-6. Wait for the deep workflow result.
-7. Return to 股票深度頁 and run 2330.
+2. Click the homepage Dino K棒判斷策略 doorway card or arrow into the deep workspace.
+3. Click the Dino K棒判斷策略 tab if it is not already active.
+4. Wait for macro/news, 1-3 month screener, thematic tables, and source panel to load.
+5. Select at least one candidate stock or enter 2330, 2454 manually.
+6. Click 進入深度流程.
+7. Wait for the deep workflow result.
+8. Return to 股票深度頁 and run 2330.
 
 Expected: The internal workflow explainer and 重新產生候選 button are not visible to normal users. The macro/news block explains article-specific key points, reasons, market impact, screening use, source, horizon, and whether article content or RSS summary was read. The screener table shows detailed 1-3 month setup descriptions, main evidence, research invalidation line with conditions, and priority. The thematic block shows five tables with readable business/theme notes and clear units for institutional net buy. The source panel shows full-market universe count plus the scored seed count. Deep analysis requires selected or manually entered stock codes and does not break the original stock analysis page.
 

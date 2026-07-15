@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>&#x53f0;&#x80a1;&#x6280;&#x8853;&#x5206;&#x6790; Agent</title>
+  <title>&#x53f0;&#x80a1;&#x6ce2;&#x6bb5;&#x89c0;&#x5bdf;&#x5206;&#x6790;&#x5eab;</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <style>
     :root {
@@ -13,18 +13,25 @@
     }
     * { box-sizing:border-box; }
     body { margin:0; background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
+    html { scroll-behavior:smooth; }
     .page { max-width:1080px; margin:0 auto; padding:1rem; }
-    .hero { background:linear-gradient(135deg,#62245f 0%,#243c86 48%,#168074 100%); color:#fff; border-radius:14px; padding:1rem; margin-bottom:1rem; }
-    .hero-top { display:grid; grid-template-columns:1fr auto; gap:1rem; align-items:start; }
+    .hero { position:relative; overflow:hidden; background:linear-gradient(135deg,#141414 0%,#243c86 48%,#168074 100%); color:#fff; border-radius:14px; padding:1.15rem; margin-bottom:1rem; min-height:420px; display:grid; align-content:space-between; gap:1rem; box-shadow:0 18px 46px rgba(22,32,48,.18); }
+    .hero::before { content:""; position:absolute; inset:0; background:linear-gradient(90deg,rgba(255,255,255,.08) 1px,transparent 1px),linear-gradient(180deg,rgba(255,255,255,.08) 1px,transparent 1px); background-size:56px 56px; opacity:.23; pointer-events:none; }
+    .hero > * { position:relative; z-index:1; }
+    .hero-top { display:grid; grid-template-columns:minmax(0,1.08fr) minmax(300px,.92fr); gap:1rem; align-items:start; }
+    .hero-kicker { display:inline-flex; width:max-content; max-width:100%; border:1px solid #ffffff3d; border-radius:999px; padding:.2rem .55rem; color:#dbeee8; font-size:11px; font-weight:780; margin-bottom:.55rem; }
     h1 { margin:0; font-size:1.8rem; letter-spacing:0; }
     h2 { margin:0 0 .7rem; font-size:1rem; }
     p { margin:.35rem 0 0; line-height:1.65; }
     .hero p { opacity:.9; font-size:.92rem; }
+    .hero-flow { display:flex; flex-wrap:wrap; gap:.35rem; align-items:center; margin:.85rem 0 .2rem; font-size:12px; color:#effaf6; }
+    .hero-flow span { border:1px solid #ffffff30; background:#ffffff16; border-radius:999px; padding:.2rem .5rem; }
+    .hero-form-card { border:1px solid #ffffff2e; border-radius:10px; background:rgba(12,18,24,.48); padding:.8rem; backdrop-filter:blur(10px); }
     .hero-facts { display:flex; flex-wrap:wrap; gap:.45rem; margin-top:.7rem; }
     .hero-fact { display:inline-flex; align-items:center; gap:.28rem; border-radius:999px; padding:.22rem .6rem; font-size:11px; font-weight:720; background:#ffffff24; border:1px solid #ffffff30; color:#fff; }
     .view-tabs { display:flex; flex-wrap:wrap; gap:.45rem; margin:.85rem 0 0; }
-    .view-tab { background:#ffffff22; border:1px solid #ffffff55; color:#fff; min-height:34px; border-radius:999px; font-size:12px; }
-    .view-tab.active { background:#fff; color:var(--ink); }
+    .view-tab { background:#fff; border:1px solid var(--line); color:var(--ink); min-height:34px; border-radius:999px; font-size:12px; }
+    .view-tab.active { background:var(--ink); border-color:var(--ink); color:#fff; }
     .page-view[hidden] { display:none !important; }
     .form { display:flex; gap:.45rem; align-items:center; }
     input { min-height:40px; border:1px solid var(--line); border-radius:8px; padding:0 .75rem; color:var(--ink); outline:none; }
@@ -33,6 +40,40 @@
     button.secondary { background:#ffffff22; border:1px solid #ffffff55; }
     button.chip { min-height:30px; border-radius:999px; background:#fff; color:var(--ink); border:1px solid var(--line); padding:0 .7rem; font-size:12px; }
     .chips { display:flex; flex-wrap:wrap; gap:.45rem; margin-top:.7rem; }
+    .hero-status-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.65rem; margin-top:.6rem; }
+    .hero-status-tile { position:relative; overflow:hidden; border:1px solid #ffffff30; border-radius:10px; background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.07)); padding:.72rem; min-height:98px; box-shadow:inset 0 1px 0 rgba(255,255,255,.18); }
+    .hero-status-tile::after { content:""; position:absolute; left:.72rem; right:.72rem; bottom:.58rem; height:3px; border-radius:999px; background:linear-gradient(90deg,transparent,#ffffff80,transparent); transform:translateX(-55%); animation:tilePulse 2.2s ease-in-out infinite; opacity:.58; }
+    .hero-status-tile .tile-label { display:block; color:#d8efe9; font-size:11px; font-weight:760; }
+    .hero-status-tile .tile-value { display:block; margin-top:.2rem; color:#fff; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:1.02rem; font-weight:800; overflow-wrap:anywhere; }
+    .hero-status-tile .tile-detail { display:block; margin-top:.26rem; color:#d7e2df; font-size:11px; line-height:1.35; }
+    .hero-status-tile.active { border-color:#9be6cf; box-shadow:0 0 0 1px rgba(155,230,207,.22), inset 0 1px 0 rgba(255,255,255,.2); }
+    .hero-status-tile.warn { border-color:#f4cf75; }
+    .hero-status-tile.bear { border-color:#f49b9b; }
+    @keyframes tilePulse { 0%,100% { transform:translateX(-55%); opacity:.22; } 50% { transform:translateX(55%); opacity:.78; } }
+    .home-decision,.home-doorway,.workspace-shell { margin:1rem 0; }
+    .home-decision { border:.5px solid var(--line); border-radius:10px; background:#fff; padding:.9rem; }
+    .home-decision-head { display:flex; flex-wrap:wrap; justify-content:space-between; gap:.65rem; align-items:flex-start; margin-bottom:.7rem; }
+    .home-decision-head p { color:var(--muted); font-size:12px; }
+    .home-decision .secondary,.workspace-head .secondary { background:#fff; color:var(--ink); border:1px solid var(--line); }
+    .home-decision-grid { display:grid; grid-template-columns:1.2fr repeat(4,minmax(0,1fr)); gap:.6rem; }
+    .home-decision-card { border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.72rem; min-width:0; }
+    .home-decision-card b { display:block; color:var(--muted); font-size:11px; margin-bottom:.18rem; }
+    .home-decision-card strong { display:block; font-size:1.08rem; line-height:1.25; overflow-wrap:anywhere; }
+    .home-decision-card p { color:var(--muted); font-size:12px; line-height:1.55; }
+    .home-doorway { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.75rem; align-items:stretch; border:.5px solid var(--line); border-radius:10px; background:#f8f7f4; padding:.9rem; }
+    .doorway-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.6rem; }
+    .doorway-card { border:.5px solid #e7e5e1; border-radius:8px; background:#fff; padding:.75rem; text-align:left; color:var(--ink); min-height:104px; }
+    .doorway-card b { display:block; font-size:12px; margin-bottom:.24rem; }
+    .doorway-card span { display:block; color:var(--muted); font-size:12px; line-height:1.55; }
+    .doorway-action { align-self:center; min-width:112px; border-radius:999px; background:var(--teal); }
+    .workspace-shell { border:.5px solid var(--line); border-radius:12px; background:#fff; padding:.9rem; }
+    .workspace-shell[hidden] { display:none !important; }
+    .workspace-head { display:flex; justify-content:space-between; gap:.75rem; align-items:flex-start; padding-bottom:.65rem; border-bottom:.5px solid #ece9e4; }
+    .workspace-head p { color:var(--muted); font-size:12px; }
+    .workspace-tabs { margin:.75rem 0; }
+    .workspace-body { display:block; }
+    .reveal { opacity:0; transform:translateY(18px); transition:opacity .58s ease, transform .58s ease; }
+    .reveal.is-visible { opacity:1; transform:none; }
     .grid { display:grid; gap:.75rem; }
     .metrics { grid-template-columns:repeat(6,minmax(0,1fr)); margin-bottom:.75rem; }
     .two { grid-template-columns:1.12fr .88fr; align-items:start; }
@@ -183,6 +224,9 @@
       .hero-top,.two { grid-template-columns:1fr; }
       .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .decision-grid,.horizon-grid,.dow-grid,.strategy-grid,.wave-legend,.value-grid,.client-grid,.client-grid.two-col { grid-template-columns:1fr; }
+      .hero-status-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .home-decision-grid,.home-doorway,.doorway-grid { grid-template-columns:1fr; }
+      .doorway-action { width:100%; }
       .score-row,.workbench-item { grid-template-columns:1fr; }
       .client-form,.holding-grid,.holding-row,.scope-grid { grid-template-columns:1fr; }
       .flow-steps { grid-template-columns:1fr 1fr; }
@@ -206,6 +250,8 @@
     @media (max-width:520px) {
       .page { padding:.72rem; }
       .hero { border-radius:12px; padding:.85rem; }
+      .hero-status-grid { grid-template-columns:1fr; }
+      .workspace-head { display:grid; }
       .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem; }
       .value-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .rank-tabs button { flex:1 1 calc(50% - .45rem); padding:0 .55rem; }
@@ -223,39 +269,88 @@
     @media (max-width:360px) {
       .metrics,.value-grid { grid-template-columns:1fr; }
     }
+    @media (prefers-reduced-motion:reduce) {
+      html { scroll-behavior:auto; }
+      .reveal { opacity:1; transform:none; transition:none; }
+      .hero-status-tile::after { animation:none; }
+    }
   </style>
 </head>
 <body>
   <main class="page">
-    <section class="hero">
+    <section class="hero reveal">
       <div class="hero-top">
         <div>
-          <h1 id="headline">&#x53f0;&#x80a1;&#x6280;&#x8853;&#x5206;&#x6790; Agent</h1>
-          <p id="subtitle">&#x8f38;&#x5165;&#x53f0;&#x80a1;&#x4ee3;&#x78bc;&#x5f8c;&#xff0c;&#x9801;&#x9762;&#x6703;&#x7522;&#x751f;&#x4e92;&#x52d5;&#x5f0f;&#x6280;&#x8853;&#x5206;&#x6790;&#x3001;&#x56de;&#x6a94;&#x6a5f;&#x7387;&#x3001;Dow Theory&#x3001;Chan/Wave &#x8a0a;&#x865f;&#x8207;&#x4ea4;&#x6613;&#x7b56;&#x7565;&#x3002;</p>
+          <span class="hero-kicker">1-3 &#x500b;&#x6708;&#x53f0;&#x80a1;&#x6ce2;&#x6bb5;</span>
+          <h1 id="headline">&#x53f0;&#x80a1;&#x6ce2;&#x6bb5;&#x89c0;&#x5bdf;&#x5206;&#x6790;&#x5eab;</h1>
+          <p id="subtitle">&#x8f38;&#x5165;&#x4f60;&#x60f3;&#x89c0;&#x5bdf;&#x7684;&#x80a1;&#x7968;&#xff0c;&#x5148;&#x770b;&#x8ffd;&#x9ad8;&#x98a8;&#x96aa;&#x3001;&#x652f;&#x6490;&#x58d3;&#x529b;&#x8207;&#x5931;&#x6548;&#x689d;&#x4ef6;&#x3002;<br>&#x518d;&#x5ef6;&#x4f38;&#x6210; 1-3 &#x500b;&#x6708;&#x6ce2;&#x6bb5;&#x89c0;&#x5bdf;&#x65b9;&#x6cd5;&#x3002;</p>
+          <div class="hero-flow" aria-label="homepage flow">
+            <span>&#x8f38;&#x5165;&#x80a1;&#x7968;</span>
+            <span>&#x4eca;&#x65e5;&#x64cd;&#x4f5c;&#x5224;&#x65b7;</span>
+            <span>&#x652f;&#x6490; / &#x58d3;&#x529b; / &#x5931;&#x6548;</span>
+            <span>&#x6df1;&#x5ea6;&#x5206;&#x9801;</span>
+          </div>
           <div class="hero-facts" id="heroFacts"></div>
           <div class="hero-facts" id="valueRadarHeroBadge"></div>
         </div>
-        <form class="form" id="stockForm">
-          <input id="stockInput" autocomplete="off" placeholder="&#x4f8b;&#x5982; 2330&#x3001;&#x53f0;&#x7a4d;&#x96fb;&#x3001;&#x83ef;&#x90a6;&#x96fb;" aria-label="&#x80a1;&#x7968;&#x4ee3;&#x78bc;&#x6216;&#x540d;&#x7a31;">
-          <button type="submit">&#x5206;&#x6790;</button>
-          <button class="secondary" type="button" id="resetBtn">&#x91cd;&#x8dd1;</button>
-        </form>
+        <div class="hero-form-card">
+          <form class="form" id="stockForm">
+            <input id="stockInput" autocomplete="off" placeholder="&#x4f8b;&#x5982; 2330&#x3001;&#x53f0;&#x7a4d;&#x96fb;&#x3001;&#x83ef;&#x90a6;&#x96fb;" aria-label="&#x80a1;&#x7968;&#x4ee3;&#x78bc;&#x6216;&#x540d;&#x7a31;">
+            <button type="submit">&#x5206;&#x6790;</button>
+            <button class="secondary" type="button" id="resetBtn">&#x91cd;&#x8dd1;</button>
+          </form>
+          <div class="chips" id="quickCodes">
+            <button class="chip" data-code="2330" type="button">2330 &#x53f0;&#x7a4d;&#x96fb;</button>
+            <button class="chip" data-code="2344" type="button">2344 &#x83ef;&#x90a6;&#x96fb;</button>
+            <button class="chip" data-code="2454" type="button">2454 &#x806f;&#x767c;&#x79d1;</button>
+            <button class="chip" data-code="0050" type="button">0050 &#x53f0;&#x7063;50</button>
+          </div>
+        </div>
       </div>
-      <div class="chips" id="quickCodes">
-        <button class="chip" data-code="2330" type="button">2330 &#x53f0;&#x7a4d;&#x96fb;</button>
-        <button class="chip" data-code="2344" type="button">2344 &#x83ef;&#x90a6;&#x96fb;</button>
-        <button class="chip" data-code="2454" type="button">2454 &#x806f;&#x767c;&#x79d1;</button>
-        <button class="chip" data-code="0050" type="button">0050 &#x53f0;&#x7063;50</button>
+      <div class="hero-status-grid" aria-label="analysis status">
+        <div class="hero-status-tile" id="homeStockStatus"><span class="tile-label">&#x80a1;&#x7968;</span><strong class="tile-value">&#x5f85;&#x8f38;&#x5165;</strong><span class="tile-detail">&#x7b49;&#x5f85;&#x4ee3;&#x78bc;&#x6216;&#x540d;&#x7a31;</span></div>
+        <div class="hero-status-tile" id="homeQuoteStatus"><span class="tile-label">&#x5831;&#x50f9;</span><strong class="tile-value">&#x5f85;&#x8f09;&#x5165;</strong><span class="tile-detail">&#x5c1a;&#x672a;&#x5411;&#x5f8c;&#x7aef;&#x53d6;&#x5f97;&#x6578;&#x64da;</span></div>
+        <div class="hero-status-tile" id="homeAnalysisStatus"><span class="tile-label">&#x5206;&#x6790;</span><strong class="tile-value">&#x5f85;&#x555f;&#x52d5;</strong><span class="tile-detail">&#x5c1a;&#x672a;&#x8a08;&#x7b97;&#x652f;&#x6490;&#x58d3;&#x529b;</span></div>
+        <div class="hero-status-tile" id="homeValueStatus"><span class="tile-label">&#x50f9;&#x503c;&#x96f7;&#x9054;</span><strong class="tile-value">&#x5f85;&#x8f38;&#x5165;</strong><span class="tile-detail">&#x7b49;&#x5f85;&#x516c;&#x958b;&#x8cc7;&#x6599;&#x8a55;&#x5206;</span></div>
       </div>
-      <div class="view-tabs" id="viewTabs" aria-label="page switch">
+      <div class="status" id="status">&#x6e96;&#x5099;&#x8f09;&#x5165;&#x6700;&#x65b0;&#x8cc7;&#x6599;&#x3002;</div>
+    </section>
+
+    <section class="home-decision reveal" id="homeDecisionPanel">
+      <div class="home-decision-head">
+        <div>
+          <h2>&#x4eca;&#x65e5;&#x64cd;&#x4f5c;&#x5224;&#x65b7;</h2>
+          <p>&#x8f38;&#x5165;&#x5f8c;&#x5148;&#x770b;&#x7d50;&#x8ad6;&#xff0c;&#x518d;&#x6c7a;&#x5b9a;&#x8981;&#x4e0d;&#x8981;&#x9032;&#x5165;&#x7d30;&#x7bc0;&#x5206;&#x9801;&#x3002;</p>
+        </div>
+        <button type="button" class="secondary" id="openWorkspaceBtn">&#x9032;&#x5165;&#x6df1;&#x5ea6; &#x2192;</button>
+      </div>
+      <div class="home-decision-grid" id="homeDecisionCards"></div>
+    </section>
+
+    <section class="home-doorway reveal" id="homeDoorway">
+      <div class="doorway-grid">
+        <button class="doorway-card" type="button" data-doorway-view="stock"><b>&#x80a1;&#x7968;&#x6df1;&#x5ea6;&#x9801;</b><span>&#x5c55;&#x958b;&#x6280;&#x8853;&#x3001;&#x50f9;&#x503c;&#x3001;&#x65b0;&#x805e;&#x8207;&#x4ea4;&#x6613;&#x689d;&#x4ef6;&#x3002;</span></button>
+        <button class="doorway-card" type="button" data-doorway-view="client"><b>&#x5ba2;&#x6236;&#x5de5;&#x4f5c;&#x53f0;</b><span>&#x770b;&#x89c0;&#x5bdf;&#x6c60;&#x3001;&#x6301;&#x80a1;&#x98a8;&#x96aa;&#x8207;&#x6392;&#x884c;&#x699c;&#x3002;</span></button>
+        <button class="doorway-card" type="button" data-doorway-view="swing"><b>Dino K&#x68d2;&#x5224;&#x65b7;&#x7b56;&#x7565;</b><span>&#x9032;&#x5165;&#x6ce2;&#x6bb5;&#x9078;&#x80a1;&#x8207;&#x5c08;&#x5bb6;&#x5206;&#x6790;&#x6d41;&#x7a0b;&#x3002;</span></button>
+      </div>
+      <button class="doorway-action" type="button" data-doorway-view="stock">&#x2192;</button>
+    </section>
+
+    <section class="workspace-shell reveal" id="workspaceShell" hidden>
+      <div class="workspace-head">
+        <div>
+          <h2>&#x6df1;&#x5ea6;&#x529f;&#x80fd;&#x5de5;&#x4f5c;&#x5340;</h2>
+          <p>&#x9996;&#x9801;&#x5b8c;&#x6210;&#x521d;&#x5224;&#x5f8c;&#xff0c;&#x5728;&#x9019;&#x88e1;&#x5207;&#x63db;&#x80a1;&#x7968;&#x6df1;&#x5ea6;&#x3001;&#x5ba2;&#x6236;&#x5de5;&#x4f5c;&#x53f0;&#x8207; Dino &#x7b56;&#x7565;&#x3002;</p>
+        </div>
+        <button type="button" class="secondary" id="backHomeBtn">&#x56de;&#x5230;&#x9996;&#x9801;</button>
+      </div>
+      <div class="view-tabs workspace-tabs" id="viewTabs" aria-label="page switch">
         <button class="view-tab active" type="button" data-view="stock">&#x80a1;&#x7968;&#x6df1;&#x5ea6;&#x9801;</button>
         <button class="view-tab" type="button" data-view="client">&#x5ba2;&#x6236;&#x5de5;&#x4f5c;&#x53f0;</button>
         <button class="view-tab" type="button" data-view="swing">Dino K&#x68d2;&#x5224;&#x65b7;&#x7b56;&#x7565;</button>
         <button class="view-tab" type="button" data-view="admin" id="adminTab" hidden>&#x5f8c;&#x81fa;&#x8cc7;&#x6599;&#x6aa2;&#x67e5;</button>
       </div>
-      <div class="status" id="status">&#x6e96;&#x5099;&#x8f09;&#x5165;&#x6700;&#x65b0;&#x8cc7;&#x6599;&#x3002;</div>
-    </section>
-
+      <div class="workspace-body">
     <div id="stockPage" class="page-view">
     <section class="grid metrics" id="metrics"></section>
 
@@ -590,6 +685,8 @@
         <div id="adminScoreV2Detail"></div>
       </section>
     </div>
+      </div>
+    </section>
   </main>
 
   <script type="module" src="./src/main.ts"></script>
@@ -667,6 +764,96 @@
 
     function heroFact(text, cls = "neut") {
       return `<span class="hero-fact ${cls}">${escapeHtml(text)}</span>`;
+    }
+
+    function setDefaultHeroCopy() {
+      $("headline").textContent = "\u53f0\u80a1\u6ce2\u6bb5\u89c0\u5bdf\u5206\u6790\u5eab";
+      $("subtitle").innerHTML = "\u8f38\u5165\u4f60\u60f3\u89c0\u5bdf\u7684\u80a1\u7968\uff0c\u5148\u770b\u8ffd\u9ad8\u98a8\u96aa\u3001\u652f\u6490\u58d3\u529b\u8207\u5931\u6548\u689d\u4ef6\u3002<br>\u518d\u5ef6\u4f38\u6210 1-3 \u500b\u6708\u6ce2\u6bb5\u89c0\u5bdf\u65b9\u6cd5\u3002";
+    }
+
+    function setHomeStatus(key, value, detail = "", tone = "") {
+      const ids = { stock:"homeStockStatus", quote:"homeQuoteStatus", analysis:"homeAnalysisStatus", value:"homeValueStatus" };
+      const tile = $(ids[key]);
+      if (!tile) return;
+      tile.className = `hero-status-tile ${tone || ""}`.trim();
+      const valueNode = tile.querySelector(".tile-value");
+      const detailNode = tile.querySelector(".tile-detail");
+      if (valueNode) valueNode.textContent = value;
+      if (detailNode) detailNode.textContent = detail;
+    }
+
+    function resetHomeStatuses() {
+      setHomeStatus("stock", "\u5f85\u8f38\u5165", "\u7b49\u5f85\u4ee3\u78bc\u6216\u540d\u7a31");
+      setHomeStatus("quote", "\u5f85\u8f09\u5165", "\u5c1a\u672a\u5411\u5f8c\u7aef\u53d6\u5f97\u6578\u64da");
+      setHomeStatus("analysis", "\u5f85\u555f\u52d5", "\u5c1a\u672a\u8a08\u7b97\u652f\u6490\u58d3\u529b");
+      setHomeStatus("value", "\u5f85\u8f38\u5165", "\u7b49\u5f85\u516c\u958b\u8cc7\u6599\u8a55\u5206");
+    }
+
+    function homeDecisionCard(label, value, detail, cls = "") {
+      const toneClass = cls ? ` ${cls}` : "";
+      return `<div class="home-decision-card"><b>${escapeHtml(label)}</b><strong class="${toneClass.trim()}">${escapeHtml(value)}</strong><p>${escapeHtml(detail)}</p></div>`;
+    }
+
+    function renderHomeDecisionWaiting() {
+      $("homeDecisionCards").innerHTML = [
+        homeDecisionCard("\u4eca\u65e5\u7d50\u8ad6", "\u5f85\u8f38\u5165", "\u8f38\u5165\u80a1\u7968\u5f8c\u7522\u751f\u521d\u5224\u3002", "warn"),
+        homeDecisionCard("\u8ffd\u9ad8\u98a8\u96aa", "\u5f85\u8a08\u7b97", "\u6703\u4f9d RSI\u3001\u91cf\u80fd\u8207\u652f\u58d3\u4f4d\u7f6e\u5224\u65b7\u3002"),
+        homeDecisionCard("\u652f\u6490", "--", "\u5c1a\u672a\u53d6\u5f97\u50f9\u683c\u7d50\u69cb\u3002"),
+        homeDecisionCard("\u58d3\u529b", "--", "\u5c1a\u672a\u53d6\u5f97\u50f9\u683c\u7d50\u69cb\u3002"),
+        homeDecisionCard("\u5931\u6548", "--", "\u5c1a\u672a\u5efa\u7acb\u64cd\u4f5c\u689d\u4ef6\u3002"),
+      ].join("");
+    }
+
+    function renderHomeDecision(data, name) {
+      const [riskText, riskCls, riskDesc] = pullbackLabel(data.pullback);
+      const ma20 = maNow(data, "ma20");
+      const ma5 = maNow(data, "ma5");
+      const stance = data.pullback >= 70
+        ? "\u4e0d\u8ffd\u9ad8"
+        : data.close > ma20
+          ? "\u56de\u6e2c\u89c0\u5bdf"
+          : "\u7b49\u4fee\u5fa9";
+      const stanceDetail = data.pullback >= 70
+        ? "\u50f9\u683c\u504f\u9ad8\uff0c\u5148\u7b49\u9694\u65e5\u91cf\u80fd\u8207\u56de\u6e2c\u8a0a\u865f\u3002"
+        : data.close > ma20
+          ? "\u8d70\u52e2\u4ecd\u5728\u5747\u7dda\u4e0a\uff0c\u512a\u5148\u770b\u652f\u6490\u662f\u5426\u5b88\u4f4f\u3002"
+          : "\u50f9\u683c\u5df2\u8f49\u5f31\uff0c\u5148\u7b49\u91cd\u65b0\u7ad9\u56de\u5747\u7dda\u6216\u653e\u91cf\u3002";
+      $("homeDecisionCards").innerHTML = [
+        homeDecisionCard("\u4eca\u65e5\u7d50\u8ad6", `${data.code} ${name} | ${stance}`, stanceDetail, data.pullback >= 70 ? "bear" : data.close > ma20 ? "bull" : "warn"),
+        homeDecisionCard("\u8ffd\u9ad8\u98a8\u96aa", `${riskText} | ${data.pullback}%`, riskDesc, riskCls),
+        homeDecisionCard("\u652f\u6490", `${fmt(data.support)} / ${fmt(data.support2)}`, `\u77ed\u7dda\u770b ${fmt(data.support)}\uff0c\u4e2d\u7dda\u770b ${fmt(data.support2)}\u3002`, "bull"),
+        homeDecisionCard("\u58d3\u529b", `${fmt(data.resistance)} / ${fmt(data.resistance2)}`, "\u63a5\u8fd1\u58d3\u529b\u6642\u5148\u770b\u91cf\u80fd\u662f\u5426\u80fd\u7e8c\u63a5\u3002", "warn"),
+        homeDecisionCard("\u5931\u6548", `${fmt(Math.min(data.support2 * .97, ma20 * .98))}`, `\u8dcc\u7834\u4e2d\u671f\u652f\u6490\u6216 MA20 ${fmt(ma20)}\u5f8c\u7121\u6cd5\u6536\u56de\uff0c\u89c0\u5bdf\u689d\u4ef6\u5931\u6548\u3002`),
+      ].join("");
+      setHomeStatus("stock", `${data.code} ${name}`, "\u5df2\u5efa\u7acb\u89c0\u5bdf\u6a19\u7684", "active");
+      setHomeStatus("quote", `${fmt(data.close)} \u5143`, "\u5831\u50f9\u8207\u65e5\u7dda\u5df2\u53d6\u5f97", "active");
+      setHomeStatus("analysis", stance, `MA5 ${fmt(ma5)} / MA20 ${fmt(ma20)}`, data.pullback >= 70 ? "warn" : "active");
+    }
+
+    function openWorkspace(view = "stock") {
+      const shell = $("workspaceShell");
+      if (!shell) return;
+      shell.hidden = false;
+      shell.classList.add("is-visible");
+      switchView(view);
+      shell.scrollIntoView({ behavior:"smooth", block:"start" });
+    }
+
+    function setupReveal() {
+      const targets = document.querySelectorAll(".reveal");
+      if (!("IntersectionObserver" in window)) {
+        targets.forEach((item) => item.classList.add("is-visible"));
+        return;
+      }
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("is-visible");
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { threshold:.14 });
+      targets.forEach((item) => observer.observe(item));
     }
 
     function priceRange(low, high) {
@@ -2899,6 +3086,11 @@
     }
 
     function switchView(view) {
+      const shell = $("workspaceShell");
+      if (shell) {
+        shell.hidden = false;
+        shell.classList.add("is-visible");
+      }
       const client = view === "client";
       const swing = view === "swing";
       const admin = view === "admin";
@@ -3005,6 +3197,7 @@
       valueFeatureRequestKey = "";
       activeValueScore = null;
       latestScreenerItems = [];
+      setHomeStatus("value", "\u5f85\u8f09\u5165", "\u5df2\u53d6\u5f97\u5831\u50f9\uff0c\u7b49\u5f85\u50f9\u503c\u8a55\u5206", "warn");
       $("valueRadarHeroBadge").innerHTML = [heroFact("\u50f9\u503c\u96f7\u9054 \u5f85\u8f09\u5165", "neut")].join("");
       const pending = entityText("&#x5f85;&#x8f09;&#x5165;");
       const pendingDetail = entityText("&#x9ede;&#x9078;&#x6392;&#x884c;&#x699c;&#x5f8c;&#x8f09;&#x5165;&#x516c;&#x958b;&#x8cc7;&#x6599;&#x8a55;&#x5206;&#x3002;");
@@ -3034,6 +3227,7 @@
       const requestKey = `${requestCode}:${currentScreenerMode}`;
       if (valueFeatureRequestKey === requestKey) return;
       valueFeatureRequestKey = requestKey;
+      setHomeStatus("value", "\u8f09\u5165\u4e2d", "\u6b63\u5728\u53d6\u5f97\u4f30\u503c\u8207\u516c\u958b\u8cc7\u6599", "warn");
       $("valueRadarHeroBadge").innerHTML = [heroFact("\u50f9\u503c\u96f7\u9054 \u8f09\u5165\u4e2d", "warn")].join("");
       $("valueScoreCards").innerHTML = `<div class="value-card"><b>\u50f9\u503c\u8a55\u5206</b><strong>\u8f09\u5165\u4e2d</strong><p>\u6b63\u5728\u53d6\u5f97\u4f30\u503c\u3001\u73fe\u91d1\u6d41\u3001\u6210\u9577\u8207\u5c0f\u8cc7\u5206\u6578\u3002</p></div>`;
       $("chaseRiskPanel").innerHTML = "";
@@ -3047,7 +3241,9 @@
       if (activeData?.code !== requestCode) return;
       if (scoreResult.status === "fulfilled") {
         renderValueScore(scoreResult.value);
+        setHomeStatus("value", "\u5df2\u5b8c\u6210", "\u50f9\u503c\u96f7\u9054\u5df2\u66f4\u65b0", "active");
       } else {
+        setHomeStatus("value", "\u66ab\u4e0d\u53ef\u7528", "\u8cc7\u6599\u4f86\u6e90\u672a\u56de\u50b3", "bear");
         $("valueRadarHeroBadge").innerHTML = [heroFact("\u50f9\u503c\u96f7\u9054 \u4e0d\u53ef\u7528", "bear")].join("");
         $("valueScoreCards").innerHTML = `<div class="value-card"><b>\u50f9\u503c\u8a55\u5206</b><strong>\u6682\u6642\u4e0d\u53ef\u7528</strong><p>${escapeHtml(scoreResult.reason?.message || "\u8cc7\u6599\u4f86\u6e90\u66ab\u6642\u5931\u6557\u3002")}</p></div>`;
       }
@@ -3374,9 +3570,9 @@
       destroyCharts();
       const q = data.quote || {};
       const name = q.name || fallbackNames[data.code] || `\u80a1\u7968 ${data.code}`;
-      $("headline").textContent = `${data.code} ${name}`;
-      $("subtitle").textContent = `${q.market || "\u53f0\u80a1"} | ${new Date().toLocaleDateString("zh-TW")} | \u6536\u76e4 ${fmt(data.close)} | \u56de\u6a94\u6a5f\u7387 ${data.pullback}%`;
+      setDefaultHeroCopy();
       renderHeroFacts(data, name);
+      renderHomeDecision(data, name);
       const previousClose = data.closes[data.closes.length - 2];
       const priceChange = Number.isFinite(q.change)
         ? Number(q.change)
@@ -3462,8 +3658,18 @@
 
     function showLoadError(code, message) {
       destroyCharts();
-      $("headline").textContent = "\u53f0\u80a1\u6280\u8853\u5206\u6790 Agent";
-      $("subtitle").textContent = "\u8cc7\u6599\u66ab\u6642\u7121\u6cd5\u8f09\u5165\uff0c\u4f46\u9801\u9762\u672c\u8eab\u6b63\u5e38\u3002\u8acb\u7a0d\u5f8c\u91cd\u8dd1\uff0c\u6216\u6539\u8f38\u5165\u5176\u4ed6\u80a1\u7968\u4ee3\u78bc\u3002";
+      setDefaultHeroCopy();
+      setHomeStatus("stock", code || "\u5f85\u8f38\u5165", "\u8acb\u78ba\u8a8d\u4ee3\u78bc\u6216\u540d\u7a31", "bear");
+      setHomeStatus("quote", "\u8f09\u5165\u5931\u6557", "\u5f8c\u7aef\u672a\u56de\u50b3\u53ef\u7528\u5831\u50f9", "bear");
+      setHomeStatus("analysis", "\u672a\u5b8c\u6210", "\u9700\u5148\u53d6\u5f97\u5831\u50f9", "bear");
+      setHomeStatus("value", "\u672a\u555f\u52d5", "\u5831\u50f9\u5931\u6557\u6642\u4e0d\u555f\u52d5", "bear");
+      $("homeDecisionCards").innerHTML = [
+        homeDecisionCard("\u4eca\u65e5\u7d50\u8ad6", "\u8f09\u5165\u5931\u6557", "\u7121\u6cd5\u5efa\u7acb\u4eca\u65e5\u5224\u65b7\u3002", "bear"),
+        homeDecisionCard("\u8ffd\u9ad8\u98a8\u96aa", "--", "\u5831\u50f9\u5931\u6557\uff0c\u4e0d\u63a8\u6e2c\u98a8\u96aa\u3002"),
+        homeDecisionCard("\u652f\u6490", "--", "\u7f3a\u5c11\u65e5\u7dda\u8cc7\u6599\u3002"),
+        homeDecisionCard("\u58d3\u529b", "--", "\u7f3a\u5c11\u65e5\u7dda\u8cc7\u6599\u3002"),
+        homeDecisionCard("\u5931\u6548", "--", "\u5c1a\u672a\u5efa\u7acb\u689d\u4ef6\u3002"),
+      ].join("");
       $("heroFacts").innerHTML = "";
       $("valueRadarHeroBadge").innerHTML = "";
       $("metrics").innerHTML = "";
@@ -3505,8 +3711,9 @@
       destroyCharts();
       activeData = null;
       activeValueScore = null;
-      $("headline").textContent = "\u53f0\u80a1\u6280\u8853\u5206\u6790 Agent";
-      $("subtitle").textContent = "\u8acb\u5148\u8f38\u5165\u80a1\u7968\u4ee3\u78bc\u6216\u540d\u7a31\uff0c\u7cfb\u7d71\u624d\u6703\u8f09\u5165\u5831\u50f9\u3001\u56de\u6a94\u6a5f\u7387\u3001\u6280\u8853\u7d50\u69cb\u8207\u65b0\u805e\u3002";
+      setDefaultHeroCopy();
+      resetHomeStatuses();
+      renderHomeDecisionWaiting();
       $("heroFacts").innerHTML = [
         ["\u80a1\u7968", "\u5f85\u8f38\u5165"],
         ["\u5831\u50f9", "\u5f85\u8f09\u5165"],
@@ -3541,9 +3748,16 @@
         return;
       }
       $("stockInput").value = code;
+      setDefaultHeroCopy();
+      setHomeStatus("stock", code, "\u6b63\u5728\u89e3\u6790\u8f38\u5165", "active");
+      setHomeStatus("quote", "\u8f09\u5165\u4e2d", "\u6b63\u5728\u5411\u5f8c\u7aef\u53d6\u5f97\u5831\u50f9", "warn");
+      setHomeStatus("analysis", "\u5f85\u5831\u50f9", "\u5831\u50f9\u5b8c\u6210\u5f8c\u555f\u52d5", "warn");
+      setHomeStatus("value", "\u5f85\u5831\u50f9", "\u5831\u50f9\u5b8c\u6210\u5f8c\u555f\u52d5", "warn");
       $("status").textContent = `\u6b63\u5728\u8f09\u5165 ${code} \u6700\u65b0\u8cc7\u6599...`;
       try {
         const quote = await getQuote(code);
+        setHomeStatus("quote", "\u5df2\u53d6\u5f97", "\u958b\u59cb\u8a08\u7b97\u652f\u6490\u58d3\u529b", "active");
+        setHomeStatus("analysis", "\u8a08\u7b97\u4e2d", "\u5efa\u7acb\u4eca\u65e5\u64cd\u4f5c\u5224\u65b7", "warn");
         render(analyze(code, quote));
       } catch (err) {
         console.error(err);
@@ -3553,6 +3767,15 @@
 
     $("stockForm").addEventListener("submit", (e) => { e.preventDefault(); run($("stockInput").value); });
     $("resetBtn").addEventListener("click", () => run($("stockInput").value));
+    $("openWorkspaceBtn").addEventListener("click", () => openWorkspace("stock"));
+    $("backHomeBtn").addEventListener("click", () => {
+      $("workspaceShell").hidden = true;
+      $("homeDecisionPanel").scrollIntoView({ behavior:"smooth", block:"start" });
+    });
+    $("homeDoorway").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-doorway-view]");
+      if (btn) openWorkspace(btn.dataset.doorwayView || "stock");
+    });
     $("quickCodes").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-code]");
       if (btn) run(btn.dataset.code);
@@ -3634,6 +3857,7 @@
     if (adminEnabled) {
       $("adminTab").hidden = false;
     }
+    setupReveal();
     renderPortfolioHealth();
     const initialCode = new URLSearchParams(location.search).get("code");
     if (initialCode) run(initialCode);
