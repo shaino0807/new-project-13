@@ -8,21 +8,21 @@ Steps:
 1. Navigate to the app without a `code` query parameter.
 2. Wait for the page to fully load.
 
-Expected: The hero shows 台股波段觀察分析庫 with the 股票 / 報價 / 分析 / 價值雷達 data-status tiles in 待輸入 / 待載入 / 待啟動 states. It must not show 2330 台積電, a default close price, or a default pullback probability before user input.
+Expected: The hero shows 台股波段觀察分析庫 with the 股票 / 報價 / 分析 / 價值雷達 data-status tiles in 待輸入 / 待載入 / 待啟動 states. It must not show 2330 台積電, a default close price, or a default pullback probability before user input. The ranking area independently reads the latest completed snapshot or clearly shows that no completed snapshot exists plus the 搜尋排行榜 button; it must not silently start a new FinMind scoring batch.
 
-## Test 2 - Visitor can analyze 2344
+## Test 2 - Visitor can analyze a stock by company name
 Viewport: desktop
 Description: Verifies a shared visitor can enter a stock name or code and receive backend quote analysis on the same page.
 
 Steps:
 1. Navigate to the app.
-2. Type 2344 in the stock code or name field.
-3. Click the analysis button.
+2. Type 鴻海 in the stock code or name field and wait for the visible stock directory list below the field.
+3. Click the candidate labeled 2317 鴻海, then click the analysis button.
 4. Wait for the homepage decision cards to show 今日結論, 追高風險, 支撐, 壓力, and 失效.
 5. Click the deep-workspace arrow and confirm 股票深度頁 is visible.
 6. Change monthly budget to 5000.
 
-Expected: The page shows 2344 with stock metrics, technical sections, value radar, allocation guide, fundamentals, news, charts, and source/status text. Budget-dependent sections update without reloading the page.
+Expected: The name resolves to 2317 鴻海 using the Taiwan company directory, then the page shows stock metrics, technical sections, value radar, allocation guide, fundamentals, news, charts, and source/status text. An ambiguous partial name must show candidates instead of silently selecting a company. Budget-dependent sections update without reloading the page.
 
 ## Test 3 - Agent answers a follow-up question
 Viewport: desktop
@@ -30,10 +30,11 @@ Description: Verifies the Agent panel answers questions about the currently load
 
 Steps:
 1. Navigate to the app.
-2. Run 2330 analysis.
-3. Click the deep-workspace arrow and open 股票深度頁.
-4. Click an Agent prompt.
-5. Wait for the Agent response.
+2. In the top hero stock code/name field, enter 2330 and click 分析; do not click the Dino doorway card.
+3. After the homepage decision cards appear, click the button labeled 進入深度 →.
+4. Explicitly click the 股票深度頁 workspace tab, then click the 互動分析 Agent shortcut at the top of that page.
+5. Confirm the page scrolls to the section titled 互動分析 Agent, then click the 支撐壓力 prompt inside that section.
+6. Wait for the Agent response.
 
 Expected: The Agent log shows the user's question and an Agent answer with key points, actions, watchlist items, and a disclaimer.
 
@@ -45,10 +46,10 @@ Steps:
 1. Navigate to the app.
 2. Type 2454 in the stock code field.
 3. Click the analysis button.
-4. Click the deep-workspace arrow.
-5. Scroll through the page.
+4. Wait until the 2454 home decision cards contain results, then click the button labeled 進入深度 → (not an unlabeled doorway arrow).
+5. Wait until the stock deep page is visible, click 技術圖表, then inspect the six adjacent named chart panels and their accessible canvas labels.
 
-Expected: Price, MACD, RSI/KD, volume, Bollinger, support/resistance charts, probability summary, value radar, chase-risk warning, fundamentals, news, strategy, and Agent sections are visible.
+Expected: The visible stock deep page contains non-empty Price, MACD, RSI/KD, volume, Bollinger, and support/resistance chart canvases. Probability summary, value radar, chase-risk warning, fundamentals, news, strategy, and Agent sections are also visible. Do not fail merely because a chart is below the initial viewport; scroll to it and wait for Chart.js rendering.
 
 ## Test 5 - Mobile page remains readable
 Viewport: mobile
@@ -62,16 +63,17 @@ Steps:
 
 Expected: The input, metric cards, charts, ranking tables, risk tables, and Agent panel are readable. Dense tables scroll horizontally inside their panels when needed.
 
-## Test 6 - News relation module handles external data
+## Test 6 - Macro news degrades without fabrication
 Viewport: desktop
-Description: Verifies latest-news analysis is visible and does not block quote analysis if an external source is unavailable.
+Description: Verifies the macro/news panel distinguishes readable evidence from an unavailable upstream source without blocking Dino.
 
 Steps:
 1. Navigate to the app.
-2. Run 2330 analysis.
-3. Observe the latest-news section.
+2. From the homepage doorway cards, click Dino K棒判斷策略 exactly once and wait until the workspace heading 1. 總經與最新新聞 is visible; do not click a hidden or already-active workspace tab.
+3. Wait for that section to either render news cards or show its explicit timeout/unavailable state, independently of any stock search.
+4. If news cards are present, inspect their source links and whether the UI says article content or only RSS material was available. If no cards are present, inspect the unavailable explanation instead and stop.
 
-Expected: The section lists related news or clearly states timeout/unavailable status. It must not label a timeout as no news, and the rest of the page remains usable.
+Expected: The section lists macro news or clearly states timeout/unavailable status. Every returned item has a traceable source and explicitly distinguishes original-article reading from RSS-only evidence; RSS-only material cannot independently drive a conclusion. When no item is returned, the UI shows the upstream limitation and does not invent a news item, source, or Evidence ID. The screener remains independently usable.
 
 ## Test 7 - Fundamentals load for a new stock
 Viewport: desktop
@@ -84,18 +86,19 @@ Steps:
 4. Use the same top stock code/name field and the analysis button, not the Agent question button, to run 2344 analysis.
 5. Wait for fundamentals to update to the new stock.
 
-Expected: Available rows include numeric values and source dates. Unavailable upstream data is marked clearly instead of inventing values.
+Expected: Available rows include numeric values and source dates. In Dino deep analysis, the fundamental section shows period, current value, comparison value, change, interpretation, and source for monthly revenue, EPS/profitability, cash flow, and balance-sheet evidence. A complete fundamental conclusion requires the visible minimum evidence gate; unavailable upstream data is marked clearly instead of inventing values.
 
-## Test 8 - Upstream data failures stay isolated
+## Test 8 - Ranking refresh uses a completed evidence-gated snapshot
 Viewport: desktop
 Description: Verifies quota, authorization, maintenance, or upstream failures do not break existing features.
 
 Steps:
-1. Navigate to the app.
-2. Run any valid stock analysis.
-3. Observe the page after quote and supplemental requests finish.
+1. Navigate to the app without entering a stock.
+2. Click the homepage doorway card 股票深度頁, then scroll to 小資價值雷達 where the 搜尋排行榜 button and ranking tabs are located.
+3. Observe the ranking snapshot status and click 搜尋排行榜 once. Wait until the job ID has been created and at least the company directory or first persisted batch status is visible; do not wait for all 1,984 stocks in this browser test.
+4. Switch between 最被低估, 最被高估, 現金流最佳, and 增長最佳 ranking tabs.
 
-Expected: If supplemental data is unavailable or partial, the section shows a clear message. Quote metrics, charts, news, strategy, and Agent remain usable.
+Expected: One refresh creates a versioned persistent background job before external directory work, then loads the complete TWSE and TPEx company directory while keeping emerging stocks in a separate scope. The directory is not marked ready unless TWSE has at least 900 companies, TPEx has at least 700, and the combined listed/OTC scope has at least 1,700; a partial 891-stock TPEx-only response remains retryable and must not start scoring. It advances four-stock resumable batches with an 18-second per-stock ceiling, stores every successful stock in persistent common-feature batches, and visibly reports phase/processed/total/scored/failed counts. A slow stock is queued for retry instead of making the whole request exceed the gateway timeout. The browser remains usable and the latest completed snapshot stays visible while the full-market job continues. Minimum evidence is actively completed from request-deduplicated official financial, monthly-revenue, and TWSE/TPEx valuation caches instead of spending FinMind calls on repeated authorization failures. Reloading or a transient network failure reuses the same job ID for up to seven days, retries only unresolved stocks, and continues missing batches. A new snapshot is published only after at least 95% of the full requested scope has persisted usable common features and every displayed item has a quote date, score, source, reason, and invalidation condition. Switching ranking tabs reads snapshots and does not rescore or require a stock search.
 
 ## Test 9 - 0050 uses ETF-specific handling
 Viewport: desktop
@@ -108,26 +111,17 @@ Steps:
 
 Expected: ETF-specific rows, NAV/component data or clear official-source unavailable messages are shown. Company financial-statement placeholders must not be used for ETF-only fields.
 
-## Test 10 - Dino swing workflow is customer-facing and skill-aligned
-Viewport: desktop and mobile
-Description: Verifies Dino focuses on usable customer output rather than internal calculation steps.
+## Test 10 - Dino starts resilient staged analysis
+Viewport: desktop
+Description: Verifies Dino exposes evidence-gated market context and starts a persistent deep-analysis job without an immediate network failure.
 
 Steps:
-1. Navigate to the app.
-2. Click the homepage Dino K棒判斷策略 doorway card or arrow into the deep workspace.
-3. Click the Dino K棒判斷策略 tab if it is not already active.
-4. Wait for macro/news, 1-3 month screener, thematic tables, and source panel to load.
-5. Select at least one candidate stock or enter 2330, 2454 manually.
-6. Click 進入深度流程.
-7. Wait for the deep workflow result.
-8. Return to 股票深度頁 and run 2330.
+1. Navigate to the app and click the homepage Dino K棒判斷策略 doorway card once.
+2. Wait for macro/news, the 1-3 month screener, source panel, and either a complete thematic snapshot or the explicit full-market-building state.
+3. Confirm the legacy 16-stock theme rearrangement is not shown as a full-market result while the first valid snapshot is building.
+4. Enter the inactive/nonexistent code 2334 in the manual selection field and click 進入深度流程.
+5. Confirm the page says that 2334 is not a currently valid listed/OTC target and does not create a job, call the AI report chain, or render repeated Yahoo 404/N/A tables.
+6. Replace it with 2330 and click 進入深度流程.
+7. Wait until the persistent job progress panel shows a job ID or a named analysis stage; do not wait for every research stage or the final LLM report in this smoke test.
 
-Expected: The internal workflow explainer and 重新產生候選 button are not visible to normal users. The macro/news block explains article-specific key points, reasons, market impact, screening use, source, horizon, and whether article content or RSS summary was read. The screener table shows detailed 1-3 month setup descriptions, main evidence, research invalidation line with conditions, and priority. The thematic block shows five tables with readable business/theme notes and clear units for institutional net buy. The source panel shows full-market universe count plus the scored seed count. Deep analysis requires selected or manually entered stock codes and does not break the original stock analysis page.
-
-Additional expected orchestration check: Deep analysis calls the project-local skill orchestration report endpoint, shows the orchestrator/specialist contract, shows the generated report draft, and keeps the original stock analysis page usable after returning from Dino.
-
-Additional expected LLM report check: The deep report request sends a compact macro/screener prompt context, the backend attempts the fixed OpenAI Responses prompt pipeline when enabled, the UI shows the LLM status/model or a missing-secret/error fallback, and the final Traditional Chinese Markdown report still renders when the LLM layer is unavailable.
-
-Additional expected reader/pipeline check: Dino deep analysis creates a background report job with POST /api/swing/orchestrated-report/jobs, polls GET /api/swing/orchestrated-report/jobs/:id, exposes the sequential specialist chain (macro, screener, gate, valuation, fundamental, technical, K-line, final synthesis), shows job progress while running, then renders the Markdown report reader first and presents the prior tables as evidence-provider tables rather than the final analysis report.
-
-Additional expected selected-scope check: The frontend job request sends buildSwingPromptDigestLite(codes), the backend sanitizes promptContext again by selectedCodes, every specialist prompt states the selectedCodes-only hard scope plus stage-specific section rules, and final synthesis is rejected or retried if it mentions non-selected Taiwan ticker codes or known observation-universe company names.
+Expected: Dino can load before a stock is selected. A completed thematic snapshot contains five independently scanned full-market Top 10 tables with coverage, reason, date/source, and invalidation fields; otherwise an honest building state is shown. The numeric input path validates current market membership instead of accepting any four digits. Invalid 2334 is rejected before job creation with a clear Chinese explanation. Starting valid 2330 creates or resumes the staged report job and displays progress instead of an immediate Network Error. A stage is shown as completed only when its required structured evidence passes; unavailable evidence cannot be labeled generated merely because AI prose exists. Long valuation, fundamental, technical, signal, and synthesis stages continue through the resumable job contract outside this short browser smoke test.

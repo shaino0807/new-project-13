@@ -105,6 +105,24 @@ const SWING_SKILL_BUNDLE = {
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const SWING_REPORT_JOB_TABLE = "swing_report_jobs_v1";
+const RANKING_SNAPSHOT_TABLE = "ranking_snapshots_v1";
+const RANKING_REGISTRY_TABLE = "ranking_registry_v1";
+const RANKING_REFRESH_JOB_TABLE = "ranking_refresh_jobs_v1";
+const MARKET_FEATURE_BATCH_TABLE = "market_feature_batches_v2";
+const MARKET_THEME_SNAPSHOT_TABLE = "market_theme_snapshots_v2";
+const MARKET_THEME_REGISTRY_TABLE = "market_theme_registry_v2";
+const RANKING_MIN_SUCCESS_RATIO = 0.8;
+const RANKING_JOB_BATCH_SIZE = 4;
+const RANKING_JOB_TOP_PER_MODE = 40;
+const RANKING_SNAPSHOT_ITEM_LIMIT = 80;
+const MARKET_FEATURE_SCHEMA_VERSION = "market-features-v4";
+const MARKET_SCAN_MIN_SUCCESS_RATIO = 0.95;
+const MARKET_UNIVERSE_MIN_TWSE_COUNT = 900;
+const MARKET_UNIVERSE_MIN_TPEX_COUNT = 700;
+const MARKET_UNIVERSE_MIN_LISTED_OTC_COUNT = 1700;
+const MARKET_THEME_TOP_LIMIT = 10;
+const MARKET_NEWS_THEME_LIMIT = 5;
+const MARKET_NEWS_MIN_SOURCE_COUNT = 2;
 let openAiApiKeyPromise: Promise<string> | null = null;
 let openAiReportModelPromise: Promise<string> | null = null;
 
@@ -143,7 +161,7 @@ async function fetchJson(url: string, timeoutMs = 9000) {
   }
 }
 
-async function fetchText(url: string, timeoutMs = 9000) {
+async function fetchTextResponse(url: string, timeoutMs = 9000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -155,10 +173,18 @@ async function fetchText(url: string, timeoutMs = 9000) {
       },
     });
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    return await res.text();
+    return {
+      text: await res.text(),
+      finalUrl: res.url || url,
+      contentType: res.headers.get("content-type") || "",
+    };
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function fetchText(url: string, timeoutMs = 9000) {
+  return (await fetchTextResponse(url, timeoutMs)).text;
 }
 
 type FinMindRow = Record<string, any>;
@@ -455,6 +481,32 @@ function buildFinancialSummary(rows: FinMindRow[]) {
     "IncomeFromContinuingOperations",
     "EquityAttributableToOwnersOfParent",
   ]);
+  const grossProfit = statementValue(latest.rows, ["GrossProfit"]);
+  const operatingIncome = statementValue(latest.rows, ["OperatingIncome"]);
+  const marginPct = (value: number | null, base: number | null) => value !== null && base
+    ? round((value / base) * 100, 2)
+    : null;
+  const recentPeriods = periods.slice(-4).map(period => {
+    const periodRevenue = statementValue(period.rows, ["Revenue", "OperatingRevenue"]);
+    const periodGrossProfit = statementValue(period.rows, ["GrossProfit"]);
+    const periodOperatingIncome = statementValue(period.rows, ["OperatingIncome"]);
+    const periodNetIncome = statementValue(period.rows, [
+      "IncomeAfterTaxes",
+      "IncomeFromContinuingOperations",
+      "EquityAttributableToOwnersOfParent",
+    ]);
+    return {
+      date: period.date,
+      revenue: periodRevenue,
+      eps: statementValue(period.rows, ["EPS", "BasicEarningsLossPerShare"]),
+      grossProfit: periodGrossProfit,
+      operatingIncome: periodOperatingIncome,
+      netIncome: periodNetIncome,
+      grossMargin: marginPct(periodGrossProfit, periodRevenue),
+      operatingMargin: marginPct(periodOperatingIncome, periodRevenue),
+      netMargin: marginPct(periodNetIncome, periodRevenue),
+    };
+  });
   return {
     date: latest.date,
     eps,
@@ -465,8 +517,12 @@ function buildFinancialSummary(rows: FinMindRow[]) {
     previousYearRevenue: previousRevenue,
     pretaxIncome: statementValue(latest.rows, ["IncomeBeforeTax", "PreTaxIncome", "ProfitBeforeTax"]),
     netIncome,
-    operatingIncome: statementValue(latest.rows, ["OperatingIncome"]),
-    grossProfit: statementValue(latest.rows, ["GrossProfit"]),
+    operatingIncome,
+    grossProfit,
+    grossMargin: marginPct(grossProfit, revenue),
+    operatingMargin: marginPct(operatingIncome, revenue),
+    netMargin: marginPct(netIncome, revenue),
+    recentPeriods,
   };
 }
 
@@ -553,9 +609,16 @@ function buildValuationSummary(rows: FinMindRow[]) {
   ]);
   return {
     date: latest.date,
+    source: "FinMind TaiwanStockPER",
+    sourceUrl: FINMIND_SOURCE_URL,
     per,
     pbr,
     dividendYield,
+    fieldStatus: {
+      per: per !== null && per > 0 ? "available" : "not_applicable",
+      pbr: pbr !== null && pbr > 0 ? "available" : "unavailable",
+      dividendYield: dividendYield !== null && dividendYield >= 0 ? "available" : "unavailable",
+    },
     history: {
       startDate: datedRows[0]?.date || null,
       endDate: datedRows[datedRows.length - 1]?.date || null,
@@ -572,7 +635,8 @@ function buildValuationSummary(rows: FinMindRow[]) {
 }
 
 function buildCashFlowSummary(rows: FinMindRow[]) {
-  const latest = rowsForLatestDate(rows);
+  const periods = statementPeriods(rows);
+  const latest = periods[periods.length - 1]?.rows || [];
   if (!latest.length) return null;
   const operatingCashFlow = statementValue(latest, [
     "CashFlowsFromOperatingActivities",
@@ -586,24 +650,43 @@ function buildCashFlowSummary(rows: FinMindRow[]) {
     ? round(operatingCashFlow + capitalExpenditure, 0)
     : null;
   return {
-    date: latest[0].date,
+    date: periods[periods.length - 1]?.date || latest[0].date,
     operatingCashFlow,
     capitalExpenditure,
     freeCashFlow,
     cashChange: statementValue(latest, ["CashBalancesIncrease"]),
     endingCash: statementValue(latest, ["CashBalancesEndOfPeriod"]),
+    recentPeriods: periods.slice(-4).map(period => {
+      const periodOperatingCashFlow = statementValue(period.rows, [
+        "CashFlowsFromOperatingActivities",
+        "NetCashInflowFromOperatingActivities",
+      ]);
+      const periodCapitalExpenditure = statementValue(period.rows, [
+        "PropertyAndPlantAndEquipment",
+        "AcquisitionOfPropertyPlantAndEquipment",
+      ]);
+      return {
+        date: period.date,
+        operatingCashFlow: periodOperatingCashFlow,
+        capitalExpenditure: periodCapitalExpenditure,
+        freeCashFlow: periodOperatingCashFlow !== null && periodCapitalExpenditure !== null
+          ? round(periodOperatingCashFlow + periodCapitalExpenditure, 0)
+          : null,
+      };
+    }),
   };
 }
 
 function buildBalanceSheetSummary(rows: FinMindRow[]) {
-  const latest = rowsForLatestDate(rows);
+  const periods = statementPeriods(rows);
+  const latest = periods[periods.length - 1]?.rows || [];
   if (!latest.length) return null;
   const totalAssets = statementValue(latest, ["TotalAssets"]);
   const liabilities = statementValue(latest, ["Liabilities", "TotalLiabilities"]);
   const currentAssets = statementValue(latest, ["CurrentAssets"]);
   const currentLiabilities = statementValue(latest, ["CurrentLiabilities"]);
   return {
-    date: latest[0].date,
+    date: periods[periods.length - 1]?.date || latest[0].date,
     totalAssets,
     liabilities,
     liabilityRatio: totalAssets && liabilities !== null ? round((liabilities / totalAssets) * 100, 2) : null,
@@ -612,6 +695,20 @@ function buildBalanceSheetSummary(rows: FinMindRow[]) {
     currentRatio: currentLiabilities && currentAssets !== null ? round(currentAssets / currentLiabilities, 2) : null,
     cashAndEquivalents: statementValue(latest, ["CashAndCashEquivalents"]),
     equity: statementValue(latest, ["Equity", "EquityAttributableToOwnersOfParent"]),
+    recentPeriods: periods.slice(-4).map(period => {
+      const periodAssets = statementValue(period.rows, ["TotalAssets"]);
+      const periodLiabilities = statementValue(period.rows, ["Liabilities", "TotalLiabilities"]);
+      const periodCurrentAssets = statementValue(period.rows, ["CurrentAssets"]);
+      const periodCurrentLiabilities = statementValue(period.rows, ["CurrentLiabilities"]);
+      return {
+        date: period.date,
+        totalAssets: periodAssets,
+        liabilities: periodLiabilities,
+        equity: statementValue(period.rows, ["Equity", "EquityAttributableToOwnersOfParent"]),
+        liabilityRatio: periodAssets && periodLiabilities !== null ? round((periodLiabilities / periodAssets) * 100, 2) : null,
+        currentRatio: periodCurrentLiabilities && periodCurrentAssets !== null ? round(periodCurrentAssets / periodCurrentLiabilities, 2) : null,
+      };
+    }),
   };
 }
 
@@ -1120,21 +1217,25 @@ async function loadEtfProfile(code: string, name: string, options: { fast?: bool
   return profile;
 }
 
-async function loadFundamentals(code: string, options: { fast?: boolean } = {}) {
+async function loadFundamentals(code: string, options: { fast?: boolean; evidenceMinimum?: boolean } = {}) {
   const authenticated = Boolean(await getFinMindToken());
   let infoResult: FinMindDatasetResult | null = null;
-  try {
-    infoResult = await requestFinMindDataset("TaiwanStockInfo", code, options.fast ? 5000 : 12000);
-  } catch {
-    infoResult = null;
+  if (!options.evidenceMinimum) {
+    try {
+      infoResult = await requestFinMindDataset("TaiwanStockInfo", code, options.fast ? 5000 : 12000);
+    } catch {
+      infoResult = null;
+    }
   }
   const infoRows = infoResult?.data || [];
   const stockInfo = latestRow(infoRows);
   const isEtf = infoRows.some(row =>
     String(row?.industry_category || "").trim().toUpperCase().includes("ETF")
   ) || code === "0050";
-  const assetType = isEtf ? "etf" : "stock";
-  const datasets = options.fast
+  const assetType = options.evidenceMinimum ? "stock" : isEtf ? "etf" : "stock";
+  const datasets = options.evidenceMinimum
+    ? []
+    : options.fast
     ? assetType === "etf"
       ? [
           "TaiwanStockInstitutionalInvestorsBuySellWide",
@@ -1205,7 +1306,8 @@ async function loadFundamentals(code: string, options: { fast?: boolean } = {}) 
   };
   let officialFinancialFallback: Awaited<ReturnType<typeof loadOfficialFinancialFallback>> | null = null;
   let officialRevenueFallback: Awaited<ReturnType<typeof loadOfficialRevenueFallback>> | null = null;
-  if (!options.fast && assetType === "stock" && (!data.profitability || !data.balanceSheet)) {
+  let officialValuationFallback: Awaited<ReturnType<typeof loadOfficialValuationFallback>> | null = null;
+  if ((!options.fast || options.evidenceMinimum) && assetType === "stock" && (!data.profitability || !data.balanceSheet)) {
     try {
       officialFinancialFallback = await loadOfficialFinancialFallback(code);
       if (!data.profitability && officialFinancialFallback.profitability) {
@@ -1226,7 +1328,7 @@ async function loadFundamentals(code: string, options: { fast?: boolean } = {}) 
       });
     }
   }
-  if (!options.fast && assetType === "stock" && !data.revenue) {
+  if ((!options.fast || options.evidenceMinimum) && assetType === "stock" && !data.revenue) {
     try {
       officialRevenueFallback = await loadOfficialRevenueFallback(code);
       if (officialRevenueFallback?.revenue) {
@@ -1242,7 +1344,49 @@ async function loadFundamentals(code: string, options: { fast?: boolean } = {}) 
       });
     }
   }
-  const fallbackApplied = Boolean(officialFinancialFallback?.profitability || officialFinancialFallback?.balanceSheet || officialRevenueFallback?.revenue);
+  const valuationNeedsFallback = assetType === "stock" && (!data.valuation ||
+    !Number.isFinite(data.valuation.per) ||
+    !Number.isFinite(data.valuation.pbr) ||
+    !Number.isFinite(data.valuation.dividendYield));
+  if (valuationNeedsFallback) {
+    try {
+      officialValuationFallback = await loadOfficialValuationFallback(code);
+      if (officialValuationFallback?.valuation) {
+        const official = officialValuationFallback.valuation;
+        const current: any = data.valuation || {};
+        data.valuation = {
+          ...official,
+          ...current,
+          date: current.date || official.date,
+          per: Number.isFinite(current.per) && current.per > 0 ? current.per : official.per,
+          pbr: Number.isFinite(current.pbr) && current.pbr > 0 ? current.pbr : official.pbr,
+          dividendYield: Number.isFinite(current.dividendYield) && current.dividendYield >= 0
+            ? current.dividendYield
+            : official.dividendYield,
+          source: current.source || official.source,
+          sourceUrl: current.sourceUrl || official.sourceUrl,
+          fieldStatus: {
+            ...(official.fieldStatus || {}),
+            ...(current.fieldStatus || {}),
+          },
+        } as any;
+        const valuationFetchedAt = Date.parse(officialValuationFallback.fetchedAt);
+        if (Number.isFinite(valuationFetchedAt)) fetchedTimes.push(valuationFetchedAt);
+      }
+    } catch (err) {
+      errors.push({
+        dataset: "TWSE/TPEx official valuation fallback",
+        code: "upstream_error",
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  const fallbackApplied = Boolean(
+    officialFinancialFallback?.profitability ||
+    officialFinancialFallback?.balanceSheet ||
+    officialRevenueFallback?.revenue ||
+    officialValuationFallback?.valuation
+  );
   const cachedDataStatus = [...cachedDatasets];
   const staleDataStatus = [...staleDatasets];
   if (fallbackApplied) {
@@ -1254,6 +1398,7 @@ async function loadFundamentals(code: string, options: { fast?: boolean } = {}) 
       cachedDataStatus.push("TWSE monthly revenue fallback");
       staleDataStatus.push("TWSE monthly revenue fallback");
     }
+    if (officialValuationFallback?.valuation) cachedDataStatus.push("TWSE/TPEx official valuation fallback");
   }
   const hasActualData = Boolean(
     data.profitability ||
@@ -1275,8 +1420,10 @@ async function loadFundamentals(code: string, options: { fast?: boolean } = {}) 
     assetType,
     source: fallbackApplied ? "FinMind + official fallback" : "FinMind",
     sourceUrl: FINMIND_SOURCE_URL,
-    fallbackSourceUrl: fallbackApplied ? officialFinancialFallback?.sourceUrl || officialRevenueFallback?.sourceUrl || null : null,
-    requestMode: authenticated ? "token" : "anonymous",
+    fallbackSourceUrl: fallbackApplied
+      ? officialValuationFallback?.valuation?.sourceUrl || officialFinancialFallback?.sourceUrl || officialRevenueFallback?.sourceUrl || null
+      : null,
+    requestMode: options.evidenceMinimum ? "official-ranking-minimum" : authenticated ? "token" : "anonymous",
     generatedAt: new Date().toISOString(),
     fetchedAt: fetchedTimes.length ? new Date(Math.max(...fetchedTimes)).toISOString() : null,
     cache: {
@@ -1652,46 +1799,67 @@ function pickMopsValue(row: Record<string, string> | null, includes: string[]) {
   return null;
 }
 
+const MOPS_HTML_CACHE_TTL_MS = 30 * 60 * 1000;
+const mopsFinancialHtmlCache = new Map<string, { text: string; fetchedAt: number }>();
+const mopsFinancialHtmlInflight = new Map<string, Promise<string | null>>();
+
+async function fetchMopsFinancialHtml(endpoint: "ajax_t163sb04" | "ajax_t163sb05", typek: string, year: number, season: number) {
+  const key = `${endpoint}:${typek}:${year}:${season}`;
+  const cached = mopsFinancialHtmlCache.get(key);
+  if (cached && Date.now() - cached.fetchedAt < MOPS_HTML_CACHE_TTL_MS) return cached.text;
+  const inflight = mopsFinancialHtmlInflight.get(key);
+  if (inflight) return inflight;
+  const request = (async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    try {
+      const body = new URLSearchParams({
+        encodeURIComponent: "1",
+        step: "1",
+        firstin: "1",
+        off: "1",
+        TYPEK: typek,
+        year: String(year),
+        season: String(season),
+      });
+      const res = await fetch(`${MOPS_FINANCIAL_URL}/${endpoint}`, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          Accept: "text/html,application/xhtml+xml",
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body,
+      });
+      const text = await res.text();
+      if (!res.ok) return null;
+      mopsFinancialHtmlCache.set(key, { text, fetchedAt: Date.now() });
+      return text;
+    } finally {
+      clearTimeout(timer);
+      mopsFinancialHtmlInflight.delete(key);
+    }
+  })();
+  mopsFinancialHtmlInflight.set(key, request);
+  return request;
+}
+
 async function fetchMopsFinancialRow(endpoint: "ajax_t163sb04" | "ajax_t163sb05", code: string) {
   const typeCandidates = ["sii", "otc", "rotc"];
   const quarterCandidates = currentRocQuarterCandidates();
   for (const { year, season } of quarterCandidates) {
     const settled = await Promise.allSettled(typeCandidates.map(async typek => {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 6000);
-      try {
-        const body = new URLSearchParams({
-          encodeURIComponent: "1",
-          step: "1",
-          firstin: "1",
-          off: "1",
-          TYPEK: typek,
-          year: String(year),
-          season: String(season),
-        });
-        const res = await fetch(`${MOPS_FINANCIAL_URL}/${endpoint}`, {
-          method: "POST",
-          signal: controller.signal,
-          headers: {
-            Accept: "text/html,application/xhtml+xml",
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body,
-        });
-        const text = await res.text();
-        if (!res.ok || !text.includes(code)) return null;
-        const mapped = mapMopsRow(text, code);
-        if (mapped) {
-          return {
-            row: mapped,
-            typek,
-            date: `${year + 1911}Q${season}`,
-          };
-        }
-        return null;
-      } finally {
-        clearTimeout(timer);
+      const text = await fetchMopsFinancialHtml(endpoint, typek, year, season);
+      if (!text || !text.includes(code)) return null;
+      const mapped = mapMopsRow(text, code);
+      if (mapped) {
+        return {
+          row: mapped,
+          typek,
+          date: `${year + 1911}Q${season}`,
+        };
       }
+      return null;
     }));
     for (const result of settled) {
       if (result.status === "fulfilled" && result.value) {
@@ -1702,7 +1870,156 @@ async function fetchMopsFinancialRow(endpoint: "ajax_t163sb04" | "ajax_t163sb05"
   return null;
 }
 
+const OFFICIAL_STATEMENT_CATEGORIES = ["ci", "mim", "basi", "fh", "ins", "bd"];
+const officialStatementCache = new Map<string, { rows: any[]; fetchedAt: number }>();
+const officialStatementInflight = new Map<string, Promise<any[]>>();
+
+async function requestOfficialStatementRows(market: "TWSE" | "TPEx", statement: "income" | "balance", category: string) {
+  const path = market === "TWSE"
+    ? `https://openapi.twse.com.tw/v1/opendata/t187ap${statement === "income" ? "06" : "07"}_L_${category}`
+    : `https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap${statement === "income" ? "06" : "07"}_O_${category}`;
+  const cached = officialStatementCache.get(path);
+  if (cached && Date.now() - cached.fetchedAt < MOPS_HTML_CACHE_TTL_MS) return cached.rows;
+  const inflight = officialStatementInflight.get(path);
+  if (inflight) return inflight;
+  const request = (async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const res = await fetch(path, { signal: controller.signal, headers: { Accept: "application/json" } });
+      const text = await res.text();
+      if (!res.ok) throw new Error(`Official ${market} ${statement} statement HTTP ${res.status}: ${text.slice(0, 120)}`);
+      const rows = JSON.parse(text);
+      if (!Array.isArray(rows)) throw new Error(`Official ${market} ${statement} statement returned a non-array payload`);
+      officialStatementCache.set(path, { rows, fetchedAt: Date.now() });
+      return rows;
+    } finally {
+      clearTimeout(timer);
+      officialStatementInflight.delete(path);
+    }
+  })();
+  officialStatementInflight.set(path, request);
+  return request;
+}
+
+function officialStatementCode(row: any) {
+  return cleanCode(rowValue(row, ["SecuritiesCompanyCode", "公司代號"]));
+}
+
+function officialStatementPeriod(row: any) {
+  const yearRaw = rowValue(row, ["Year", "年度"]);
+  const seasonRaw = rowValue(row, ["Season", "季別"]);
+  const year = Number(yearRaw) + (Number(yearRaw) < 1911 ? 1911 : 0);
+  return Number.isFinite(year) && seasonRaw ? `${year}Q${Number(seasonRaw)}` : null;
+}
+
+function pickStatementValue(row: Record<string, string> | null, includes: string[], excludes: string[] = []) {
+  if (!row) return null;
+  for (const [key, value] of Object.entries(row)) {
+    if (includes.every(part => key.includes(part)) && !excludes.some(part => key.includes(part))) {
+      const parsed = parseMopsNumeric(value);
+      if (parsed !== null) return parsed;
+    }
+  }
+  return null;
+}
+
+async function loadOfficialStructuredFinancialFallback(code: string) {
+  const valuationIndex = await requestOfficialValuationIndex().catch(() => null);
+  const market = valuationIndex?.rows.get(code)?.market === "TPEx" ? "TPEx" : "TWSE";
+  const categoryOrder = swingGroup(code) === "financial"
+    ? ["fh", "basi", "ins", "bd", "mim", "ci"]
+    : OFFICIAL_STATEMENT_CATEGORIES;
+  for (const category of categoryOrder) {
+    const settled = await Promise.allSettled([
+      requestOfficialStatementRows(market, "income", category),
+      requestOfficialStatementRows(market, "balance", category),
+    ]);
+    const incomeRows = settled[0].status === "fulfilled" ? settled[0].value : [];
+    const balanceRows = settled[1].status === "fulfilled" ? settled[1].value : [];
+    const incomeRow = incomeRows.find((row: any) => officialStatementCode(row) === code) || null;
+    const balanceRow = balanceRows.find((row: any) => officialStatementCode(row) === code) || null;
+    if (!incomeRow && !balanceRow) continue;
+    const sourceUrl = market === "TWSE"
+      ? "https://openapi.twse.com.tw/"
+      : "https://www.tpex.org.tw/openapi/";
+    const source = `${market} OpenAPI structured financial statements`;
+    const revenue = pickStatementValue(incomeRow, ["營業收入"]);
+    const grossProfit = pickStatementValue(incomeRow, ["營業毛利"]);
+    const operatingIncome = pickStatementValue(incomeRow, ["營業利益"]);
+    const pretaxIncome = pickStatementValue(incomeRow, ["稅前", "淨利"]);
+    const netIncome = pickStatementValue(incomeRow, ["本期淨利"]);
+    const eps = pickStatementValue(incomeRow, ["基本每股盈餘"]);
+    const margin = (value: number | null) => value !== null && revenue ? round((value / revenue) * 100, 2) : null;
+    const totalAssets = pickStatementValue(balanceRow, ["資產總"]);
+    const liabilities = pickStatementValue(balanceRow, ["負債總"]);
+    const equity = pickStatementValue(balanceRow, ["權益總"]);
+    const currentAssets = pickStatementValue(balanceRow, ["流動資產"], ["非流動"]);
+    const currentLiabilities = pickStatementValue(balanceRow, ["流動負債"], ["非流動"]);
+    const incomePeriod = officialStatementPeriod(incomeRow);
+    const balancePeriod = officialStatementPeriod(balanceRow);
+    return {
+      source,
+      sourceUrl,
+      fetchedAt: new Date().toISOString(),
+      profitability: incomeRow ? {
+        date: incomePeriod,
+        source,
+        sourceUrl,
+        revenue,
+        operatingIncome,
+        pretaxIncome,
+        netIncome,
+        eps,
+        grossProfit,
+        grossMargin: margin(grossProfit),
+        operatingMargin: margin(operatingIncome),
+        netMargin: margin(netIncome),
+        revenueYoY: null,
+        epsYoY: null,
+        previousYearRevenue: null,
+        previousYearEps: null,
+        recentPeriods: [{
+          date: incomePeriod,
+          revenue,
+          eps,
+          grossProfit,
+          operatingIncome,
+          netIncome,
+          grossMargin: margin(grossProfit),
+          operatingMargin: margin(operatingIncome),
+          netMargin: margin(netIncome),
+        }],
+      } : null,
+      balanceSheet: balanceRow ? {
+        date: balancePeriod,
+        source,
+        sourceUrl,
+        totalAssets,
+        liabilities,
+        equity,
+        currentAssets,
+        currentLiabilities,
+        liabilityRatio: totalAssets && liabilities !== null ? round((liabilities / totalAssets) * 100, 2) : null,
+        currentRatio: currentLiabilities && currentAssets !== null ? round(currentAssets / currentLiabilities, 2) : null,
+        cashAndEquivalents: null,
+        recentPeriods: [{
+          date: balancePeriod,
+          totalAssets,
+          liabilities,
+          equity,
+          liabilityRatio: totalAssets && liabilities !== null ? round((liabilities / totalAssets) * 100, 2) : null,
+          currentRatio: currentLiabilities && currentAssets !== null ? round(currentAssets / currentLiabilities, 2) : null,
+        }],
+      } : null,
+    };
+  }
+  return null;
+}
+
 async function loadOfficialFinancialFallback(code: string) {
+  const structured = await loadOfficialStructuredFinancialFallback(code).catch(() => null);
+  if (structured?.profitability || structured?.balanceSheet) return structured;
   const [income, balance] = await Promise.all([
     fetchMopsFinancialRow("ajax_t163sb04", code),
     fetchMopsFinancialRow("ajax_t163sb05", code),
@@ -1724,6 +2041,8 @@ async function loadOfficialFinancialFallback(code: string) {
     profitability: income && [revenue, operatingIncome, pretaxIncome, netIncome, eps].some(value => value !== null)
       ? {
           date: income.date,
+          source: "TWSE/TPEx MOPS",
+          sourceUrl: "https://mops.twse.com.tw/mops/web/index",
           revenue,
           operatingIncome,
           pretaxIncome,
@@ -1736,6 +2055,8 @@ async function loadOfficialFinancialFallback(code: string) {
     balanceSheet: balance && [totalAssets, liabilities, equity].some(value => value !== null)
       ? {
           date: balance.date,
+          source: "TWSE/TPEx MOPS",
+          sourceUrl: "https://mops.twse.com.tw/mops/web/index",
           totalAssets,
           liabilities,
           equity,
@@ -1747,22 +2068,34 @@ async function loadOfficialFinancialFallback(code: string) {
   };
 }
 
+let officialMonthlyRevenueCache: { rows: Array<Record<string, string>>; fetchedAt: number } | null = null;
+let officialMonthlyRevenueInflight: Promise<Array<Record<string, string>>> | null = null;
+
 async function requestOfficialMonthlyRevenueRows() {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 7000);
-  try {
-    const res = await fetch("https://openapi.twse.com.tw/v1/opendata/t187ap05_L", {
-      signal: controller.signal,
-      headers: { Accept: "application/json" },
-    });
-    const text = await res.text();
-    if (!res.ok) throw new Error(`TWSE monthly revenue HTTP ${res.status}: ${text.slice(0, 120)}`);
-    const rows = JSON.parse(text);
-    if (!Array.isArray(rows)) throw new Error("TWSE monthly revenue returned a non-array payload");
-    return rows as Array<Record<string, string>>;
-  } finally {
-    clearTimeout(timer);
+  if (officialMonthlyRevenueCache && Date.now() - officialMonthlyRevenueCache.fetchedAt < MOPS_HTML_CACHE_TTL_MS) {
+    return officialMonthlyRevenueCache.rows;
   }
+  if (officialMonthlyRevenueInflight) return officialMonthlyRevenueInflight;
+  officialMonthlyRevenueInflight = (async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 7000);
+    try {
+      const res = await fetch("https://openapi.twse.com.tw/v1/opendata/t187ap05_L", {
+        signal: controller.signal,
+        headers: { Accept: "application/json" },
+      });
+      const text = await res.text();
+      if (!res.ok) throw new Error(`TWSE monthly revenue HTTP ${res.status}: ${text.slice(0, 120)}`);
+      const rows = JSON.parse(text);
+      if (!Array.isArray(rows)) throw new Error("TWSE monthly revenue returned a non-array payload");
+      officialMonthlyRevenueCache = { rows, fetchedAt: Date.now() };
+      return rows as Array<Record<string, string>>;
+    } finally {
+      clearTimeout(timer);
+      officialMonthlyRevenueInflight = null;
+    }
+  })();
+  return officialMonthlyRevenueInflight;
 }
 
 function officialRevenueDate(value: unknown) {
@@ -1788,6 +2121,8 @@ async function loadOfficialRevenueFallback(code: string) {
     fetchedAt: new Date().toISOString(),
     revenue: {
       date,
+      source: "TWSE OpenAPI monthly revenue",
+      sourceUrl: "https://openapi.twse.com.tw/v1/opendata/t187ap05_L",
       createTime: row["\u51FA\u8868\u65E5\u671F"] || null,
       revenue,
       yoy,
@@ -1806,9 +2141,105 @@ async function loadOfficialRevenueFallback(code: string) {
   };
 }
 
+const OFFICIAL_VALUATION_ENDPOINTS = [
+  {
+    market: "TWSE",
+    source: "TWSE BWIBBU_ALL",
+    sourceUrl: "https://openapi.twse.com.tw/v1/exchangeReport/BWIBBU_ALL",
+  },
+  {
+    market: "TPEx",
+    source: "TPEx mainboard peratio analysis",
+    sourceUrl: "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_peratio_analysis",
+  },
+];
+let officialValuationCache: { rows: Map<string, any>; fetchedAt: number; warnings: string[] } | null = null;
+let officialValuationInflight: Promise<{ rows: Map<string, any>; fetchedAt: number; warnings: string[] }> | null = null;
+
+function officialValuationDate(value: unknown) {
+  const raw = String(value || "").replace(/[^0-9]/g, "");
+  if (raw.length !== 7) return null;
+  const year = Number(raw.slice(0, 3)) + 1911;
+  return `${year}-${raw.slice(3, 5)}-${raw.slice(5, 7)}`;
+}
+
+function officialValuationNumber(value: unknown, allowZero = false) {
+  const raw = String(value ?? "").replace(/,/g, "").trim();
+  if (!raw || /^N\/?A$/i.test(raw) || raw === "-") return null;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || (allowZero ? parsed < 0 : parsed <= 0)) return null;
+  return parsed;
+}
+
+async function requestOfficialValuationIndex() {
+  if (officialValuationCache && Date.now() - officialValuationCache.fetchedAt < MOPS_HTML_CACHE_TTL_MS) {
+    return officialValuationCache;
+  }
+  if (officialValuationInflight) return officialValuationInflight;
+  officialValuationInflight = (async () => {
+    const settled = await Promise.allSettled(OFFICIAL_VALUATION_ENDPOINTS.map(async endpoint => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 7000);
+      try {
+        const res = await fetch(endpoint.sourceUrl, { signal: controller.signal, headers: { Accept: "application/json" } });
+        const text = await res.text();
+        if (!res.ok) throw new Error(`${endpoint.source} HTTP ${res.status}: ${text.slice(0, 120)}`);
+        const rows = JSON.parse(text);
+        if (!Array.isArray(rows)) throw new Error(`${endpoint.source} returned a non-array payload`);
+        return { endpoint, rows };
+      } finally {
+        clearTimeout(timer);
+      }
+    }));
+    const rows = new Map<string, any>();
+    const warnings: string[] = [];
+    settled.forEach(result => {
+      if (result.status === "rejected") {
+        warnings.push(result.reason instanceof Error ? result.reason.message : String(result.reason));
+        return;
+      }
+      const { endpoint, rows: marketRows } = result.value;
+      marketRows.forEach((row: any) => {
+        const code = cleanCode(row.Code || row.SecuritiesCompanyCode || "");
+        if (!/^\d{4}$/.test(code)) return;
+        const rawPer = row.PEratio ?? row.PriceEarningRatio;
+        const rawPbr = row.PBratio ?? row.PriceBookRatio;
+        const rawYield = row.DividendYield ?? row.YieldRatio;
+        rows.set(code, {
+          date: officialValuationDate(row.Date),
+          per: officialValuationNumber(rawPer),
+          pbr: officialValuationNumber(rawPbr),
+          dividendYield: officialValuationNumber(rawYield, true),
+          market: endpoint.market,
+          source: endpoint.source,
+          sourceUrl: endpoint.sourceUrl,
+          fieldStatus: {
+            per: officialValuationNumber(rawPer) !== null ? "available" : "not_applicable",
+            pbr: officialValuationNumber(rawPbr) !== null ? "available" : "unavailable",
+            dividendYield: officialValuationNumber(rawYield, true) !== null ? "available" : "unavailable",
+          },
+        });
+      });
+    });
+    if (!rows.size) throw new Error(`Official valuation endpoints returned no usable rows. ${warnings.join(" | ")}`);
+    const result = { rows, fetchedAt: Date.now(), warnings };
+    officialValuationCache = result;
+    return result;
+  })().finally(() => {
+    officialValuationInflight = null;
+  });
+  return officialValuationInflight;
+}
+
+async function loadOfficialValuationFallback(code: string) {
+  const index = await requestOfficialValuationIndex();
+  const valuation = index.rows.get(code) || null;
+  return valuation ? { valuation, warnings: index.warnings, fetchedAt: new Date(index.fetchedAt).toISOString() } : null;
+}
+
 async function requestOfficialCompanyRows(endpoint: typeof OFFICIAL_TAIWAN_COMPANY_UNIVERSE_ENDPOINTS[number]) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 12000);
+  const timer = setTimeout(() => controller.abort(), 25000);
   try {
     const res = await fetch(endpoint.url, { signal: controller.signal, headers: { Accept: "application/json" } });
     const text = await res.text();
@@ -3050,7 +3481,7 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
   };
 }
 
-async function loadValueScore(code: string, options: { fast?: boolean } = {}) {
+async function loadValueScore(code: string, options: { fast?: boolean; evidenceMinimum?: boolean } = {}) {
   const [quote, fundamentals] = await Promise.all([
     loadQuote(code),
     loadFundamentals(code, options),
@@ -4269,17 +4700,22 @@ async function enrichMacroNewsItem(item: NewsItem, topic: string, sourceUrl: str
   let articleReadStatus = "\u50c5\u8b80\u53d6 RSS \u6a19\u984c\u8207\u6458\u8981";
   let publisherUrl = "";
   try {
-    const html = await fetchText(item.link, 9000);
-    const extracted = extractArticleText(html);
-    const isGoogleWrapper = /news\.google\.com/i.test(item.link) || isGoogleNewsWrapperText(extracted);
+    const firstResponse = await fetchTextResponse(item.link, 9000);
+    const extracted = extractArticleText(firstResponse.text);
+    const isGoogleWrapper = /news\.google\.com/i.test(item.link) || /news\.google\.com/i.test(firstResponse.finalUrl) || isGoogleNewsWrapperText(extracted);
     if (isGoogleWrapper) {
-      publisherUrl = "";
-      articleText = "";
+      publisherUrl = extractPublisherUrlFromGoogleNewsHtml(firstResponse.text);
+      if (publisherUrl) {
+        const publisherResponse = await fetchTextResponse(publisherUrl, 9000);
+        publisherUrl = publisherResponse.finalUrl || publisherUrl;
+        articleText = extractArticleText(publisherResponse.text);
+      }
     } else {
+      publisherUrl = firstResponse.finalUrl || item.link;
       articleText = extracted;
     }
-    if (articleText.length >= 120 && !isGoogleNewsWrapperText(articleText)) {
-      articleReadStatus = publisherUrl ? "\u5df2\u8b80\u53d6\u539f\u59cb\u65b0\u805e\u9801\u5167\u6587\u6458\u8981" : "\u5df2\u8b80\u53d6\u65b0\u805e\u9801\u5167\u6587\u6458\u8981";
+    if (articleText.length >= 250 && !isGoogleNewsWrapperText(articleText)) {
+      articleReadStatus = "\u5df2\u8b80\u53d6\u539f\u59cb\u65b0\u805e\u9801\u5167\u6587\u6458\u8981";
     } else {
       articleText = "";
       articleReadStatus = publisherUrl
@@ -4289,11 +4725,24 @@ async function enrichMacroNewsItem(item: NewsItem, topic: string, sourceUrl: str
   } catch (err) {
     articleReadStatus = "\u65b0\u805e\u9801\u5167\u6587\u66ab\u6642\u7121\u6cd5\u8b80\u53d6\uff0c\u6539\u7528 RSS \u6a19\u984c\u8207\u6458\u8981";
   }
+  const classified = classifyMacroNews(item, topic, articleText, articleReadStatus);
+  const evidencePassed = articleText.length >= 250 && classified.articleEvidence.length >= 2;
   return {
-    ...classifyMacroNews(item, topic, articleText, articleReadStatus),
+    ...classified,
+    evidenceId: stableEvidenceId(["macro-news", topic, classified.title, item.publishedAt]),
     sourceUrl,
     publisherUrl,
     link: publisherUrl || item.link,
+    readDepth: evidencePassed ? "article" : "rss",
+    evidenceGate: {
+      passed: evidencePassed,
+      status: evidencePassed ? "article_read" : "rss_only",
+      articleCharacterCount: articleText.length,
+      evidencePointCount: classified.articleEvidence.length,
+      minimumArticleCharacters: 250,
+      minimumEvidencePoints: 2,
+      limitation: evidencePassed ? "" : "Original article content did not pass the reading-depth gate; this item remains background evidence and cannot independently drive a conclusion.",
+    },
   };
 }
 
@@ -4424,6 +4873,130 @@ function topicCounts(items: any[]) {
 
 function newsEvidence(items: any[], limit = 2) {
   return items.slice(0, limit).map((item: any) => `${item.topic || "\u65b0\u805e"}\uff1a\u300c${item.title || item.conclusion || "\u4f86\u6e90\u6458\u8981"}\u300d`);
+}
+
+const DYNAMIC_NEWS_THEME_CATALOG = [
+  { key: "ai-semiconductor", label: "AI / \u534a\u5c0e\u9ad4", query: "\u53f0\u7063 AI \u534a\u5c0e\u9ad4 \u4f3a\u670d\u5668 \u6676\u7247 \u4f9b\u61c9\u93c8", industryKeywords: ["\u534a\u5c0e\u9ad4", "\u96fb\u5b50\u96f6\u7d44\u4ef6", "\u96fb\u8166\u53ca\u9031\u908a"] },
+  { key: "robotics", label: "\u6a5f\u5668\u4eba / \u81ea\u52d5\u5316", query: "\u53f0\u7063 \u6a5f\u5668\u4eba \u81ea\u52d5\u5316 \u5de5\u696d\u96fb\u8166 \u4f9b\u61c9\u93c8", industryKeywords: ["\u96fb\u6a5f\u6a5f\u68b0", "\u96fb\u8166\u53ca\u9031\u908a", "\u96fb\u5b50\u96f6\u7d44\u4ef6"] },
+  { key: "defense", label: "\u570b\u9632 / \u822a\u592a / \u7121\u4eba\u6a5f", query: "\u53f0\u7063 \u570b\u9632 \u822a\u592a \u7121\u4eba\u6a5f \u8ecd\u5de5 \u4f9b\u61c9\u93c8", industryKeywords: ["\u822a\u904b", "\u96fb\u6a5f\u6a5f\u68b0", "\u5176\u4ed6"] },
+  { key: "power-energy", label: "\u96fb\u7db2 / \u80fd\u6e90 / \u5132\u80fd", query: "\u53f0\u7063 \u96fb\u7db2 \u91cd\u96fb \u5132\u80fd \u518d\u751f\u80fd\u6e90 \u653f\u7b56", industryKeywords: ["\u96fb\u6a5f\u6a5f\u68b0", "\u6cb9\u96fb\u71c3\u6c23", "\u5149\u96fb"] },
+  { key: "biotech", label: "\u751f\u6280 / \u91ab\u7642", query: "\u53f0\u7063 \u751f\u6280 \u65b0\u85e5 \u91ab\u7642 \u81e8\u5e8a \u5065\u4fdd \u4f9b\u61c9\u93c8", industryKeywords: ["\u751f\u6280\u91ab\u7642", "\u5316\u5b78"] },
+  { key: "shipping-materials", label: "\u822a\u904b / \u539f\u7269\u6599", query: "\u53f0\u7063 \u822a\u904b \u904b\u50f9 \u92fc\u9435 \u5851\u5316 \u539f\u7269\u6599", industryKeywords: ["\u822a\u904b", "\u92fc\u9435", "\u5851\u81a0", "\u6c34\u6ce5"] },
+  { key: "finance-rates", label: "\u91d1\u878d / \u5229\u7387", query: "\u53f0\u7063 \u91d1\u878d\u80a1 \u9280\u884c \u4fdd\u96aa \u5229\u7387 \u6b96\u5229\u7387", industryKeywords: ["\u91d1\u878d\u4fdd\u96aa"] },
+  { key: "consumer-travel", label: "\u6d88\u8cbb / \u89c0\u5149", query: "\u53f0\u7063 \u6d88\u8cbb \u89c0\u5149 \u98ef\u5e97 \u9910\u98f2 \u96f6\u552e \u65c5\u904a", industryKeywords: ["\u89c0\u5149\u9910\u65c5", "\u8cbf\u6613\u767e\u8ca8", "\u98df\u54c1"] },
+  { key: "infrastructure", label: "\u516c\u5171\u5efa\u8a2d / \u653f\u7b56", query: "\u53f0\u7063 \u516c\u5171\u5efa\u8a2d \u653f\u7b56 \u9810\u7b97 \u5de5\u7a0b \u71df\u5efa", industryKeywords: ["\u5efa\u6750\u71df\u9020", "\u6c34\u6ce5", "\u96fb\u6a5f\u6a5f\u68b0"] },
+  { key: "tariff-supply-chain", label: "\u95dc\u7a05 / \u4f9b\u61c9\u93c8\u8f49\u79fb", query: "\u53f0\u7063 \u95dc\u7a05 \u4f9b\u61c9\u93c8 \u8f49\u55ae \u7f8e\u570b \u51fa\u53e3", industryKeywords: ["\u8cbf\u6613\u767e\u8ca8", "\u96fb\u5b50\u96f6\u7d44\u4ef6", "\u96fb\u8166\u53ca\u9031\u908a"] },
+];
+
+async function loadDynamicNewsTopicEvidence(topic: any) {
+  const sourceUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(topic.query)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
+  const xml = await fetchText(sourceUrl, 12000);
+  const rssItems = parseRssItems(xml).slice(0, 3);
+  const results = await settleWithLimit(rssItems, 2, item => enrichMacroNewsItem(item, topic.label, sourceUrl));
+  return {
+    key: topic.key,
+    label: topic.label,
+    query: topic.query,
+    industryKeywords: topic.industryKeywords,
+    sourceUrl,
+    collectedAt: new Date().toISOString(),
+    items: results.flatMap(result => result.status === "fulfilled" ? [result.value] : []),
+    errors: results.flatMap(result => result.status === "rejected" ? [result.reason instanceof Error ? result.reason.message : String(result.reason)] : []),
+  };
+}
+
+function newsSourceDomain(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function buildDynamicNewsThemeTables(topicEvidence: any[], stockItems: any[], companies: any[]) {
+  const companyByCode = new Map(companies.map(company => [cleanCode(company.code), company]));
+  const limitations: string[] = [];
+  const tables = topicEvidence.map(topic => {
+    const traceableItems = (topic.items || []).filter((item: any) => item?.link && item?.title);
+    const sourceDomains = [...new Set(traceableItems.map((item: any) => newsSourceDomain(item.publisherUrl || item.link)).filter(Boolean))];
+    const articleReadItems = traceableItems.filter((item: any) => item?.evidenceGate?.passed && item?.readDepth === "article");
+    const topicPassed = sourceDomains.length >= MARKET_NEWS_MIN_SOURCE_COUNT && articleReadItems.length >= 1;
+    const evidenceText = traceableItems.map((item: any) => [item.title, item.snippet, ...(item.articleEvidence || [])].join(" ")).join(" ");
+    const related = stockItems.flatMap(item => {
+      const company: any = companyByCode.get(cleanCode(item.code));
+      if (!company) return [];
+      const companyName = String(company.name || item.name || "").trim();
+      const directMention = companyName.length >= 2 && evidenceText.includes(companyName)
+        || new RegExp(`(^|\\D)${String(item.code).replace(/\D/g, "")}($|\\D)`).test(evidenceText);
+      const industry = String(company.industry || "");
+      const industryKeyword = (topic.industryKeywords || []).find((keyword: string) => industry.includes(keyword)) || "";
+      if (!directMention && !industryKeyword) return [];
+      const metrics = marketFeatureMetrics(item);
+      const liquidityScore = metrics.latestTradingValue !== null ? Math.min(20, Math.log10(Math.max(1, metrics.latestTradingValue)) * 10) : 0;
+      const trendScore = metrics.closeVsMa20Pct !== null && metrics.closeVsMa20Pct >= 0 ? Math.min(15, metrics.closeVsMa20Pct) : 0;
+      const relationScore = directMention ? 70 : 45;
+      const score = clampScore(relationScore + liquidityScore + trendScore);
+      const relationEvidence = directMention
+        ? `\u5df2\u8b80\u53d6\u7684\u65b0\u805e\u8b49\u64da\u76f4\u63a5\u63d0\u53ca ${companyName || item.code}\u3002`
+        : `\u516c\u958b\u4e0a\u5e02\u6ac3\u516c\u53f8\u76ee\u9304\u5c07\u8a72\u516c\u53f8\u5206\u985e\u70ba\u300c${industry}\u300d\uff0c\u8207\u4e3b\u984c\u95dc\u9375\u5b57\u300c${industryKeyword}\u300d\u76f8\u7b26\u3002`;
+      return [{
+        code: item.code,
+        name: item.name,
+        close: metrics.close,
+        score: round(score, 1),
+        relationType: directMention ? "direct_article_mention" : "official_industry_match",
+        relationEvidence,
+        dataDate: metrics.date,
+        source: metrics.source,
+        sourceUrl: metrics.sourceUrl,
+        invalidationCondition: `\u65b0\u805e\u4e3b\u984c\u71b1\u5ea6\u6d88\u9000\u3001\u5f8c\u7e8c\u539f\u6587\u5426\u5b9a\u95dc\u806f\uff0c\u6216\u6536\u76e4\u8dcc\u7834 ${metrics.invalidation !== null ? round(metrics.invalidation, 2) : "20MA"}\u6642\u5931\u6548\u3002`,
+        latestTradingValue100m: metrics.latestTradingValue !== null ? round(metrics.latestTradingValue, 2) : null,
+      }];
+    }).sort((a, b) => b.score - a.score || String(a.code).localeCompare(String(b.code)));
+    const rows = topicPassed ? related.slice(0, MARKET_THEME_TOP_LIMIT).map((row, index) => ({ rank: index + 1, ...row })) : [];
+    if (!topicPassed) limitations.push(`${topic.label}: fewer than two independent traceable sources or no original article passed the reading-depth gate.`);
+    return {
+      key: topic.key,
+      title: topic.label,
+      rows,
+      scanMeta: {
+        scannedCount: stockItems.length,
+        relatedCount: related.length,
+        traceableSourceCount: sourceDomains.length,
+        originalArticleReadCount: articleReadItems.length,
+      },
+      evidence: traceableItems.slice(0, 4).map((item: any) => ({
+        evidenceId: item.evidenceId,
+        title: item.title,
+        link: item.link,
+        publisher: item.publisher,
+        publishedAt: item.publishedAt,
+        readDepth: item.readDepth,
+        evidenceGate: item.evidenceGate,
+      })),
+      evidenceGate: {
+        passed: topicPassed,
+        requiredTraceableSourceCount: MARKET_NEWS_MIN_SOURCE_COUNT,
+        actualTraceableSourceCount: sourceDomains.length,
+        originalArticleReadCount: articleReadItems.length,
+        limitation: topicPassed ? "" : limitations[limitations.length - 1],
+      },
+    };
+  });
+  const passedTables = tables
+    .filter(table => table.evidenceGate.passed && table.rows.length > 0)
+    .sort((a, b) => (b.evidenceGate.originalArticleReadCount - a.evidenceGate.originalArticleReadCount) || (b.rows.length - a.rows.length))
+    .slice(0, MARKET_NEWS_THEME_LIMIT);
+  return {
+    tables: passedTables,
+    evidenceGate: {
+      passed: passedTables.length > 0,
+      publishedThemeCount: passedTables.length,
+      maximumThemeCount: MARKET_NEWS_THEME_LIMIT,
+      requiredSourceCountPerTheme: MARKET_NEWS_MIN_SOURCE_COUNT,
+    },
+    limitations,
+  };
 }
 
 function buildMacroBriefing(riskScore: number, labelZh: string, macroNews: any, assets: any = {}) {
@@ -4748,6 +5321,7 @@ function buildAnalysis(series: DailyBar[], week52High: number, week52Low: number
   const atrNow = lastFinite(atr14);
   const atrPctNow = Number.isFinite(atrNow) && close > 0 ? round((atrNow / close) * 100, 2) : NaN;
   const ma20Now = lastFinite(ma20);
+  const ma20FiveDaysAgo = ma20.length >= 6 ? ma20[ma20.length - 6] : NaN;
   const ma60Now = lastFinite(ma60);
   const ma120Now = lastFinite(ma120);
   const gap120 = Number.isFinite(ma120Now) ? ((close / ma120Now) - 1) * 100 : 0;
@@ -4789,6 +5363,7 @@ function buildAnalysis(series: DailyBar[], week52High: number, week52Low: number
       ma5: lastFinite(ma5),
       ma10: lastFinite(ma10),
       ma20: ma20Now,
+      ma20FiveDaysAgo: Number.isFinite(ma20FiveDaysAgo) ? round(ma20FiveDaysAgo) : NaN,
       ma60: ma60Now,
       ma120: ma120Now,
       rsi14: rsiNow,
@@ -4949,6 +5524,46 @@ function parseSwingCodes(value: unknown, fallback: string[] = []) {
     ? raw.split(/[,\s]+/).map(cleanCode).filter(code => /^\d{4,6}$/.test(code))
     : fallback;
   return [...new Set(codes)].slice(0, 6);
+}
+
+class InvalidSwingCodesError extends Error {
+  invalidCodes: string[];
+
+  constructor(invalidCodes: string[]) {
+    super(`找不到目前有效的上市、上櫃或支援標的：${invalidCodes.join(", ")}。請確認代碼或改用股票名稱搜尋。`);
+    this.name = "InvalidSwingCodesError";
+    this.invalidCodes = invalidCodes;
+  }
+}
+
+async function validateSwingCodes(codes: string[]) {
+  const universe: any = await loadTaiwanCompanyUniverse();
+  const activeCodes = new Set((universe.companies || []).map((company: any) => cleanCode(company.code)));
+  // Keep the explicitly supported ETF set available even though company-profile APIs exclude funds.
+  TAIWAN_SCREENING_UNIVERSE.forEach(item => activeCodes.add(cleanCode(item.code)));
+  const invalidCodes = codes.filter(code => !activeCodes.has(cleanCode(code)));
+  if (invalidCodes.length) throw new InvalidSwingCodesError(invalidCodes);
+  return {
+    ok: true,
+    codes,
+    universeVersion: universe.version || TAIWAN_COMPANY_UNIVERSE_VERSION,
+    universeUpdatedAt: universe.generatedAt || universe.fetchedAt || null,
+  };
+}
+
+function swingRouteError(prefix: string, err: unknown) {
+  if (err instanceof InvalidSwingCodesError) {
+    return json({
+      ok: false,
+      errorCode: "INVALID_OR_INACTIVE_STOCK_CODE",
+      invalidCodes: err.invalidCodes,
+      message: err.message,
+    }, 422);
+  }
+  return json({
+    ok: false,
+    message: `${prefix}: ${err instanceof Error ? err.message : String(err)}`,
+  }, 502);
 }
 
 function swingGroup(code: string) {
@@ -5278,6 +5893,212 @@ function buildSwingThemeTables(candidates: any[], stockItems: ValueScore[]) {
   ];
 }
 
+function finiteNumber(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function clampScore(value: number, minimum = 0, maximum = 100) {
+  return Math.max(minimum, Math.min(maximum, value));
+}
+
+function marketFeatureMetrics(item: any) {
+  const latest = item?.technicalSnapshot?.latest || {};
+  const levels = item?.technicalSnapshot?.levels || {};
+  const profitability = item?.fundamentals?.data?.profitability || {};
+  const revenue = item?.fundamentals?.data?.revenue || {};
+  const valuation = item?.fundamentals?.data?.valuation || {};
+  const institutional = item?.fundamentals?.data?.institutional || {};
+  const close = finiteNumber(item?.close ?? latest.close);
+  const volume = finiteNumber(item?.volume);
+  const volumeRatio = finiteNumber(latest.volumeRatio);
+  const ma20 = finiteNumber(latest.ma20);
+  const ma20FiveDaysAgo = finiteNumber(latest.ma20FiveDaysAgo);
+  const ma60 = finiteNumber(latest.ma60);
+  const rsi14 = finiteNumber(latest.rsi14);
+  const latestTradingValue = close !== null && volume !== null ? (close * volume) / 100000000 : null;
+  const average20TradingValue = latestTradingValue !== null && volumeRatio !== null && volumeRatio > 0
+    ? latestTradingValue / volumeRatio
+    : null;
+  const closeVsMa20Pct = close !== null && ma20 !== null && ma20 > 0 ? ((close / ma20) - 1) * 100 : null;
+  const ma20Slope5dPct = ma20 !== null && ma20FiveDaysAgo !== null && ma20FiveDaysAgo > 0
+    ? ((ma20 / ma20FiveDaysAgo) - 1) * 100
+    : null;
+  const support = finiteNumber(levels.supportMid ?? levels.supportShort);
+  const invalidation = [support, ma20].filter((value): value is number => value !== null && value > 0)
+    .sort((a, b) => b - a)[0] ?? null;
+  const sourceUrl = item?.fundamentals?.sourceUrl || item?.fundamentals?.fallbackSourceUrl || FINMIND_SOURCE_URL;
+  return {
+    close,
+    volume,
+    volumeRatio,
+    ma20,
+    ma20FiveDaysAgo,
+    ma60,
+    rsi14,
+    latestTradingValue,
+    average20TradingValue,
+    closeVsMa20Pct,
+    ma20Slope5dPct,
+    eps: finiteNumber(profitability.eps),
+    epsYoY: finiteNumber(profitability.epsYoY),
+    revenueYoY: finiteNumber(revenue.yoy ?? profitability.revenueYoY),
+    foreignNetBuy: finiteNumber(institutional.totalNet),
+    dividendYield: finiteNumber(valuation.dividendYield),
+    per: finiteNumber(valuation.per),
+    pbr: finiteNumber(valuation.pbr),
+    invalidation,
+    date: item?.quoteDate || latest.date || item?.generatedAt || null,
+    source: [item?.source?.quote, item?.fundamentals?.source].filter(Boolean).join(" + ") || SCORE_SOURCE_NOTE,
+    sourceUrl,
+  };
+}
+
+function buildFullMarketThemeTables(stockItems: any[], universeMeta: any = {}) {
+  const scannedCount = Number(universeMeta.requestedCount || universeMeta.fullMarketCompanyCount || stockItems.length);
+  const scoredCount = stockItems.length;
+  const scanSuccessRatio = scannedCount > 0 ? scoredCount / scannedCount : 0;
+  const stocks = stockItems.filter(item => item?.professionalRating?.assetModel !== "etf");
+  const commonRow = (item: any, metrics: any, score: number, reason: string, invalidationCondition: string) => ({
+    code: item.code,
+    name: item.name,
+    close: metrics.close,
+    score: round(score, 1),
+    reason,
+    dataDate: metrics.date,
+    source: metrics.source,
+    sourceUrl: metrics.sourceUrl,
+    invalidationCondition,
+  });
+  const definitions = [
+    {
+      key: "hot",
+      title: "\u71b1\u9580\u5f37\u52e2\u80a1",
+      required: (m: any) => [m.latestTradingValue, m.volumeRatio, m.closeVsMa20Pct].every((value: any) => value !== null),
+      eligible: (m: any) => m.latestTradingValue >= 1 && m.volumeRatio >= 1 && m.closeVsMa20Pct >= 0,
+      score: (m: any) => clampScore(m.volumeRatio * 28 + Math.log10(Math.max(1, m.latestTradingValue)) * 18 + clampScore(m.closeVsMa20Pct, 0, 12) * 2),
+      row: (item: any, m: any, score: number) => ({
+        ...commonRow(item, m, score,
+          `\u6210\u4ea4\u503c ${round(m.latestTradingValue, 2)} \u5104\u5143\u3001\u91cf\u6bd4 ${round(m.volumeRatio, 2)}\u3001\u6536\u76e4\u9ad8\u65bc 20MA ${round(m.closeVsMa20Pct, 2)}%\u3002`,
+          `\u91cf\u6bd4\u964d\u81f3 1 \u4ee5\u4e0b\u3001\u6536\u76e4\u8dcc\u56de 20MA \u6216\u8dcc\u7834 ${m.invalidation !== null ? round(m.invalidation, 2) : "N/A"}\u3002`),
+        volumeRatio: round(m.volumeRatio, 2),
+        tradingValue100m: round(m.latestTradingValue, 2),
+        closeVsMa20Pct: round(m.closeVsMa20Pct, 2),
+      }),
+    },
+    {
+      key: "foreign-yield",
+      title: "\u5916\u8cc7\u8cb7\u8d85 / \u6b96\u5229\u7387",
+      required: (m: any) => [m.foreignNetBuy, m.dividendYield, m.latestTradingValue].every((value: any) => value !== null),
+      eligible: (m: any) => m.foreignNetBuy > 0 && m.dividendYield > 0 && m.latestTradingValue >= 0.5,
+      score: (m: any) => clampScore(Math.log10(Math.max(1, m.foreignNetBuy)) * 18 + clampScore(m.dividendYield, 0, 10) * 5 + Math.log10(Math.max(1, m.latestTradingValue)) * 12),
+      row: (item: any, m: any, score: number) => ({
+        ...commonRow(item, m, score,
+          `\u8fd1\u671f\u6cd5\u4eba\u6de8\u8cb7\u8d85 ${round(m.foreignNetBuy, 0)}\u3001\u6b96\u5229\u7387 ${round(m.dividendYield, 2)}%\u3001\u6210\u4ea4\u503c ${round(m.latestTradingValue, 2)} \u5104\u5143\u3002`,
+          `\u6cd5\u4eba\u8f49\u70ba\u6de8\u8ce3\u8d85\u3001\u6b96\u5229\u7387\u8cc7\u6599\u5931\u6548\u6216\u8dcc\u7834 ${m.invalidation !== null ? round(m.invalidation, 2) : "N/A"}\u3002`),
+        foreignNetBuy: round(m.foreignNetBuy, 0),
+        dividendYield: round(m.dividendYield, 2),
+        per: m.per !== null ? round(m.per, 2) : null,
+      }),
+    },
+    {
+      key: "eps-growth",
+      title: "EPS \u6210\u9577",
+      required: (m: any) => [m.eps, m.epsYoY, m.revenueYoY].every((value: any) => value !== null),
+      eligible: (m: any) => m.eps > 0 && m.epsYoY > 0 && m.revenueYoY > -10,
+      score: (m: any) => clampScore(clampScore(m.epsYoY, 0, 100) * 0.55 + clampScore(m.revenueYoY, -10, 60) * 0.35 + Math.log10(Math.max(1, m.latestTradingValue || 1)) * 10),
+      row: (item: any, m: any, score: number) => ({
+        ...commonRow(item, m, score,
+          `EPS ${round(m.eps, 2)}\u3001EPS YoY ${round(m.epsYoY, 2)}%\u3001\u71df\u6536 YoY ${round(m.revenueYoY, 2)}%\u3002`,
+          `EPS YoY \u8f49\u8ca0\u3001EPS \u8f49\u8ca0\u6216\u71df\u6536 YoY \u4f4e\u65bc -10%\u3002`),
+        eps: round(m.eps, 2),
+        epsYoY: round(m.epsYoY, 2),
+        revenueYoY: round(m.revenueYoY, 2),
+      }),
+    },
+    {
+      key: "trading-value",
+      title: "\u9ad8\u6210\u4ea4\u503c",
+      required: (m: any) => [m.latestTradingValue, m.average20TradingValue].every((value: any) => value !== null),
+      eligible: (m: any) => m.latestTradingValue >= 1 && m.average20TradingValue >= 0.5,
+      score: (m: any) => clampScore(Math.log10(Math.max(1, m.latestTradingValue)) * 45 + Math.log10(Math.max(1, m.average20TradingValue)) * 35 + Math.min(20, (m.volumeRatio || 0) * 8)),
+      row: (item: any, m: any, score: number) => ({
+        ...commonRow(item, m, score,
+          `\u6700\u65b0\u6210\u4ea4\u503c ${round(m.latestTradingValue, 2)} \u5104\u5143\u300120 \u65e5\u5e73\u5747\u4f30\u7b97 ${round(m.average20TradingValue, 2)} \u5104\u5143\u3002`,
+          `\u6700\u65b0\u6210\u4ea4\u503c\u4f4e\u65bc 1 \u5104\u5143\u6216 20 \u65e5\u5e73\u5747\u4f4e\u65bc 0.5 \u5104\u5143\u3002`),
+        tradingValue100m: round(m.latestTradingValue, 2),
+        average20TradingValue100m: round(m.average20TradingValue, 2),
+      }),
+    },
+    {
+      key: "ma20",
+      title: "20MA \u6280\u8853\u5f37\u52e2",
+      required: (m: any) => [m.close, m.ma20, m.ma20FiveDaysAgo, m.ma60, m.volumeRatio].every((value: any) => value !== null),
+      eligible: (m: any) => m.closeVsMa20Pct >= 0 && m.closeVsMa20Pct <= 15 && m.ma20Slope5dPct > 0 && m.ma20 >= m.ma60 && m.volumeRatio >= 0.8,
+      score: (m: any) => clampScore(m.ma20Slope5dPct * 12 + (15 - m.closeVsMa20Pct) * 2 + Math.min(25, m.volumeRatio * 12) + 20),
+      row: (item: any, m: any, score: number) => ({
+        ...commonRow(item, m, score,
+          `\u6536\u76e4\u9ad8\u65bc 20MA ${round(m.closeVsMa20Pct, 2)}%\u300120MA \u4e94\u65e5\u659c\u7387 ${round(m.ma20Slope5dPct, 2)}%\u3001\u91cf\u6bd4 ${round(m.volumeRatio, 2)}\u3002`,
+          `\u6536\u76e4\u8dcc\u7834 20MA ${round(m.ma20, 2)}\u300120MA \u659c\u7387\u8f49\u8ca0\u6216\u91cf\u6bd4\u4f4e\u65bc 0.8\u3002`),
+        ma20: round(m.ma20, 2),
+        ma20FiveDaysAgo: round(m.ma20FiveDaysAgo, 2),
+        ma20Slope5dPct: round(m.ma20Slope5dPct, 2),
+      }),
+    },
+  ];
+  const tables = definitions.map(definition => {
+    const evaluated = stocks.map(item => ({ item, metrics: marketFeatureMetrics(item) }));
+    const available = evaluated.filter(entry => definition.required(entry.metrics));
+    const eligible = available
+      .filter(entry => definition.eligible(entry.metrics))
+      .map(entry => ({ ...entry, score: definition.score(entry.metrics) }))
+      .sort((a, b) => b.score - a.score || String(a.item.code).localeCompare(String(b.item.code)));
+    const rows = eligible.slice(0, MARKET_THEME_TOP_LIMIT).map((entry, index) => ({
+      rank: index + 1,
+      ...definition.row(entry.item, entry.metrics, entry.score),
+    }));
+    const publishedRowEvidenceCoverage = rows.length
+      ? rows.filter(row => row.dataDate && row.source && row.reason && row.invalidationCondition).length / rows.length
+      : 0;
+    const passed = scanSuccessRatio >= MARKET_SCAN_MIN_SUCCESS_RATIO
+      && rows.length >= MARKET_THEME_TOP_LIMIT
+      && publishedRowEvidenceCoverage >= MARKET_SCAN_MIN_SUCCESS_RATIO;
+    return {
+      key: definition.key,
+      title: definition.title,
+      rows: passed ? rows : [],
+      previewRows: passed ? [] : rows,
+      scanMeta: {
+        scannedCount,
+        scoredCount,
+        requiredFieldAvailableCount: available.length,
+        eligibleCount: eligible.length,
+        marketFieldCoverage: scoredCount ? round((available.length / scoredCount) * 100, 2) : 0,
+        publishedRowEvidenceCoverage: round(publishedRowEvidenceCoverage * 100, 2),
+        requiredMinimum: MARKET_THEME_TOP_LIMIT,
+      },
+      evidenceGate: {
+        passed,
+        requiredScanSuccessRatio: MARKET_SCAN_MIN_SUCCESS_RATIO,
+        actualScanSuccessRatio: round(scanSuccessRatio, 4),
+        requiredPublishedRowEvidenceRatio: MARKET_SCAN_MIN_SUCCESS_RATIO,
+        actualPublishedRowEvidenceRatio: round(publishedRowEvidenceCoverage, 4),
+        limitation: passed ? "" : `Full-market publication rejected: ${scoredCount}/${scannedCount} stocks scored, ${available.length} have the required fields, and ${eligible.length} passed this theme's conditions.`,
+      },
+    };
+  });
+  return {
+    tables,
+    evidenceGate: {
+      passed: tables.every(table => table.evidenceGate.passed),
+      scanSuccessRatio: round(scanSuccessRatio, 4),
+      requiredScanSuccessRatio: MARKET_SCAN_MIN_SUCCESS_RATIO,
+      passedThemeCount: tables.filter(table => table.evidenceGate.passed).length,
+      requiredThemeCount: definitions.length,
+    },
+  };
+}
+
 async function loadSwingMacro() {
   const settled = await Promise.allSettled([
     loadQuote("0050"),
@@ -5314,11 +6135,25 @@ async function loadSwingMacro() {
     label === "defensive" ? "\u504f\u9632\u5b88" : "\u98a8\u96aa\u504f\u7a7a";
   const macroAssets = { tw, spx, fx, tsmc, ust10y, crypto, oil, gold, qqq };
   const briefing = buildMacroBriefing(riskScore, labelZh, macroNews, macroAssets);
+  const availableAssetCount = Object.values(macroAssets).filter(Boolean).length;
+  const verifiedNewsCount = (macroNews.items || []).filter((item: any) => item.evidenceGate?.passed).length;
+  const macroEvidenceGate = {
+    passed: availableAssetCount >= 4,
+    status: availableAssetCount >= 7 && verifiedNewsCount >= 2 ? "complete" : availableAssetCount >= 4 ? "partial" : "evidence_only",
+    availableAssetCount,
+    requiredAssetCount: 4,
+    totalAssetCount: Object.keys(macroAssets).length,
+    articleVerifiedNewsCount: verifiedNewsCount,
+    limitation: availableAssetCount >= 4
+      ? (verifiedNewsCount >= 2 ? "" : "Fewer than two news items passed the original-article reading gate; news remains supporting context rather than a standalone conclusion source.")
+      : "Too few market proxies were available to support a macro regime conclusion.",
+  };
   return {
     ok: true,
     generatedAt: new Date().toISOString(),
     reportTimezone: "Asia/Taipei",
     horizon: "1-3 months",
+    evidenceGate: macroEvidenceGate,
     briefing,
     text: encodeTextTree({
       briefing,
@@ -5424,30 +6259,168 @@ async function loadSwingScreener(universeValue: unknown) {
   };
 }
 
+async function loadSwingScreenerSnapshot() {
+  const modes = ["undervalued", "growth", "active", "small-investor"];
+  const [snapshots, marketThemeSnapshot] = await Promise.all([
+    Promise.all(modes.map(mode => readRankingSnapshot(mode).catch(() => null))),
+    readMarketThemeSnapshot().catch(() => null),
+  ]);
+  const completed = snapshots.filter((snapshot: any) => snapshot?.ok && snapshot?.snapshotStatus === "complete");
+  if (!completed.length) {
+    const fallback: any = await loadSwingScreener(DEFAULT_SCREENER_UNIVERSE.slice(0, 16));
+    return {
+      ...fallback,
+      themeTables: marketThemeSnapshot?.fixedThemeTables || [],
+      newsThemeTables: marketThemeSnapshot?.newsThemeTables || [],
+      themeStatus: marketThemeSnapshot ? {
+        status: "complete",
+        generatedAt: marketThemeSnapshot.generatedAt,
+        universeMeta: marketThemeSnapshot.universeMeta,
+        evidenceGate: marketThemeSnapshot.evidenceGate,
+      } : {
+        status: "building",
+        message: "The first evidence-gated full-market theme snapshot is still being built. Legacy candidate-pool rearrangements are intentionally hidden.",
+      },
+    };
+  }
+  const byCode = new Map<string, any>();
+  completed.forEach((snapshot: any) => (snapshot.items || []).forEach((item: any) => {
+    if (item?.code && !byCode.has(item.code)) byCode.set(item.code, item);
+  }));
+  let stockItems = [...byCode.values()]
+    .filter((item: any) => item?.professionalRating?.assetModel === "stock")
+    .slice(0, 24);
+  if (!stockItems.length || stockItems.some((item: any) => !item.technicalSnapshot?.latest)) {
+    const codes = stockItems.map((item: any) => item.code).filter(Boolean).slice(0, 20);
+    const rebuilt = await loadScreener("undervalued", codes.length ? codes : DEFAULT_SCREENER_UNIVERSE.slice(0, 16), { fast: true });
+    stockItems = rebuilt.items.filter(item => item.professionalRating.assetModel === "stock");
+  }
+  const marketProxy = await loadQuote("0050").catch(() => null);
+  const trendItems = stockItems.slice(0, 20);
+  const officialResults = await settleWithLimit(trendItems, 8, item => fetchTwseStockDayTrend(item.code));
+  const officialMap = new Map<string, any>();
+  const errors: any[] = [];
+  officialResults.forEach((result, index) => {
+    const code = trendItems[index]?.code;
+    if (result.status === "fulfilled") officialMap.set(code, result.value);
+    else errors.push({ code, message: result.reason instanceof Error ? result.reason.message : String(result.reason) });
+  });
+  const candidates = trendItems
+    .map(item => buildSwingCandidate(item, marketProxy, officialMap.get(item.code) || null))
+    .sort((a, b) => b.swingScore - a.swingScore);
+  const primarySnapshot: any = completed[0];
+  const rankingMethod = {
+    horizon: "1-3 months",
+    formula: "主題契合度 30% + 成交值 25% + 收盤價相對 20MA 25% + 20MA 斜率 20%",
+    officialPriceSource: "持久化排行榜快照 + TWSE STOCK_DAY 候選補查",
+    fallback: "只補查快照前段候選；個別官方端點失敗時保留快照價格並明確記錄錯誤，不重新同步掃描全市場。",
+  };
+  const gate = {
+    required: true,
+    instruction: "請勾選要進入深度流程的股票；候選來自已完成且通過證據門檻的排行榜快照。",
+  };
+  return {
+    ok: candidates.length > 0,
+    generatedAt: new Date().toISOString(),
+    snapshotGeneratedAt: primarySnapshot.snapshotGeneratedAt,
+    horizon: "1-3 months",
+    source: `${primarySnapshot.source || SCORE_SOURCE_NOTE}; Dino reads persisted snapshots instead of rescoring the market in one request.`,
+    universeMeta: {
+      ...(primarySnapshot.universeMeta || {}),
+      candidatePoolCount: byCode.size,
+      dinoEnrichedCount: candidates.length,
+      note: "Dino reads the latest completed evidence-gated market snapshot, then enriches only the leading candidates. It does not repeat a synchronous 64-stock scan.",
+    },
+    candidates,
+    todayWatch: candidates.filter(item => item.watchPriority !== "低" && item.signalHint !== "觀察").slice(0, 8),
+    ranking: candidates.slice(0, 16),
+    themeTables: marketThemeSnapshot?.fixedThemeTables || [],
+    newsThemeTables: marketThemeSnapshot?.newsThemeTables || [],
+    themeStatus: marketThemeSnapshot ? {
+      status: "complete",
+      generatedAt: marketThemeSnapshot.generatedAt,
+      universeMeta: marketThemeSnapshot.universeMeta,
+      evidenceGate: marketThemeSnapshot.evidenceGate,
+      newsEvidenceGate: marketThemeSnapshot.newsEvidenceGate,
+      limitations: marketThemeSnapshot.limitations || [],
+    } : {
+      status: "building",
+      message: "The first evidence-gated full-market theme snapshot is still being built. Legacy candidate-pool rearrangements are intentionally hidden.",
+    },
+    rankingMethod,
+    gate,
+    errors: [...(primarySnapshot.errors || []), ...errors],
+    text: encodeTextTree({
+      candidates,
+      todayWatch: candidates.filter(item => item.watchPriority !== "低" && item.signalHint !== "觀察").slice(0, 8),
+      ranking: candidates.slice(0, 16),
+      themeTables: marketThemeSnapshot?.fixedThemeTables || [],
+      newsThemeTables: marketThemeSnapshot?.newsThemeTables || [],
+      themeStatus: marketThemeSnapshot ? {
+        status: "complete",
+        generatedAt: marketThemeSnapshot.generatedAt,
+        universeMeta: marketThemeSnapshot.universeMeta,
+        evidenceGate: marketThemeSnapshot.evidenceGate,
+      } : { status: "building" },
+      source: primarySnapshot.source || SCORE_SOURCE_NOTE,
+      rankingMethod,
+      gate,
+    }),
+  };
+}
+
 async function loadSwingValuation(codes: string[]) {
   const selected = await settleWithLimit(codes, 3, code => loadValueScore(code, { fast: true }));
-  const peerBatch = await loadScreener("undervalued", undefined, { fast: true }).catch(() => null);
-  const peerItems = peerBatch?.items || [];
+  const peerSnapshots = await Promise.all([
+    readRankingSnapshot("undervalued").catch(() => null),
+    readRankingSnapshot("growth").catch(() => null),
+  ]);
+  const peerByCode = new Map<string, any>();
+  peerSnapshots.forEach((snapshot: any) => (snapshot?.items || []).forEach((item: any) => {
+    if (item?.code) peerByCode.set(item.code, item);
+  }));
+  if (!peerByCode.size) {
+    const fallbackBatch = await loadScreener("undervalued", DEFAULT_SCREENER_UNIVERSE.slice(0, 24), { fast: true }).catch(() => null);
+    (fallbackBatch?.items || []).forEach((item: any) => peerByCode.set(item.code, item));
+  }
+  const peerItems = [...peerByCode.values()];
+  const officialIndex = await requestOfficialValuationIndex().catch(() => null);
+  const metricFor = (item: any, key: "per" | "pbr" | "dividendYield") => {
+    const current = valuationMetric(item, key);
+    if (current !== null) return current;
+    const official = officialIndex?.rows.get(item.code)?.[key];
+    return Number.isFinite(official) && (key === "dividendYield" ? official >= 0 : official > 0) ? official : null;
+  };
   const items = selected.map((result, index) => {
     if (result.status === "rejected") return { ok: false, code: codes[index], message: result.reason instanceof Error ? result.reason.message : String(result.reason) };
     const item = result.value;
     const group = swingGroup(item.code);
     const peers = peerItems.filter(peer => peer.code !== item.code && swingGroup(peer.code) === group).slice(0, 12);
-    const peerValues = (key: "per" | "pbr" | "dividendYield") => peers.map(peer => valuationMetric(peer, key)).filter((value): value is number => value !== null).sort((a, b) => a - b);
+    const peerValues = (key: "per" | "pbr" | "dividendYield") => peers.map(peer => metricFor(peer, key)).filter((value): value is number => value !== null).sort((a, b) => a - b);
     const median = (values: number[]) => values.length ? values[Math.floor(values.length / 2)] : null;
+    const officialTarget = officialIndex?.rows.get(item.code) || null;
+    const targetMetric = (key: "per" | "pbr" | "dividendYield") => metricFor(item, key);
+    const validPeerCodes = peers.filter(peer => ["per", "pbr", "dividendYield"].some((key: any) => metricFor(peer, key) !== null));
     return {
       ok: true,
       code: item.code,
       name: item.name,
       exchange: item.market,
-      valuationDate: item.fundamentals?.data?.valuation?.date || item.quoteDate,
+      valuationDate: item.fundamentals?.data?.valuation?.date || officialTarget?.date || item.quoteDate,
+      valuationSource: item.fundamentals?.data?.valuation?.source || officialTarget?.source || item.fundamentals?.source || "FinMind",
+      valuationSourceUrl: item.fundamentals?.data?.valuation?.sourceUrl || officialTarget?.sourceUrl || item.fundamentals?.sourceUrl || FINMIND_SOURCE_URL,
       currency: "TWD",
       sector: group,
       target: {
         close: item.close,
-        per: valuationMetric(item, "per"),
-        pbr: valuationMetric(item, "pbr"),
-        dividendYield: valuationMetric(item, "dividendYield"),
+        per: targetMetric("per"),
+        pbr: targetMetric("pbr"),
+        dividendYield: targetMetric("dividendYield"),
+        fieldStatus: item.fundamentals?.data?.valuation?.fieldStatus || officialTarget?.fieldStatus || {
+          per: targetMetric("per") !== null ? "available" : "unavailable",
+          pbr: targetMetric("pbr") !== null ? "available" : "unavailable",
+          dividendYield: targetMetric("dividendYield") !== null ? "available" : "unavailable",
+        },
         evRevenue: "N/A",
         evEbitda: "N/A",
         revenueGrowth: item.fundamentals?.data?.revenue?.yoy ?? item.fundamentals?.data?.profitability?.revenueYoY ?? null,
@@ -5456,7 +6429,7 @@ async function loadSwingValuation(codes: string[]) {
           : null,
       },
       peerSummary: {
-        count: peers.length,
+        count: validPeerCodes.length,
         medianPer: median(peerValues("per")),
         medianPbr: median(peerValues("pbr")),
         medianDividendYield: median(peerValues("dividendYield")),
@@ -5466,25 +6439,88 @@ async function loadSwingValuation(codes: string[]) {
       peers: peers.slice(0, 8).map(peer => ({
         code: peer.code,
         name: peer.name,
-        per: valuationMetric(peer, "per"),
-        pbr: valuationMetric(peer, "pbr"),
-        dividendYield: valuationMetric(peer, "dividendYield"),
+        per: metricFor(peer, "per"),
+        pbr: metricFor(peer, "pbr"),
+        dividendYield: metricFor(peer, "dividendYield"),
+        valuationDate: peer.fundamentals?.data?.valuation?.date || officialIndex?.rows.get(peer.code)?.date || peer.quoteDate,
+        valuationSource: peer.fundamentals?.data?.valuation?.source || officialIndex?.rows.get(peer.code)?.source || peer.fundamentals?.source || "FinMind",
         revenueGrowth: peer.fundamentals?.data?.revenue?.yoy ?? null,
       })),
       bias: item.scores.undervalued !== null && item.scores.undervalued >= 70 ? "\u53ef\u80fd\u6298\u50f9" : item.scores.overvalued !== null && item.scores.overvalued >= 70 ? "\u504f\u8cb4" : "\u63a5\u8fd1\u540c\u696d\u5340\u9593",
-      limitations: ["\u53f0\u80a1\u516c\u958b\u8cc7\u6599\u5c0d EV\u3001EBITDA \u8207\u5206\u6790\u5e2b\u9810\u4f30\u8986\u84cb\u4e0d\u8db3\uff0c\u7f3a\u8cc7\u6599\u6b04\u4f4d\u6a19\u793a N/A\uff0c\u4e0d\u7528\u5047\u6578\u5b57\u88dc\u503c\u3002"],
+      limitations: [
+        "台股公開資料對 EV、EBITDA 與分析師預估覆蓋不足，缺資料欄位不推估。",
+        validPeerCodes.length >= 3 ? "同業中位數至少包含 3 檔具官方或可追溯估值資料的樣本。" : "同業有效樣本少於 3 檔，中位數僅顯示資料，不形成強結論。",
+      ],
     };
   });
   return { ok: true, generatedAt: new Date().toISOString(), items, text: encodeTextTree({ items }) };
 }
 
+function buildSwingFundamentalEvidence(score: ValueScore) {
+  const fundamentals: any = score.fundamentals || {};
+  const data: any = fundamentals.data || {};
+  const rows: any[] = [];
+  const add = (category: string, metric: string, current: unknown, prior: unknown, change: unknown, period: unknown, section: any, interpretation: string) => {
+    const available = current !== null && current !== undefined && current !== "" && !(typeof current === "number" && !Number.isFinite(current));
+    rows.push({
+      category,
+      metric,
+      current: available ? current : null,
+      prior: prior ?? null,
+      change: change ?? null,
+      period: period || null,
+      source: section?.source || fundamentals.source || "FinMind",
+      sourceUrl: section?.sourceUrl || fundamentals.fallbackSourceUrl || fundamentals.sourceUrl || FINMIND_SOURCE_URL,
+      status: available ? "available" : "unavailable",
+      interpretation: available ? interpretation : "來源未提供可驗證數值，不形成判斷。",
+    });
+  };
+  const revenue = data.revenue || {};
+  const profit = data.profitability || {};
+  const cashFlow = data.cashFlow || {};
+  const balance = data.balanceSheet || {};
+  add("營收", "最新月營收", revenue.revenue, revenue.previousYearRevenue, revenue.yoy, revenue.date, revenue, "與去年同月及近月趨勢一起判斷需求動能。");
+  add("獲利", "季度營收", profit.revenue, profit.previousYearRevenue, profit.revenueYoY, profit.date, profit, "檢查季度營收是否與月營收方向一致。");
+  add("獲利", "EPS", profit.eps, profit.previousYearEps, profit.epsYoY, profit.date, profit, "EPS 與營收同步改善時，成長品質較有支持。");
+  add("獲利", "毛利率", profit.grossMargin, null, null, profit.date, profit, "觀察產品組合與成本轉嫁能力。");
+  add("獲利", "營業利益率", profit.operatingMargin, null, null, profit.date, profit, "檢查本業獲利效率，不以業外收入替代。");
+  add("獲利", "淨利率", profit.netMargin, null, null, profit.date, profit, "搭配營業利益率判斷業外與稅負影響。");
+  add("現金流", "營業現金流", cashFlow.operatingCashFlow, null, null, cashFlow.date, cashFlow, "檢查帳面獲利是否轉為營運現金。");
+  add("現金流", "自由現金流", cashFlow.freeCashFlow, null, null, cashFlow.date, cashFlow, "自由現金流為負時需辨識資本支出與營運惡化的差異。");
+  add("資產負債", "總資產", balance.totalAssets, null, null, balance.date, balance, "與負債、權益及流動性一起閱讀。");
+  add("資產負債", "負債比率", balance.liabilityRatio, null, null, balance.date, balance, "負債比需和產業特性及歷史期間比較。");
+  add("資產負債", "流動比率", balance.currentRatio, null, null, balance.date, balance, "用於觀察短期償債能力；金融業不直接套用一般製造業門檻。");
+  add("資產負債", "現金及約當現金", balance.cashAndEquivalents, null, null, balance.date, balance, "用於檢查流動性緩衝，不單獨視為利多。");
+  const availableCategories = [...new Set(rows.filter(row => row.status === "available").map(row => row.category))];
+  const requiredCore = rows.some(row => row.metric === "最新月營收" && row.status === "available") &&
+    rows.some(row => row.metric === "EPS" && row.status === "available");
+  const passed = requiredCore && availableCategories.length >= 3;
+  return {
+    rows,
+    periods: {
+      monthlyRevenue: revenue.recent || [],
+      profitability: profit.recentPeriods || [],
+      cashFlow: cashFlow.recentPeriods || [],
+      balanceSheet: balance.recentPeriods || [],
+    },
+    gate: {
+      passed,
+      availableCategories,
+      minimumCategories: 3,
+      requiredCore: ["最新月營收", "EPS"],
+      limitation: passed ? "" : "基本面最低門檻未通過：至少需要月營收、EPS，以及三類可驗證財務證據，才形成完整基本面結論。",
+    },
+  };
+}
+
 async function loadSwingDeepAnalysis(codes: string[]) {
   const results = await settleWithLimit(codes, 3, async code => {
     const [score, news] = await Promise.all([
-      loadValueScore(code, { fast: true }),
+      loadValueScore(code, { fast: false }),
       loadNews(code, FALLBACK_NAMES[code] || code, { force: false }).catch(err => ({ ok: false, items: [], note: err instanceof Error ? err.message : String(err) })),
     ]);
     const f = (score.fundamentals?.data || {}) as Record<string, any>;
+    const fundamentalEvidence = buildSwingFundamentalEvidence(score);
     return {
       ok: true,
       code: score.code,
@@ -5499,8 +6535,13 @@ async function loadSwingDeepAnalysis(codes: string[]) {
         balanceSheet: f.balanceSheet || null,
         institutional: f.institutional || null,
       },
+      fundamentalEvidence,
+      source: score.fundamentals?.source || "FinMind",
+      sourceUrl: score.fundamentals?.fallbackSourceUrl || score.fundamentals?.sourceUrl || FINMIND_SOURCE_URL,
       thesis: [
-        score.scores.growth.score !== null && score.scores.growth.score >= 65 ? "\u6210\u9577\u8cc7\u6599\u5c0d\u6ce2\u6bb5\u6709\u652f\u6490\u3002" : "\u6210\u9577\u8cc7\u6599\u4ecd\u9700\u89c0\u5bdf\u3002",
+        fundamentalEvidence.gate.passed
+          ? (score.scores.growth.score !== null && score.scores.growth.score >= 65 ? "成長資料對波段有支持。" : "成長資料仍需觀察。")
+          : fundamentalEvidence.gate.limitation,
         score.scores.cashFlow.score !== null && score.scores.cashFlow.score >= 65 ? "\u73fe\u91d1\u6d41\u6216\u80a1\u5229\u54c1\u8cea\u8f03\u7a69\u3002" : "\u73fe\u91d1\u6d41\u8a0a\u865f\u4e0d\u8db3\u6216\u9700\u8907\u67e5\u3002",
         score.scores.marketConfidence.score !== null && score.scores.marketConfidence.score >= 60 ? "\u7c4c\u78bc\u8207\u5e02\u5834\u4fe1\u5fc3\u504f\u6b63\u5411\u3002" : "\u5e02\u5834\u4fe1\u5fc3\u5c1a\u672a\u5f62\u6210\u660e\u78ba\u512a\u52e2\u3002",
       ],
@@ -5510,6 +6551,9 @@ async function loadSwingDeepAnalysis(codes: string[]) {
         publishedAt: item.publishedAt,
         relation: item.relation,
         sentiment: item.sentiment,
+        url: item.url || item.link || item.sourceUrl || null,
+        readingStatus: item.readingStatus || item.evidenceGate?.readingStatus || "source_summary_only",
+        evidenceId: item.evidenceId || null,
       })) || [],
       risks: [
         score.scores.chaseRisk.score !== null && score.scores.chaseRisk.score >= 72 ? "\u8ffd\u9ad8\u98a8\u96aa\u504f\u9ad8\uff0c\u9700\u7b49\u5f85\u56de\u6e2c\u6216\u91cf\u7e2e\u6574\u7406\u3002" : "\u8ffd\u9ad8\u98a8\u96aa\u672a\u660e\u986f\u5931\u63a7\uff0c\u4f46\u4ecd\u9700\u5b88\u5931\u6548\u50f9\u3002",
@@ -5685,14 +6729,16 @@ function buildSwingResearchReport(code: string, v: any, d: any, t: any, s: any) 
     per: peer.per ?? "N/A",
     pbr: peer.pbr ?? "N/A",
     dividendYield: peer.dividendYield ?? "N/A",
+    valuationDate: peer.valuationDate || null,
+    valuationSource: peer.valuationSource || null,
   })) : [];
   const priceDate = t.date || v.valuationDate || d.dataStatus?.quoteDate || "N/A";
   const close = Number.isFinite(t.close) ? t.close : v.target?.close;
   const valuationText = v.ok
-    ? `${v.bias || "N/A"}\uff1b\u76ee\u524d P/E ${v.target?.per ?? "N/A"}\u3001P/B ${v.target?.pbr ?? "N/A"}\uff0c\u540c\u696d\u53ef\u7528\u6a23\u672c ${v.peerSummary?.count ?? 0} \u6a94\u3002EV/EBITDA \u8207 EV/revenue \u56e0\u5373\u6642\u6de8\u50b5\u52d9\u8207 EBITDA \u8cc7\u6599\u4e0d\u8db3\u6a19\u70ba N/A\uff0c\u4e0d\u786c\u4f30\u3002`
+    ? `${v.bias || "N/A"}；估值日期 ${v.valuationDate || "未取得"}，來源 ${v.valuationSource || "未標示"}。目前 P/E ${v.target?.per ?? "不適用或未取得"}、P/B ${v.target?.pbr ?? "未取得"}，同業有效樣本 ${v.peerSummary?.count ?? 0} 檔。EV/EBITDA 與 EV/revenue 因即時淨債務與 EBITDA 資料不足維持 N/A，不硬估。`
     : v.message || "\u4f30\u503c\u8cc7\u6599\u4e0d\u8db3\u3002";
   const fundamentalText = d.ok
-    ? `${(d.thesis || []).join(" ")} \u50ac\u5316\u65b0\u805e\uff1a${d.catalysts?.[0]?.title || "\u5c1a\u7121\u76f4\u63a5\u65b0\u805e\u50ac\u5316"}`
+    ? `${(d.thesis || []).join(" ")} ${d.fundamentalEvidence?.gate?.passed ? "已通過基本面最低證據門檻。" : (d.fundamentalEvidence?.gate?.limitation || "基本面證據仍不完整。")} 催化新聞：${d.catalysts?.[0]?.title || "尚無直接新聞催化"}`
     : d.message || "\u500b\u80a1\u6df1\u5ea6\u8cc7\u6599\u4e0d\u8db3\u3002";
   const technicalText = t.ok
     ? `\u6700\u65b0\u6536\u76e4 ${fmt(t.close)}\uff0c20MA ${fmt(t.indicators?.ma20)}\uff0c60MA ${fmt(t.indicators?.ma60)}\uff0cRSI ${fmt(t.indicators?.rsi14, 1)}\uff0c\u8da8\u52e2\u5224\u65b7\u70ba${t.trend || "N/A"}\u3002\u652f\u6490 ${fmt(t.levels?.support)}-${fmt(t.levels?.supportMid)}\uff0c\u58d3\u529b ${fmt(t.levels?.resistance)}-${fmt(t.levels?.resistanceMid)}\uff0c\u5931\u6548\u50f9 ${fmt(t.levels?.invalidation)}\u3002`
@@ -5707,12 +6753,7 @@ function buildSwingResearchReport(code: string, v: any, d: any, t: any, s: any) 
     { metric: "\u6b96\u5229\u7387", company: v.target?.dividendYield ?? "N/A", peerMedian: v.peerSummary?.medianDividendYield ?? "N/A", interpretation: "\u7528\u65bc\u8f14\u52a9\u5224\u65b7\u5831\u916c\u8207\u4f30\u503c\uff0c\u4e0d\u55ae\u7368\u4f5c\u70ba\u8cb7\u8ce3\u4f9d\u64da\u3002" },
     { metric: "EV/EBITDA", company: "N/A", peerMedian: "N/A", interpretation: "\u5373\u6642\u6de8\u50b5\u52d9\u8207 EBITDA \u8cc7\u6599\u4e0d\u8db3\uff0c\u4e0d\u786c\u4f30\u3002" },
   ] : [];
-  const financialSnapshot = d.ok ? [
-    { item: "\u71df\u6536\u6210\u9577", value: d.fundamentals?.revenue?.yoy ?? d.fundamentals?.profitability?.revenueYoY ?? "N/A", view: "\u7528\u65bc\u5224\u65b7 1-3 \u500b\u6708\u984c\u6750\u662f\u5426\u6709\u57fa\u672c\u9762\u652f\u6490\u3002" },
-    { item: "EPS", value: d.fundamentals?.profitability?.eps ?? "N/A", view: "\u82e5 EPS \u8207\u71df\u6536\u540c\u6b65\u6210\u9577\uff0c\u984c\u6750\u6301\u7e8c\u6027\u8f03\u9ad8\u3002" },
-    { item: "\u73fe\u91d1\u6d41", value: d.fundamentals?.cashFlow?.operatingCashFlow ?? d.fundamentals?.cashFlow?.freeCashFlow ?? "N/A", view: "\u7528\u65bc\u6aa2\u67e5\u7372\u5229\u54c1\u8cea\uff1b\u7f3a\u8cc7\u6599\u6642\u4e0d\u88dc\u5047\u6578\u5b57\u3002" },
-    { item: "\u8ca0\u50b5\u8207\u6d41\u52d5\u6027", value: d.fundamentals?.balanceSheet?.debtRatio ?? d.fundamentals?.balanceSheet?.currentRatio ?? "N/A", view: "\u7528\u65bc\u5224\u65b7\u56de\u6a94\u6642\u7684\u8ca1\u52d9\u627f\u53d7\u5ea6\u3002" },
-  ] : [];
+  const financialSnapshot = d.ok ? (d.fundamentalEvidence?.rows || []) : [];
   const strengths = d.ok ? [
     ...(Array.isArray(d.thesis) ? d.thesis : []),
     d.catalysts?.[0]?.title ? `\u65b0\u805e\u50ac\u5316\uff1a${d.catalysts[0].title}` : "\u76ee\u524d\u6c92\u6709\u53ef\u76f4\u63a5\u5347\u7d1a\u7684\u65b0\u805e\u50ac\u5316\u3002",
@@ -5738,6 +6779,9 @@ function buildSwingResearchReport(code: string, v: any, d: any, t: any, s: any) 
     peers: peerRows,
     fundamentals: fundamentalText,
     financialSnapshot,
+    financialPeriods: d.fundamentalEvidence?.periods || null,
+    fundamentalGate: d.fundamentalEvidence?.gate || null,
+    catalysts: Array.isArray(d.catalysts) ? d.catalysts : [],
     strengths,
     risks: Array.isArray(d.risks) ? d.risks : [],
     technical: technicalText,
@@ -5748,12 +6792,14 @@ function buildSwingResearchReport(code: string, v: any, d: any, t: any, s: any) 
     klineDetails,
     scenarios: t.scenarios || [],
     dataQuality: [
-      "\u8cc7\u6599\u4f86\u6e90\uff1a\u4f30\u503c\u8207\u5831\u50f9\u512a\u5148\u4f7f\u7528\u53ef\u9a57\u8b49\u516c\u958b\u8cc7\u6599\uff0c\u65e5\u7dda\u6280\u8853\u4f7f\u7528\u540c\u4e00\u7d44\u50f9\u683c\u8cc7\u6599\u8a08\u7b97\u3002",
+      `資料來源：估值 ${v.valuationSource || "未標示"}；基本面 ${d.source || "未標示"}；每個欄位保留期別與來源。`,
       "\u9650\u5236\uff1a\u82e5\u4e94\u5e74\u5b8c\u6574\u8ca1\u5831\u3001TTM\u3001EV/EBITDA \u6216\u5206\u6790\u5e2b\u9810\u4f30\u4e0d\u8db3\uff0c\u7cfb\u7d71\u6703\u6a19\u793a N/A\uff0c\u4e0d\u7528\u5047\u8cc7\u6599\u586b\u88dc\u3002",
     ],
     conclusion: {
       valuation: v.bias || "N/A",
-      fundamentals: d.rating?.grade ? `${d.rating.grade} / ${scoreTextValue(d.rating.total)}` : "N/A",
+      fundamentals: d.fundamentalEvidence?.gate?.passed
+        ? (d.rating?.grade ? `${d.rating.grade} / ${scoreTextValue(d.rating.total)}` : "已通過資料門檻")
+        : (d.fundamentalEvidence?.gate?.limitation || "資料不足，不形成完整基本面結論"),
       technical: t.trend || "N/A",
       kline: s.stance || "N/A",
       horizon: "\u4ee5 1-3 \u500b\u6708\u6ce2\u6bb5\u70ba\u4e3b\uff0c\u7b49\u7a81\u7834\u6216\u62c9\u56de\u5b88\u4f4f\u5f8c\u518d\u63d0\u9ad8\u4fe1\u5fc3\u3002",
@@ -5804,6 +6850,698 @@ function buildSwingSummaryFromStages(codes: string[], valuation: any, deep: any,
       "\u6240\u6709\u5019\u9078\u90fd\u5fc5\u9808\u5148\u5b9a\u7fa9\u5931\u6548\u50f9\uff0c\u8dcc\u7834\u5f8c\u505c\u6b62\u539f\u672c\u6ce2\u6bb5\u5047\u8a2d\u3002",
       "\u82e5\u8cc7\u6599\u8986\u84cb\u7387\u4e0d\u8db3\u6216\u65b0\u805e\u4f86\u6e90\u903e\u6642\uff0c\u8a72\u6a94\u53ea\u4fdd\u7559\u89c0\u5bdf\uff0c\u4e0d\u5347\u7d1a\u70ba\u9ad8\u4fe1\u5fc3\u5019\u9078\u3002",
     ],
+  };
+}
+
+function rankingItemHasMinimumEvidence(mode: string, item: ValueScore) {
+  const coverage = Number(item.dataStatus?.coverage?.percent || 0);
+  if (!item.ok || !item.code || !Number.isFinite(item.close) || !item.quoteDate || coverage < 55) return false;
+  if (mode === "overvalued") return Number.isFinite(item.scores.overvalued);
+  if (mode === "cashflow") return Number.isFinite(item.scores.cashFlow?.score);
+  if (mode === "growth") return Number.isFinite(item.scores.growth?.score);
+  if (mode === "active") return Number.isFinite(item.volume) && item.volume > 0;
+  if (mode === "small-investor") return Number.isFinite(item.scores.smallInvestor);
+  return Number.isFinite(item.scores.undervalued);
+}
+
+function applyRankingEvidenceGate(payload: any, mode: string) {
+  const requested = Number(payload?.universeMeta?.requestedCount || payload?.universe?.length || 0);
+  const scored = Number(payload?.universeMeta?.scoredCount ?? (Array.isArray(payload?.items) ? payload.items.length : 0));
+  const eligible = (payload?.items || []).filter((item: ValueScore) => rankingItemHasMinimumEvidence(mode, item));
+  const successRatio = requested > 0 ? scored / requested : 0;
+  const passed = successRatio >= RANKING_MIN_SUCCESS_RATIO && eligible.length > 0;
+  const reasons = [
+    successRatio < RANKING_MIN_SUCCESS_RATIO
+      ? `Only ${scored} of ${requested} requested stocks were scored; minimum success ratio is ${Math.round(RANKING_MIN_SUCCESS_RATIO * 100)}%.`
+      : "",
+    eligible.length === 0 ? "No ranked stock passed quote-date, score, and 55% data-coverage requirements." : "",
+  ].filter(Boolean);
+  return {
+    ...payload,
+    ok: passed,
+    items: passed ? eligible.slice(0, RANKING_SNAPSHOT_ITEM_LIMIT) : [],
+    evidenceGate: {
+      passed,
+      requested,
+      scored,
+      eligible: eligible.length,
+      successRatio: round(successRatio * 100, 1),
+      minimumSuccessRatio: RANKING_MIN_SUCCESS_RATIO * 100,
+      minimumItemCoverage: 55,
+      displayed: passed ? Math.min(eligible.length, RANKING_SNAPSHOT_ITEM_LIMIT) : 0,
+      displayLimit: RANKING_SNAPSHOT_ITEM_LIMIT,
+      reasons,
+      policy: "Publish only complete snapshots whose scoring batch and displayed rows pass the minimum evidence gate.",
+    },
+    message: passed ? "" : reasons.join(" ") || "Ranking evidence gate did not pass.",
+  };
+}
+
+async function listAllDbRecords(table: string, maxPages = 10) {
+  const rows: any[] = [];
+  let nextToken: string | undefined;
+  for (let pageIndex = 0; pageIndex < maxPages; pageIndex += 1) {
+    const page: any = await db.list<any>(table, { limit: 100, ...(nextToken ? { nextToken } : {}) });
+    const pageRows = Array.isArray(page) ? page : Array.isArray(page?.records) ? page.records : Array.isArray(page?.items) ? page.items : [];
+    rows.push(...pageRows.map((entry: any) => entry?.record && entry?.id ? { id: entry.id, ...entry.record } : entry));
+    nextToken = page?.nextToken || page?.continuationToken || undefined;
+    if (!nextToken) break;
+  }
+  return rows;
+}
+
+async function activeRankingRegistry() {
+  const rows = await listAllDbRecords(RANKING_REGISTRY_TABLE, 3);
+  return rows
+    .filter(row => row?.kind === "active-ranking-snapshots")
+    .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))[0] || null;
+}
+
+async function readRankingSnapshot(mode: string) {
+  const registry = await activeRankingRegistry();
+  const snapshotId = registry?.activeByMode?.[mode];
+  if (!snapshotId) {
+    const recentJobs = await listAllDbRecords(RANKING_REFRESH_JOB_TABLE, 3).catch(() => []);
+    const rejectedJob = recentJobs
+      .filter((job: any) => job?.status === "completed" || job?.status === "rejected")
+      .filter((job: any) => job?.result?.batch?.rejectedModes?.includes(mode))
+      .sort((a: any, b: any) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))[0];
+    if (rejectedJob) {
+      const gate = rejectedJob.result?.batch?.rejectedByMode?.[mode] || null;
+      return {
+        ok: false,
+        mode,
+        snapshotStatus: "rejected",
+        snapshotGeneratedAt: rejectedJob.updatedAt || rejectedJob.result?.generatedAt || null,
+        evidenceGate: gate,
+        message: gate?.reasons?.join(" ") || (mode === "cashflow"
+          ? "The latest scoring batch completed, but no stock had a verifiable cash-flow score at the 55% evidence threshold. No cash-flow ranking was published; running the same batch again will not invent the missing evidence."
+          : "The latest completed scoring batch did not pass this mode's evidence requirements, so no snapshot was published."),
+      };
+    }
+    return {
+      ok: false,
+      mode,
+      snapshotStatus: "missing",
+      message: "No completed ranking snapshot is available yet. Use the ranking refresh button to build one.",
+    };
+  }
+  const [record] = await db.get<any>(RANKING_SNAPSHOT_TABLE, [snapshotId]);
+  if (!record || record.status !== "complete" || !record.payload) {
+    return {
+      ok: false,
+      mode,
+      snapshotStatus: "unavailable",
+      message: "The active ranking snapshot is incomplete or unavailable; the prior table was not replaced.",
+    };
+  }
+  return {
+    ...record.payload,
+    snapshotId,
+    snapshotStatus: "complete",
+    snapshotGeneratedAt: record.generatedAt,
+    refreshedAt: record.updatedAt,
+  };
+}
+
+async function publishRankingSnapshots(basePayload: any, mode: string) {
+  const rankingModes = ["undervalued", "overvalued", "active", "cashflow", "growth", "small-investor"];
+  const payloads = Object.fromEntries(rankingModes.map(rankingMode => {
+    const rankedPayload = {
+      ...basePayload,
+      mode: rankingMode,
+      items: [...(basePayload.items || [])].sort((a, b) => screenerSortValue(rankingMode, b) - screenerSortValue(rankingMode, a)),
+    };
+    return [rankingMode, applyRankingEvidenceGate(rankedPayload, rankingMode)];
+  }));
+  const requestedPayload = payloads[mode] || payloads.undervalued;
+  if (!requestedPayload.ok) return { ...requestedPayload, snapshotStatus: "rejected" };
+  const now = new Date().toISOString();
+  const completeModes = rankingModes.filter(rankingMode => payloads[rankingMode]?.ok);
+  const rejectedModes = rankingModes.filter(rankingMode => !payloads[rankingMode]?.ok);
+  const records = completeModes.map(rankingMode => ({
+    mode: rankingMode,
+    status: "complete",
+    generatedAt: payloads[rankingMode].generatedAt || now,
+    updatedAt: now,
+    evidenceVersion: "ranking-evidence-gate-v1",
+    batchId: stableEvidenceId(["ranking-batch", basePayload.generatedAt, basePayload.universe?.join(",")]),
+    payload: payloads[rankingMode],
+  }));
+  const snapshotIds = await db.add(RANKING_SNAPSHOT_TABLE, records);
+  if (snapshotIds.length !== records.length || snapshotIds.some(id => !id)) throw new Error("Unable to persist every completed ranking snapshot.");
+  const registry = await activeRankingRegistry();
+  const activatedByMode = Object.fromEntries(completeModes.map((rankingMode, index) => [rankingMode, snapshotIds[index]]));
+  const nextRegistry = {
+    kind: "active-ranking-snapshots",
+    updatedAt: now,
+    activeByMode: { ...(registry?.activeByMode || {}), ...activatedByMode },
+  };
+  if (registry?.id) {
+    const [updated] = await db.update(RANKING_REGISTRY_TABLE, [{ id: registry.id, record: nextRegistry }]);
+    if (!updated) throw new Error("Unable to activate completed ranking snapshot.");
+  } else {
+    const [registryId] = await db.add(RANKING_REGISTRY_TABLE, [nextRegistry]);
+    if (!registryId) throw new Error("Unable to create ranking snapshot registry.");
+  }
+  const requestedSnapshotId = activatedByMode[mode] || activatedByMode.undervalued;
+  return {
+    ...requestedPayload,
+    snapshotId: requestedSnapshotId,
+    snapshotStatus: "complete",
+    snapshotGeneratedAt: requestedPayload.generatedAt || now,
+    refreshedAt: now,
+    batch: {
+      scoringRuns: 1,
+      requestedMode: mode,
+      publishedModes: completeModes,
+      rejectedModes,
+      rejectedByMode: Object.fromEntries(rejectedModes.map(rankingMode => [rankingMode, payloads[rankingMode]?.evidenceGate || null])),
+      policy: "One shared scoring batch produces every ranking mode; switching tabs reads persisted snapshots without rescoring.",
+    },
+  };
+}
+
+function compactRankingItem(item: ValueScore) {
+  return {
+    ok: item.ok,
+    code: item.code,
+    name: item.name,
+    market: item.market,
+    close: item.close,
+    quoteDate: item.quoteDate,
+    volume: item.volume,
+    generatedAt: item.generatedAt,
+    source: item.source,
+    fairValue: item.fairValue,
+    technicalSnapshot: item.technicalSnapshot,
+    fundamentals: {
+      assetType: item.fundamentals?.assetType,
+      source: item.fundamentals?.source,
+      sourceUrl: item.fundamentals?.sourceUrl,
+      fallbackSourceUrl: item.fundamentals?.fallbackSourceUrl,
+      data: {
+        profitability: item.fundamentals?.data?.profitability || null,
+        revenue: item.fundamentals?.data?.revenue || null,
+        valuation: item.fundamentals?.data?.valuation || null,
+        institutional: item.fundamentals?.data?.institutional || null,
+      },
+    },
+    scores: {
+      undervalued: item.scores.undervalued,
+      overvalued: item.scores.overvalued,
+      smallInvestor: item.scores.smallInvestor,
+      cashFlow: { score: item.scores.cashFlow?.score, label: item.scores.cashFlow?.label },
+      growth: { score: item.scores.growth?.score, label: item.scores.growth?.label },
+      marketConfidence: { score: item.scores.marketConfidence?.score, label: item.scores.marketConfidence?.label },
+      chaseRisk: { score: item.scores.chaseRisk?.score, label: item.scores.chaseRisk?.label },
+    },
+    dataStatus: {
+      quoteDate: item.dataStatus?.quoteDate,
+      coverage: item.dataStatus?.coverage,
+      warnings: item.dataStatus?.warnings || [],
+    },
+    professionalRating: item.professionalRating,
+  };
+}
+
+function mergeRankingCandidatePool(existing: any[], incoming: any[]) {
+  const byCode = new Map<string, any>();
+  [...(existing || []), ...(incoming || [])].forEach(item => {
+    if (item?.code) byCode.set(item.code, item);
+  });
+  const all = [...byCode.values()];
+  const modes = ["undervalued", "overvalued", "active", "cashflow", "growth", "small-investor"];
+  const keepCodes = new Set<string>();
+  modes.forEach(mode => {
+    [...all]
+      .sort((a, b) => screenerSortValue(mode, b) - screenerSortValue(mode, a))
+      .slice(0, RANKING_JOB_TOP_PER_MODE)
+      .forEach(item => keepCodes.add(item.code));
+  });
+  return all.filter(item => keepCodes.has(item.code));
+}
+
+async function readRankingRefreshJob(id: string) {
+  const [record] = await db.get<any>(RANKING_REFRESH_JOB_TABLE, [id]);
+  return record ? { ...record, id } : null;
+}
+
+async function saveRankingRefreshJob(id: string, job: any) {
+  const { id: _id, ...record } = job;
+  const [ok] = await db.update(RANKING_REFRESH_JOB_TABLE, [{ id, record }]);
+  if (!ok) throw new Error("Unable to persist ranking refresh progress.");
+}
+
+async function persistMarketFeatureBatch(jobId: string, batchKey: string, items: any[], meta: any) {
+  if (!items.length) return null;
+  const record = {
+    schemaVersion: MARKET_FEATURE_SCHEMA_VERSION,
+    jobId,
+    batchKey,
+    start: meta.start,
+    end: meta.end,
+    createdAt: new Date().toISOString(),
+    items,
+  };
+  const [id] = await db.add(MARKET_FEATURE_BATCH_TABLE, [record]);
+  if (!id) throw new Error("Unable to persist the completed market feature batch.");
+  return id;
+}
+
+async function loadMarketFeatureRows(job: any) {
+  const ids = Object.values(job.featureBatchIds || {}).filter(Boolean) as string[];
+  const records: any[] = [];
+  for (let index = 0; index < ids.length; index += 50) {
+    const chunk = await db.get<any>(MARKET_FEATURE_BATCH_TABLE, ids.slice(index, index + 50));
+    records.push(...chunk.filter(Boolean));
+  }
+  const byCode = new Map<string, any>();
+  records
+    .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")))
+    .forEach(record => (record.items || []).forEach((item: any) => {
+      if (item?.code) byCode.set(item.code, item);
+    }));
+  return [...byCode.values()];
+}
+
+async function publishMarketThemeSnapshot(job: any) {
+  const fixedResult = job.themeResult;
+  if (!fixedResult?.evidenceGate?.passed) {
+    return {
+      ok: false,
+      message: "The full-market theme snapshot did not replace the prior snapshot because one or more quantitative themes failed the evidence gate.",
+      evidenceGate: fixedResult?.evidenceGate || null,
+    };
+  }
+  const generatedAt = new Date().toISOString();
+  const snapshot = {
+    schemaVersion: MARKET_FEATURE_SCHEMA_VERSION,
+    jobId: job.id,
+    generatedAt,
+    universeMeta: {
+      ...job.universeMeta,
+      requestedCount: job.universe?.length || 0,
+      scoredCount: job.scoredCount || 0,
+      failedCount: job.failedCount || 0,
+    },
+    fixedThemeTables: fixedResult.tables,
+    newsThemeTables: job.newsThemeResult?.tables || [],
+    newsEvidenceGate: job.newsThemeResult?.evidenceGate || null,
+    evidenceGate: fixedResult.evidenceGate,
+    limitations: [
+      ...(job.newsThemeResult?.limitations || []),
+      ...((job.errors || []).length ? [`${job.errors.length} stock attempts still lacked usable evidence after retry.`] : []),
+    ],
+  };
+  const [snapshotId] = await db.add(MARKET_THEME_SNAPSHOT_TABLE, [snapshot]);
+  if (!snapshotId) throw new Error("Unable to persist the full-market theme snapshot.");
+  const registries = await listAllDbRecords(MARKET_THEME_REGISTRY_TABLE, 2).catch(() => []);
+  const registryRecord = {
+    activeSnapshotId: snapshotId,
+    schemaVersion: MARKET_FEATURE_SCHEMA_VERSION,
+    updatedAt: generatedAt,
+  };
+  if (registries[0]?.id) {
+    const [updated] = await db.update(MARKET_THEME_REGISTRY_TABLE, [{ id: registries[0].id, record: registryRecord }]);
+    if (!updated) throw new Error("Unable to activate the full-market theme snapshot.");
+  } else {
+    const [registryId] = await db.add(MARKET_THEME_REGISTRY_TABLE, [registryRecord]);
+    if (!registryId) throw new Error("Unable to create the full-market theme registry.");
+  }
+  return { ok: true, snapshotId, ...snapshot };
+}
+
+async function readMarketThemeSnapshot() {
+  const registries = await listAllDbRecords(MARKET_THEME_REGISTRY_TABLE, 2).catch(() => []);
+  const registry = registries
+    .filter((item: any) => item?.activeSnapshotId && item?.schemaVersion === MARKET_FEATURE_SCHEMA_VERSION)
+    .sort((a: any, b: any) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))[0];
+  if (!registry?.activeSnapshotId) return null;
+  const [snapshot] = await db.get<any>(MARKET_THEME_SNAPSHOT_TABLE, [registry.activeSnapshotId]);
+  return snapshot ? { ...snapshot, id: registry.activeSnapshotId } : null;
+}
+
+function publicRankingRefreshJob(job: any) {
+  const total = job.universe?.length || 0;
+  const processed = Math.min(job.currentIndex || 0, total);
+  const done = ["completed", "rejected", "failed"].includes(job.status);
+  return {
+    ok: job.status !== "failed",
+    jobId: job.id,
+    status: job.status,
+    done,
+    mode: job.mode,
+    phase: job.phase || "features",
+    schemaVersion: job.schemaVersion || null,
+    progress: {
+      processed,
+      total,
+      percent: total ? Math.round((processed / total) * 100) : 0,
+      scored: Number(job.scoredCount ?? job.items?.length ?? 0),
+      failed: Number(job.failedCount ?? job.errors?.length ?? 0),
+    },
+    pollAfterMs: done ? 0 : 700,
+    message: job.message || "",
+    scope: job.scope || "twse-tpex-full-market",
+    universeStatus: job.universeStatus || (total ? "ready" : "pending"),
+    result: done ? job.result || null : null,
+  };
+}
+
+async function createRankingRefreshJob(mode: string) {
+  const now = new Date().toISOString();
+  const recentJobs = await listAllDbRecords(RANKING_REFRESH_JOB_TABLE, 2).catch(() => []);
+  const reusable = recentJobs
+    .filter((item: any) => item?.status === "queued" || item?.status === "running")
+    .filter((item: any) => item?.scope === "twse-tpex-full-market")
+    .filter((item: any) => item?.schemaVersion === MARKET_FEATURE_SCHEMA_VERSION)
+    .filter((item: any) => !item?.universe?.length || (
+      Number(item?.universeMeta?.fullMarketCounts?.twse || 0) >= MARKET_UNIVERSE_MIN_TWSE_COUNT
+      && Number(item?.universeMeta?.fullMarketCounts?.tpex || 0) >= MARKET_UNIVERSE_MIN_TPEX_COUNT
+      && Number(item?.universe?.length || 0) >= MARKET_UNIVERSE_MIN_LISTED_OTC_COUNT
+    ))
+    .filter((item: any) => Date.now() - Date.parse(item.updatedAt || item.createdAt || 0) < 7 * 24 * 60 * 60 * 1000)
+    .sort((a: any, b: any) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))[0];
+  if (reusable?.id) return reusable;
+  const record = {
+    status: "queued",
+    createdAt: now,
+    updatedAt: now,
+    mode,
+    schemaVersion: MARKET_FEATURE_SCHEMA_VERSION,
+    phase: "universe",
+    scope: "twse-tpex-full-market",
+    universeStatus: "pending",
+    universe: [],
+    currentIndex: 0,
+    scoredCount: 0,
+    failedCount: 0,
+    unresolvedCodes: [],
+    retryCodes: [],
+    retryIndex: 0,
+    featureBatchIds: {},
+    newsTopicIndex: 0,
+    newsEvidence: [],
+    items: [],
+    errors: [],
+    runningBatchAt: null,
+    universeMeta: {
+      name: "Taiwan listed and OTC full-market scoring job",
+      version: TAIWAN_UNIVERSE_VERSION,
+      fullMarketVersion: TAIWAN_COMPANY_UNIVERSE_VERSION,
+      fullMarketCompanyCount: null,
+      fullMarketCounts: null,
+      fullMarketStatus: "pending",
+      fullMarketMessage: "The full listed/OTC company directory is loaded after this job record is created.",
+      defaultCount: 0,
+      requestedCount: 0,
+      scoredCount: 0,
+      defaultSeedLimit: DEFAULT_FULL_MARKET_SEED_LIMIT,
+      defaultSeedSource: "full TWSE and TPEx company directory; emerging stocks are kept separate",
+      groups: [],
+      note: "The job resumes in small batches and publishes only after the complete listed/OTC scope passes the evidence gate.",
+    },
+    message: "Ranking refresh queued. No completed snapshot is replaced until every batch finishes and the evidence gate passes.",
+  };
+  const [id] = await db.add(RANKING_REFRESH_JOB_TABLE, [record]);
+  if (!id) throw new Error("Unable to create ranking refresh job.");
+  return { ...record, id };
+}
+
+async function advanceRankingRefreshJob(id: string) {
+  const job = await readRankingRefreshJob(id);
+  if (!job || ["completed", "rejected", "failed"].includes(job.status)) return job;
+  const runningAgeMs = Date.now() - Date.parse(job.runningBatchAt || 0);
+  if (job.status === "running" && Number.isFinite(runningAgeMs) && runningAgeMs < 60000) return job;
+  if (!job.universe?.length && job.scope === "twse-tpex-full-market") {
+    job.status = "running";
+    job.universeStatus = "loading";
+    job.runningBatchAt = new Date().toISOString();
+    job.updatedAt = job.runningBatchAt;
+    job.message = "Loading the complete TWSE and TPEx company directory after job creation.";
+    await saveRankingRefreshJob(id, job);
+    try {
+      const marketUniverse: any = await withTimeout(loadTaiwanCompanyUniverse(), 35000, "Taiwan company universe timed out");
+      const universe = (marketUniverse.companies || [])
+        .filter((company: any) => company.type === "twse" || company.type === "tpex")
+        .map((company: any) => cleanCode(company.code))
+        .filter((code: string) => /^\d{4}$/.test(code));
+      if (!universe.length) throw new Error("The listed/OTC company directory returned no eligible stocks.");
+      const twseCount = Number(marketUniverse.counts?.twse || 0);
+      const tpexCount = Number(marketUniverse.counts?.tpex || 0);
+      if (twseCount < MARKET_UNIVERSE_MIN_TWSE_COUNT
+        || tpexCount < MARKET_UNIVERSE_MIN_TPEX_COUNT
+        || universe.length < MARKET_UNIVERSE_MIN_LISTED_OTC_COUNT) {
+        throw new Error(`Incomplete official directory: TWSE ${twseCount}, TPEx ${tpexCount}, listed/OTC total ${universe.length}. Required minimums are ${MARKET_UNIVERSE_MIN_TWSE_COUNT}, ${MARKET_UNIVERSE_MIN_TPEX_COUNT}, and ${MARKET_UNIVERSE_MIN_LISTED_OTC_COUNT}; no partial-market scan was started.`);
+      }
+      job.universe = [...new Set(universe)];
+      job.phase = "features";
+      job.universeStatus = "ready";
+      job.runningBatchAt = null;
+      job.status = "queued";
+      job.updatedAt = new Date().toISOString();
+      job.universeMeta = {
+        ...job.universeMeta,
+        fullMarketVersion: marketUniverse.version || TAIWAN_COMPANY_UNIVERSE_VERSION,
+        fullMarketCompanyCount: marketUniverse.companyCount || job.universe.length,
+        fullMarketCounts: marketUniverse.counts || null,
+        fullMarketStatus: "connected",
+        fullMarketMessage: marketUniverse.warning || null,
+        defaultCount: job.universe.length,
+        requestedCount: job.universe.length,
+        note: `Full scan scope contains ${job.universe.length} listed/OTC companies. Emerging stocks are excluded from this ranking because their liquidity and source coverage require a separate model.`,
+      };
+      job.message = `Loaded ${job.universe.length} listed/OTC companies. The next request starts the first persisted scoring batch.`;
+    } catch (err) {
+      job.universeStatus = "pending";
+      job.runningBatchAt = null;
+      job.status = "queued";
+      job.updatedAt = new Date().toISOString();
+      job.message = `Company directory is not ready and can be retried with the same job ID: ${err instanceof Error ? err.message : String(err)}`;
+    }
+    await saveRankingRefreshJob(id, job);
+    return job;
+  }
+  const beginPhase = async (message: string) => {
+    job.status = "running";
+    job.runningBatchAt = new Date().toISOString();
+    job.updatedAt = job.runningBatchAt;
+    job.message = message;
+    await saveRankingRefreshJob(id, job);
+  };
+  const finishPhase = async (message: string) => {
+    job.status = "queued";
+    job.runningBatchAt = null;
+    job.updatedAt = new Date().toISOString();
+    job.message = message;
+    await saveRankingRefreshJob(id, job);
+    return job;
+  };
+
+  if (job.phase === "themes") {
+    await beginPhase("Reading every persisted market feature batch and independently evaluating all five quantitative themes.");
+    try {
+      const featureRows = await loadMarketFeatureRows(job);
+      job.scoredCount = featureRows.length;
+      job.failedCount = Math.max(0, (job.universe?.length || 0) - featureRows.length);
+      job.themeResult = buildFullMarketThemeTables(featureRows, {
+        ...job.universeMeta,
+        requestedCount: job.universe?.length || 0,
+      });
+      job.phase = "news_collect";
+      job.newsTopicIndex = Number(job.newsTopicIndex || 0);
+      return await finishPhase(`Five independent full-market theme scans completed. ${job.themeResult.evidenceGate.passedThemeCount}/5 passed publication gates; news evidence collection is next.`);
+    } catch (err) {
+      job.batchErrors = [...(job.batchErrors || []), { phase: "themes", message: err instanceof Error ? err.message : String(err), at: new Date().toISOString() }].slice(-30);
+      return await finishPhase("Theme evaluation was not published and can be retried with the same job ID.");
+    }
+  }
+
+  if (job.phase === "news_collect") {
+    const topicStart = Number(job.newsTopicIndex || 0);
+    const topics = DYNAMIC_NEWS_THEME_CATALOG.slice(topicStart, topicStart + 2);
+    if (!topics.length) {
+      job.phase = "news_build";
+      return await finishPhase("All news-topic evidence batches were attempted. Company relationship validation is next.");
+    }
+    await beginPhase(`Reading original articles for news topics ${topicStart + 1}-${topicStart + topics.length} of ${DYNAMIC_NEWS_THEME_CATALOG.length}.`);
+    try {
+      const results = await settleWithLimit(topics, 2, topic => loadDynamicNewsTopicEvidence(topic));
+      const byKey = new Map((job.newsEvidence || []).map((entry: any) => [entry.key, entry]));
+      results.forEach((result, index) => {
+        const topic = topics[index];
+        if (result.status === "fulfilled") byKey.set(topic.key, result.value);
+        else byKey.set(topic.key, {
+          ...topic,
+          collectedAt: new Date().toISOString(),
+          items: [],
+          errors: [result.reason instanceof Error ? result.reason.message : String(result.reason)],
+        });
+      });
+      job.newsEvidence = [...byKey.values()];
+      job.newsTopicIndex = topicStart + topics.length;
+      if (job.newsTopicIndex >= DYNAMIC_NEWS_THEME_CATALOG.length) job.phase = "news_build";
+      return await finishPhase(`Saved news evidence for ${job.newsTopicIndex}/${DYNAMIC_NEWS_THEME_CATALOG.length} topic definitions.`);
+    } catch (err) {
+      job.batchErrors = [...(job.batchErrors || []), { phase: "news_collect", start: topicStart, message: err instanceof Error ? err.message : String(err), at: new Date().toISOString() }].slice(-30);
+      return await finishPhase("This news evidence batch failed without discarding prior article reads; retry uses the same job ID.");
+    }
+  }
+
+  if (job.phase === "news_build") {
+    await beginPhase("Validating news sources and mapping evidence-backed themes against the complete market feature table.");
+    try {
+      const [featureRows, companyUniverse]: any[] = await Promise.all([
+        loadMarketFeatureRows(job),
+        loadTaiwanCompanyUniverse(),
+      ]);
+      job.newsThemeResult = buildDynamicNewsThemeTables(job.newsEvidence || [], featureRows, companyUniverse.companies || []);
+      job.phase = "publish";
+      return await finishPhase(`News-theme validation completed; ${job.newsThemeResult.tables.length} themes passed source and company-relation gates.`);
+    } catch (err) {
+      job.batchErrors = [...(job.batchErrors || []), { phase: "news_build", message: err instanceof Error ? err.message : String(err), at: new Date().toISOString() }].slice(-30);
+      return await finishPhase("News-theme validation failed before publication and can be retried with the same job ID.");
+    }
+  }
+
+  if (job.phase === "publish") {
+    await beginPhase("Publishing passed full-market snapshots with registry replacement only after evidence gates succeed.");
+    try {
+      const themeSnapshot = await publishMarketThemeSnapshot(job);
+      const basePayload = {
+        ok: (job.items || []).length > 0,
+        mode: "undervalued",
+        universe: job.universe,
+        universeMeta: { ...job.universeMeta, scoredCount: job.scoredCount, failedCount: job.failedCount },
+        source: SCORE_SOURCE_NOTE,
+        generatedAt: new Date().toISOString(),
+        items: job.items,
+        errors: job.errors,
+      };
+      const rankingResult = await publishRankingSnapshots(basePayload, job.mode || "undervalued");
+      job.result = { ...rankingResult, marketThemes: themeSnapshot };
+      job.status = rankingResult.ok && themeSnapshot.ok ? "completed" : "rejected";
+      job.runningBatchAt = null;
+      job.updatedAt = new Date().toISOString();
+      job.message = job.status === "completed"
+        ? `Published full-market rankings, five independent Top 10 tables, and ${job.newsThemeResult?.tables?.length || 0} evidence-backed news themes.`
+        : themeSnapshot.message || rankingResult.message || "Publication gates rejected the completed scan; the prior active snapshot remains unchanged.";
+      await saveRankingRefreshJob(id, job);
+      return job;
+    } catch (err) {
+      job.status = "queued";
+      job.runningBatchAt = null;
+      job.updatedAt = new Date().toISOString();
+      job.batchErrors = [...(job.batchErrors || []), { phase: "publish", message: err instanceof Error ? err.message : String(err), at: job.updatedAt }].slice(-30);
+      job.message = "Snapshot publication did not complete; active snapshots were not intentionally cleared and publication can be retried.";
+      await saveRankingRefreshJob(id, job);
+      return job;
+    }
+  }
+
+  const isRetry = job.phase === "retry";
+  const start = isRetry ? Number(job.retryIndex || 0) : Number(job.currentIndex || 0);
+  const sourceCodes = isRetry ? (job.retryCodes || []) : (job.universe || []);
+  const batch = sourceCodes.slice(start, start + RANKING_JOB_BATCH_SIZE);
+  if (!batch.length) {
+    job.phase = "themes";
+    return await finishPhase("All stock attempts are complete. The next request evaluates five independent full-market themes.");
+  }
+  await beginPhase(`${isRetry ? "Retrying missing evidence for" : "Scoring"} stocks ${start + 1}-${start + batch.length} of ${sourceCodes.length}.`);
+  try {
+    const results = await settleWithLimit(batch, 4, code => withTimeout(
+      loadValueScore(code, { fast: true, evidenceMinimum: true }),
+      18000,
+      `Stock ${code} scoring timed out and was queued for retry`
+    ));
+    const completedItems: any[] = [];
+    const failedCodes: string[] = [];
+    results.forEach((result, index) => {
+      if (result.status === "fulfilled" && result.value?.ok) completedItems.push(compactRankingItem(result.value));
+      else {
+        failedCodes.push(batch[index]);
+        const message = result.status === "rejected"
+          ? (result.reason instanceof Error ? result.reason.message : String(result.reason))
+          : "The stock analysis returned no usable evidence.";
+        job.errors = [...(job.errors || []), { code: batch[index], phase: isRetry ? "retry" : "features", message }].slice(-200);
+      }
+    });
+    const batchKey = `${isRetry ? "retry" : "features"}-${start}`;
+    const featureBatchId = await persistMarketFeatureBatch(id, batchKey, completedItems, { start, end: start + batch.length });
+    if (featureBatchId) job.featureBatchIds = { ...(job.featureBatchIds || {}), [batchKey]: featureBatchId };
+    job.items = mergeRankingCandidatePool(job.items || [], completedItems);
+    const unresolved = new Set<string>(job.unresolvedCodes || []);
+    completedItems.forEach(item => unresolved.delete(item.code));
+    failedCodes.forEach(code => unresolved.add(code));
+    job.unresolvedCodes = [...unresolved];
+    if (isRetry) {
+      job.scoredCount = Number(job.scoredCount || 0) + completedItems.length;
+      job.retryIndex = start + batch.length;
+      if (job.retryIndex >= sourceCodes.length) job.phase = "themes";
+    } else {
+      job.scoredCount = Number(job.scoredCount || 0) + completedItems.length;
+      job.currentIndex = start + batch.length;
+      if (job.currentIndex >= sourceCodes.length) {
+        job.retryCodes = [...unresolved];
+        job.retryIndex = 0;
+        job.phase = job.retryCodes.length ? "retry" : "themes";
+      }
+    }
+    job.failedCount = unresolved.size;
+    const nextMessage = job.phase === "retry"
+      ? `Initial full-market scan completed. Retrying ${job.retryCodes.length} stocks that lacked usable evidence.`
+      : job.phase === "themes"
+        ? `All ${job.universe.length} stocks were attempted and missing evidence was retried. The next request evaluates five independent themes.`
+        : `Saved ${job.currentIndex} of ${job.universe.length} stock attempts; ${job.scoredCount} currently have persisted common features.`;
+    return await finishPhase(nextMessage);
+  } catch (err) {
+    job.batchErrors = [...(job.batchErrors || []), { phase: isRetry ? "retry" : "features", start, message: err instanceof Error ? err.message : String(err), at: new Date().toISOString() }].slice(-30);
+    return await finishPhase(`Batch ${start + 1}-${start + batch.length} was not committed to job progress and can be retried with the same job ID.`);
+  }
+}
+
+function normalizeStockSearchText(value: unknown) {
+  return String(value || "").normalize("NFKC").replace(/[\s\-_.·・()（）]/g, "").toLowerCase();
+}
+
+function stableEvidenceId(parts: unknown[]) {
+  const input = parts.map(part => String(part ?? "")).join("|");
+  let hash = 2166136261;
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `ev-${(hash >>> 0).toString(36)}`;
+}
+
+async function searchTaiwanStocks(value: unknown) {
+  const query = normalizeStockSearchText(value).slice(0, 40);
+  if (!query) return { ok: false, query, matches: [], message: "Missing stock code or name." };
+  const universe: any = await loadTaiwanCompanyUniverse();
+  const matches = (universe.companies || [])
+    .map((company: any) => {
+      const code = normalizeStockSearchText(company.code);
+      const name = normalizeStockSearchText(company.name);
+      const matchType = query === code ? "exact_code"
+        : query === name ? "exact_name"
+          : code.startsWith(query) ? "code_prefix"
+            : name.startsWith(query) ? "name_prefix"
+              : name.includes(query) ? "name_contains" : "";
+      const rank = { exact_code: 5, exact_name: 4, code_prefix: 3, name_prefix: 2, name_contains: 1 }[matchType] || 0;
+      return rank ? { code: company.code, name: company.name, type: company.type, industry: company.industry, matchType, rank } : null;
+    })
+    .filter(Boolean)
+    .sort((a: any, b: any) => b.rank - a.rank || String(a.code).localeCompare(String(b.code)))
+    .slice(0, 12)
+    .map(({ rank, ...item }: any) => item);
+  return {
+    ok: matches.length > 0,
+    query,
+    matches,
+    universeVersion: universe.version || TAIWAN_COMPANY_UNIVERSE_VERSION,
+    universeUpdatedAt: universe.generatedAt || universe.fetchedAt || null,
+    message: matches.length ? "" : "No Taiwan listed company matched this code or name.",
   };
 }
 
@@ -5995,6 +7733,13 @@ function buildSwingLlmPromptData(payload: any, promptContext: any) {
     },
     generatedAt: payload.generatedAt,
     selectedCodes,
+    evidenceManifest: {
+      status: payload.evidenceManifest?.status || "unavailable",
+      overallCoveragePercent: payload.evidenceManifest?.overallCoveragePercent || 0,
+      limitation: payload.evidenceManifest?.limitation || "",
+      entries: (payload.evidenceManifest?.entries || []).slice(0, 80),
+      missing: (payload.evidenceManifest?.missing || []).slice(0, 30),
+    },
     marketContext: safePromptContext?.macro || stage.macro || null,
     screenerContext: safePromptContext?.screener || sanitizeScreenerContextBySelected(stage.screener, selectedCodes),
     valuation: compactRows(valuationItems, item => ({
@@ -6059,6 +7804,8 @@ function buildSwingLlmInstructions(selectedCodes: string[] = []) {
     "You are the report-generation layer for a Taiwan stock 1-3 month swing-trading workflow.",
     "Write Traditional Chinese Markdown only. Use a senior macro strategist + stock screener + comparable valuation + fundamental analyst + daily technical analyst + K-line long/short signal style.",
     "Do not invent unavailable financial, valuation, news, or price data. If a field is missing, write N/A or explicitly say data is unavailable.",
+    "Use only facts present in evidenceManifest or the structured stage rows. For every price, percentage, valuation number, or dated factual claim, append its exact citation as [evidence:EVIDENCE_ID].",
+    "If evidenceManifest status is partial or unavailable, state that limitation near the beginning and do not describe the report as complete.",
     "Do not give direct investment advice or guaranteed predictions. Frame outputs as research stance, watchlist, conditions, invalidation, and risk controls.",
     `Allowed selectedCodes: ${allowed}. Only analyze these Taiwan ticker codes. Do not add, compare, rank, or discuss any other Taiwan ticker code.`,
     "Any non-selected Taiwan ticker code in the final Markdown invalidates the report.",
@@ -6581,6 +8328,138 @@ function swingJobGate(codes: string[]) {
   };
 }
 
+function buildSwingEvidenceManifest(job: any) {
+  const evidence = job.evidence || {};
+  const selectedCodes = job.codes || [];
+  const stages = ["valuation", "deep", "technical", "signal", "summary"];
+  const entries: any[] = [];
+  const missing: any[] = [];
+  const findItem = (stage: string, code: string) => {
+    const rows = stage === "summary" ? evidence.summary?.rows : evidence[stage]?.items;
+    return (Array.isArray(rows) ? rows : []).find((item: any) => cleanCode(item?.code) === code) || null;
+  };
+  const add = (code: string, stage: string, field: string, value: unknown, date: unknown, source: unknown, sourceUrl: unknown = null) => {
+    if (value === null || value === undefined || value === "" || (typeof value === "number" && !Number.isFinite(value))) return;
+    entries.push({
+      evidenceId: stableEvidenceId(["swing", code, stage, field, date, value]),
+      code,
+      stage,
+      field,
+      value,
+      date: date || null,
+      source: source || "backend_data_api",
+      sourceUrl: sourceUrl || null,
+      status: "available",
+    });
+  };
+  const codeStatus = selectedCodes.map((rawCode: string) => {
+    const code = cleanCode(rawCode);
+    const valuation = findItem("valuation", code);
+    const deep = findItem("deep", code);
+    const technical = findItem("technical", code);
+    const signal = findItem("signal", code);
+    const summary = findItem("summary", code);
+    const valuationAvailable = [valuation?.target?.per, valuation?.target?.pbr, valuation?.target?.dividendYield]
+      .filter(value => Number.isFinite(value)).length >= 2;
+    const deepAvailable = Boolean(deep?.ok !== false && deep?.fundamentalEvidence?.gate?.passed);
+    const technicalAvailable = Boolean(
+      technical?.ok !== false &&
+      Number.isFinite(technical?.close) &&
+      Number.isFinite(technical?.levels?.support) &&
+      Number.isFinite(technical?.levels?.resistance)
+    );
+    const signalAvailable = Boolean(
+      signal?.ok !== false &&
+      signal?.signal &&
+      signal?.signal !== "N/A" &&
+      signal?.stance &&
+      signal?.stance !== "N/A"
+    );
+    const summaryAvailable = Boolean(summary && valuationAvailable && deepAvailable && technicalAvailable && signalAvailable);
+    const stageAvailability: Record<string, boolean> = {
+      valuation: valuationAvailable,
+      deep: deepAvailable,
+      technical: technicalAvailable,
+      signal: signalAvailable,
+      summary: summaryAvailable,
+    };
+    for (const stage of stages) {
+      if (stageAvailability[stage]) continue;
+      const item = findItem(stage, code);
+      missing.push({
+        code,
+        stage,
+        reason: stage === "deep"
+          ? item?.fundamentalEvidence?.gate?.limitation || "基本面最低證據門檻未通過。"
+          : stage === "valuation"
+            ? "可追溯估值指標少於兩項。"
+            : stage === "technical"
+              ? "缺少可驗證收盤價、支撐或壓力資料。"
+              : stage === "signal"
+                ? "技術證據不足，不能產生 K 棒訊號。"
+                : "上游必要證據未全部通過，不能產生最終整合。",
+      });
+    }
+    add(code, "valuation", "bias", valuation?.bias, valuation?.generatedAt, valuation?.source || "valuation stage");
+    add(code, "valuation", "fairValue", valuation?.target?.fairValue, valuation?.generatedAt, valuation?.source || "valuation stage");
+    add(code, "deep", "rating", deep?.rating?.grade, deep?.generatedAt, deep?.source || "fundamental stage");
+    (deep?.fundamentalEvidence?.rows || []).forEach((row: any) => {
+      if (row.status !== "available") return;
+      add(code, "deep", row.metric, row.current, row.period, row.source || deep?.source || "fundamental stage", row.sourceUrl || deep?.sourceUrl);
+    });
+    add(code, "technical", "close", technical?.close, technical?.date, technical?.source || "quote and daily technical data", technical?.sourceUrl);
+    add(code, "technical", "support", technical?.levels?.support, technical?.date, technical?.source || "daily technical data");
+    add(code, "technical", "resistance", technical?.levels?.resistance, technical?.date, technical?.source || "daily technical data");
+    add(code, "technical", "invalidation", technical?.levels?.invalidation, technical?.date, technical?.source || "daily technical data");
+    add(code, "signal", "stance", signal?.stance, signal?.generatedAt, "K-line signal stage");
+    add(code, "summary", "finalStance", summary?.finalStance, evidence.summary?.generatedAt, "deterministic synthesis");
+    const availableStages = Object.values(stageAvailability).filter(Boolean).length;
+    return {
+      code,
+      stageAvailability,
+      availableStages,
+      requiredStages: stages.length,
+      coveragePercent: Math.round((availableStages / stages.length) * 100),
+      passed: availableStages === stages.length,
+    };
+  });
+  const overallCoverage = codeStatus.length
+    ? Math.round(codeStatus.reduce((sum: number, item: any) => sum + item.coveragePercent, 0) / codeStatus.length)
+    : 0;
+  const status = codeStatus.length && codeStatus.every((item: any) => item.passed)
+    ? "complete"
+    : entries.length ? "partial" : "unavailable";
+  return {
+    version: "swing-evidence-json-v1",
+    generatedAt: new Date().toISOString(),
+    status,
+    minimumStageCoveragePercent: 100,
+    overallCoveragePercent: overallCoverage,
+    selectedCodes: codeStatus,
+    entries,
+    missing,
+    limitation: status === "complete" ? "" : "部分必要證據階段仍有缺漏；報告只能標示為部分完成或證據型報告，不得宣稱資料完整。",
+  };
+}
+
+function swingStageEvidenceGate(job: any, stage: string) {
+  if (!["valuation", "deep-analysis", "technical", "signal", "summary"].includes(stage)) {
+    return { ok: true, missingCodes: [], message: "" };
+  }
+  const manifest = buildSwingEvidenceManifest(job);
+  const manifestStage = stage === "deep-analysis" ? "deep" : stage;
+  const missingCodes = (manifest.selectedCodes || [])
+    .filter((item: any) => !item?.stageAvailability?.[manifestStage])
+    .map((item: any) => item.code);
+  return {
+    ok: missingCodes.length === 0,
+    missingCodes,
+    message: missingCodes.length
+      ? `${missingCodes.join(", ")} 的${manifestStage === "deep" ? "基本面" : manifestStage === "technical" ? "技術" : manifestStage === "signal" ? "K 棒訊號" : manifestStage === "valuation" ? "估值" : "最終整合"}證據未達最低門檻，因此未呼叫 AI 生成此階段。`
+      : "",
+  };
+}
+
 function buildSwingJobReportPayload(job: any) {
   const evidence = job.evidence || {};
   const macro = evidence.macro || job.promptContext?.macro || {
@@ -6599,6 +8478,7 @@ function buildSwingJobReportPayload(job: any) {
   const technical = evidence.technical || { ok: false, items: [], text: encodeTextTree({ items: [] }) };
   const signal = evidence.signal || { ok: false, items: [], text: encodeTextTree({ items: [] }) };
   const summary = evidence.summary || { ok: false, rows: [], riskControls: [], text: encodeTextTree({ rows: [] }) };
+  const evidenceManifest = buildSwingEvidenceManifest(job);
   return {
     ok: true,
     generatedAt: job.createdAt || new Date().toISOString(),
@@ -6614,6 +8494,8 @@ function buildSwingJobReportPayload(job: any) {
     },
     gate: swingJobGate(job.codes || []),
     evidenceProvider: "backend_data_api",
+    evidenceManifest,
+    reportStatus: evidenceManifest.status,
     stages: { macro, screener, valuation, deep, technical, signal, summary },
     evidence: { macro, screener, valuation, deep, technical, signal, summary },
     macro,
@@ -6650,12 +8532,25 @@ function buildSwingJobResult(job: any) {
       ? "\u5df2\u7531 background polling specialist chain \u7522\u751f\u7e41\u4e2d Markdown \u5831\u544a\u3002"
       : "Background specialist chain did not complete; deterministic fallback report is used.",
   };
-  const reportMarkdown = llm.ok && llm.markdown ? llm.markdown : fallbackMarkdown;
+  const evidencePassed = reportPayload.evidenceManifest?.status === "complete";
+  const reportMarkdown = llm.ok && llm.markdown && evidencePassed ? llm.markdown : fallbackMarkdown;
   return {
     ...reportPayload,
     llm,
     reportMarkdown,
     fallbackReportMarkdown: fallbackMarkdown,
+    reportStatus: evidencePassed ? (llm.ok ? "complete" : "evidence_only") : (reportPayload.evidenceManifest?.entries?.length ? "partial" : "unavailable"),
+    verifiers: {
+      selectedTickerScope: validateSelectedTickerScope(reportMarkdown, reportPayload.selectedCodes),
+      evidenceCoverage: {
+        ok: evidencePassed,
+        percent: reportPayload.evidenceManifest?.overallCoveragePercent || 0,
+        requiredPercent: reportPayload.evidenceManifest?.minimumStageCoveragePercent || 100,
+      },
+      generationPolicy: evidencePassed
+        ? "Structured evidence gate passed; generated prose may be shown when available."
+        : "Structured evidence gate did not pass; deterministic partial output is shown with explicit limitations.",
+    },
     text: encodeTextTree({
       contract: SWING_SKILL_BUNDLE,
       gate: reportPayload.gate,
@@ -6668,19 +8563,23 @@ function buildSwingJobResult(job: any) {
 
 function publicSwingJob(job: any, includeResult = false) {
   const stageCount = SWING_BACKGROUND_STAGES.length;
-  const completed = (job.steps || []).filter((step: any) => ["generated", "passed", "fallback", "skipped_disabled", "timeout", "api_error", "exception"].includes(step.status)).length;
+  const completed = (job.steps || []).filter((step: any) => step?.status && !["pending", "running"].includes(step.status)).length;
   const currentStage = SWING_BACKGROUND_STAGES[Math.min(job.currentStageIndex || 0, stageCount - 1)]?.stage || "summary";
-  const done = ["generated", "partial_or_failed", "failed", "disabled"].includes(job.status);
+  const done = ["generated", "completed_with_limitations", "partial_or_failed", "failed", "disabled"].includes(job.status);
   return {
     ok: true,
     jobId: job.id,
+    selectedCodes: job.codes || [],
     status: job.status,
     done,
     currentStage,
+    runningStage: job.runningStage || null,
+    resumedFromPersistentJob: Boolean(job.fingerprint),
+    updatedAt: job.updatedAt || null,
     progress: {
       completed,
       total: stageCount,
-      percent: Math.round((Math.min(completed, stageCount) / stageCount) * 100),
+      percent: done ? 100 : Math.round((Math.min(completed, stageCount) / stageCount) * 100),
     },
     stageOrder: SWING_BACKGROUND_STAGES.map(item => item.stage),
     steps: job.steps || [],
@@ -6702,9 +8601,17 @@ async function saveSwingReportJob(id: string, job: any) {
 }
 
 async function createSwingReportJob(codes: string[], universeValue: unknown, promptContext: any, llmEnabled = true) {
+  await validateSwingCodes(codes);
   const now = new Date().toISOString();
   const model = await getOpenAiReportModel();
   const safePromptContext = sanitizeSwingPromptContext(promptContext, codes);
+  const fingerprint = stableEvidenceId(["swing-job-v2-active-code-evidence", [...codes].sort().join(","), llmEnabled, model]);
+  const recentJobs = await listAllDbRecords(SWING_REPORT_JOB_TABLE, 3).catch(() => []);
+  const reusable = recentJobs
+    .filter((item: any) => item?.fingerprint === fingerprint && !["failed", "partial_or_failed", "completed_with_limitations"].includes(item.status))
+    .filter((item: any) => Date.now() - Date.parse(item.updatedAt || item.createdAt || 0) < 6 * 60 * 60 * 1000)
+    .sort((a: any, b: any) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))[0];
+  if (reusable?.id) return reusable;
   const evidence = {
     macro: safePromptContext?.macro || null,
     screener: safePromptContext?.screener || null,
@@ -6718,6 +8625,7 @@ async function createSwingReportJob(codes: string[], universeValue: unknown, pro
     promptContext: safePromptContext,
     llmEnabled,
     model,
+    fingerprint,
     currentStageIndex: 0,
     steps: initialSwingJobSteps(),
     outputs: [],
@@ -6769,21 +8677,25 @@ async function ensureSwingJobEvidence(job: any, stage: string) {
 async function advanceSwingReportJob(jobId: string) {
   const job = await readSwingReportJob(jobId);
   if (!job) return null;
-  if (["generated", "partial_or_failed", "failed", "disabled"].includes(job.status)) return job;
+  if (["generated", "completed_with_limitations", "partial_or_failed", "failed", "disabled"].includes(job.status)) return job;
   const stageDef = SWING_BACKGROUND_STAGES[job.currentStageIndex || 0];
   if (!stageDef) {
-    job.status = "partial_or_failed";
+    job.status = "completed_with_limitations";
     job.updatedAt = new Date().toISOString();
     job.message = "Background specialist chain ended without final synthesis.";
     await saveSwingReportJob(jobId, job);
     return job;
   }
+  const runningAgeMs = Date.now() - Date.parse(job.runningStageAt || 0);
+  if (job.runningStage === stageDef.stage && Number.isFinite(runningAgeMs) && runningAgeMs < 90000) return job;
   const steps = Array.isArray(job.steps) ? job.steps : initialSwingJobSteps();
   const stepIndex = steps.findIndex((step: any) => step.stage === stageDef.stage);
   if (stepIndex >= 0) {
     steps[stepIndex] = { ...steps[stepIndex], status: "running", message: "" };
   }
   job.status = "running";
+  job.runningStage = stageDef.stage;
+  job.runningStageAt = new Date().toISOString();
   job.steps = steps;
   job.updatedAt = new Date().toISOString();
   await saveSwingReportJob(jobId, job);
@@ -6814,7 +8726,15 @@ async function advanceSwingReportJob(jobId: string) {
         signalRows: promptData.klineSignal.length,
       };
       let result: any;
-      if (!apiKey) {
+      const evidenceGate = swingStageEvidenceGate(job, stageDef.stage);
+      if (!evidenceGate.ok) {
+        result = {
+          ok: false,
+          status: "evidence_unavailable",
+          message: evidenceGate.message,
+          text: "",
+        };
+      } else if (!apiKey) {
         result = { ok: false, status: "missing_secret", message: "OPENAI_API_KEY AppDeploy secret is not configured.", text: fallbackStepMarkdown(stageDef.stage, promptData) };
       } else {
         const instructions = specialistInstructions(stageDef.role, stageDef.task, promptData.selectedCodes, stageDef.stage);
@@ -6877,29 +8797,46 @@ async function advanceSwingReportJob(jobId: string) {
       }];
     }
     job.currentStageIndex = (job.currentStageIndex || 0) + 1;
+    job.runningStage = null;
+    job.runningStageAt = null;
     job.steps = steps;
     job.updatedAt = new Date().toISOString();
     if (job.currentStageIndex >= SWING_BACKGROUND_STAGES.length) {
       const result = buildSwingJobResult(job);
-      job.status = result.llm.ok ? "generated" : "partial_or_failed";
+      job.status = result.reportStatus === "complete" && result.llm.ok ? "generated" : "completed_with_limitations";
       job.message = result.llm.message;
     } else {
       job.status = "running";
       job.message = `Completed ${stageDef.stage}; waiting for next poll.`;
     }
   } catch (err) {
+    const failureMessage = err instanceof Error ? err.message : String(err);
     if (stepIndex >= 0) {
       steps[stepIndex] = {
         ...steps[stepIndex],
         status: "exception",
         ok: false,
-        message: err instanceof Error ? err.message : String(err),
+        message: failureMessage,
       };
     }
     job.steps = steps;
-    job.status = "partial_or_failed";
+    job.outputs = [...(job.outputs || []), {
+      stage: stageDef.stage,
+      skill: stageDef.skill,
+      status: "exception",
+      ok: false,
+      message: failureMessage,
+      markdown: `## ${stageDef.stage}\n\n\u6b64\u968e\u6bb5\u8cc7\u6599\u672a\u5b8c\u6210\uff1a${failureMessage}\u3002\u5831\u544a\u6703\u7e7c\u7e8c\u88dc\u9f4a\u5176\u4ed6\u968e\u6bb5\uff0c\u4e0d\u7528\u63a8\u6e2c\u503c\u586b\u88dc\u3002`,
+    }];
+    job.stageErrors = [...(job.stageErrors || []), { stage: stageDef.stage, message: failureMessage, at: new Date().toISOString() }];
+    job.currentStageIndex = (job.currentStageIndex || 0) + 1;
+    job.runningStage = null;
+    job.runningStageAt = null;
+    job.status = job.currentStageIndex >= SWING_BACKGROUND_STAGES.length ? "completed_with_limitations" : "running";
     job.updatedAt = new Date().toISOString();
-    job.message = `Background stage ${stageDef.stage} failed: ${err instanceof Error ? err.message : String(err)}`;
+    job.message = job.status === "completed_with_limitations"
+      ? `Background chain completed with missing stage ${stageDef.stage}: ${failureMessage}`
+      : `Stage ${stageDef.stage} failed and was persisted; the next poll can continue with the remaining stages.`;
   }
   await saveSwingReportJob(jobId, job);
   return job;
@@ -7093,6 +9030,50 @@ export const handler = router({
     }
   }],
 
+  "GET /api/screener/snapshot": [async ({ query }: any) => {
+    const mode = String(query.mode || "undervalued").replace(/[^a-z-]/g, "").slice(0, 32) || "undervalued";
+    try {
+      return json(await readRankingSnapshot(mode), 200);
+    } catch (err) {
+      return json({ ok: false, mode, snapshotStatus: "unavailable", message: `Unable to read ranking snapshot: ${err instanceof Error ? err.message : String(err)}` }, 502);
+    }
+  }],
+
+  "POST /api/screener/refresh": [async (ctx: any) => {
+    const body = await readRequestJson(ctx);
+    const mode = String(body.mode || "undervalued").replace(/[^a-z-]/g, "").slice(0, 32) || "undervalued";
+    try {
+      const job = await createRankingRefreshJob(mode);
+      return json(publicRankingRefreshJob(job), 202);
+    } catch (err) {
+      return json({ ok: false, mode, message: `Unable to create ranking refresh job: ${err instanceof Error ? err.message : String(err)}` }, 502);
+    }
+  }],
+
+  "GET /api/screener/refresh/jobs/:id": [async ({ params }: any) => {
+    const id = String(params?.id || "").trim();
+    if (!id) return error("Missing ranking refresh job id", 400);
+    try {
+      const job = await readRankingRefreshJob(id);
+      if (!job) return error("Ranking refresh job not found", 404);
+      return json(publicRankingRefreshJob(job), 200);
+    } catch (err) {
+      return json({ ok: false, message: `Unable to read ranking refresh job: ${err instanceof Error ? err.message : String(err)}` }, 502);
+    }
+  }],
+
+  "POST /api/screener/refresh/jobs/:id/advance": [async ({ params }: any) => {
+    const id = String(params?.id || "").trim();
+    if (!id) return error("Missing ranking refresh job id", 400);
+    try {
+      const job = await advanceRankingRefreshJob(id);
+      if (!job) return error("Ranking refresh job not found", 404);
+      return json(publicRankingRefreshJob(job), 200);
+    } catch (err) {
+      return json({ ok: false, message: `Unable to advance ranking refresh job: ${err instanceof Error ? err.message : String(err)}` }, 502);
+    }
+  }],
+
   "GET /api/universe": [async () => {
     try {
       return json(await loadTaiwanCompanyUniverse(), 200);
@@ -7101,6 +9082,14 @@ export const handler = router({
         ok: false,
         message: `Unable to load Taiwan company universe: ${err instanceof Error ? err.message : String(err)}`,
       }, 502);
+    }
+  }],
+
+  "GET /api/stocks/search": [async ({ query }: any) => {
+    try {
+      return json(await searchTaiwanStocks(query.q || query.query || query.name || query.code), 200);
+    } catch (err) {
+      return json({ ok: false, matches: [], message: `Unable to search Taiwan stocks: ${err instanceof Error ? err.message : String(err)}` }, 502);
     }
   }],
 
@@ -7117,7 +9106,7 @@ export const handler = router({
 
   "GET /api/swing/screener": [async ({ query }: any) => {
     try {
-      return json(await loadSwingScreener(query.universe), 200);
+      return json(query.universe ? await loadSwingScreener(query.universe) : await loadSwingScreenerSnapshot(), 200);
     } catch (err) {
       return json({
         ok: false,
@@ -7130,12 +9119,10 @@ export const handler = router({
     const codes = parseSwingCodes(query.codes || query.code);
     if (!codes.length) return error("Missing stock codes", 400);
     try {
+      await validateSwingCodes(codes);
       return json(await loadSwingValuation(codes), 200);
     } catch (err) {
-      return json({
-        ok: false,
-        message: `Unable to build swing valuation: ${err instanceof Error ? err.message : String(err)}`,
-      }, 502);
+      return swingRouteError("Unable to build swing valuation", err);
     }
   }],
 
@@ -7143,12 +9130,10 @@ export const handler = router({
     const codes = parseSwingCodes(query.codes || query.code);
     if (!codes.length) return error("Missing stock codes", 400);
     try {
+      await validateSwingCodes(codes);
       return json(await loadSwingDeepAnalysis(codes), 200);
     } catch (err) {
-      return json({
-        ok: false,
-        message: `Unable to build swing deep analysis: ${err instanceof Error ? err.message : String(err)}`,
-      }, 502);
+      return swingRouteError("Unable to build swing deep analysis", err);
     }
   }],
 
@@ -7156,12 +9141,10 @@ export const handler = router({
     const codes = parseSwingCodes(query.codes || query.code);
     if (!codes.length) return error("Missing stock codes", 400);
     try {
+      await validateSwingCodes(codes);
       return json(await loadSwingTechnical(codes), 200);
     } catch (err) {
-      return json({
-        ok: false,
-        message: `Unable to build swing technical view: ${err instanceof Error ? err.message : String(err)}`,
-      }, 502);
+      return swingRouteError("Unable to build swing technical view", err);
     }
   }],
 
@@ -7169,12 +9152,10 @@ export const handler = router({
     const codes = parseSwingCodes(query.codes || query.code);
     if (!codes.length) return error("Missing stock codes", 400);
     try {
+      await validateSwingCodes(codes);
       return json(await loadSwingSignal(codes), 200);
     } catch (err) {
-      return json({
-        ok: false,
-        message: `Unable to build swing signal: ${err instanceof Error ? err.message : String(err)}`,
-      }, 502);
+      return swingRouteError("Unable to build swing signal", err);
     }
   }],
 
@@ -7182,12 +9163,10 @@ export const handler = router({
     const codes = parseSwingCodes(query.codes || query.code);
     if (!codes.length) return error("Missing stock codes", 400);
     try {
+      await validateSwingCodes(codes);
       return json(await loadSwingSummary(codes), 200);
     } catch (err) {
-      return json({
-        ok: false,
-        message: `Unable to build swing summary: ${err instanceof Error ? err.message : String(err)}`,
-      }, 502);
+      return swingRouteError("Unable to build swing summary", err);
     }
   }],
 
@@ -7197,12 +9176,10 @@ export const handler = router({
     const promptContext = parseSwingPromptContext(query.promptContext || query.context);
     const llmEnabled = String(query.llm || "1") !== "0";
     try {
+      await validateSwingCodes(codes);
       return json(await loadSwingOrchestratedReport(codes, query.universe, promptContext, { llm: llmEnabled }), 200);
     } catch (err) {
-      return json({
-        ok: false,
-        message: `Unable to build swing orchestrated report: ${err instanceof Error ? err.message : String(err)}`,
-      }, 502);
+      return swingRouteError("Unable to build swing orchestrated report", err);
     }
   }],
 
@@ -7216,10 +9193,7 @@ export const handler = router({
       const job = await createSwingReportJob(codes, body.universe, promptContext, llmEnabled);
       return json(publicSwingJob(job), 202);
     } catch (err) {
-      return json({
-        ok: false,
-        message: `Unable to create swing report job: ${err instanceof Error ? err.message : String(err)}`,
-      }, 502);
+      return swingRouteError("Unable to create swing report job", err);
     }
   }],
 
@@ -7227,14 +9201,26 @@ export const handler = router({
     const id = String(params?.id || "").trim();
     if (!id) return error("Missing report job id", 400);
     try {
-      const job = await advanceSwingReportJob(id);
+      const job = await readSwingReportJob(id);
       if (!job) return error("Report job not found", 404);
       return json(publicSwingJob(job, ["generated", "partial_or_failed", "failed", "disabled"].includes(job.status)), 200);
     } catch (err) {
       return json({
         ok: false,
-        message: `Unable to advance swing report job: ${err instanceof Error ? err.message : String(err)}`,
+        message: `Unable to read swing report job: ${err instanceof Error ? err.message : String(err)}`,
       }, 502);
+    }
+  }],
+
+  "POST /api/swing/orchestrated-report/jobs/:id/advance": [async ({ params }: any) => {
+    const id = String(params?.id || "").trim();
+    if (!id) return error("Missing report job id", 400);
+    try {
+      const job = await advanceSwingReportJob(id);
+      if (!job) return error("Report job not found", 404);
+      return json(publicSwingJob(job, ["generated", "partial_or_failed", "failed", "disabled"].includes(job.status)), 200);
+    } catch (err) {
+      return json({ ok: false, message: `Unable to advance swing report job: ${err instanceof Error ? err.message : String(err)}` }, 502);
     }
   }],
 
@@ -7245,12 +9231,10 @@ export const handler = router({
     const promptContext = body.promptContext || body.context || null;
     const llmEnabled = body.llm !== false && String(body.llm ?? "1") !== "0";
     try {
+      await validateSwingCodes(codes);
       return json(await loadSwingOrchestratedReport(codes, body.universe, promptContext, { llm: llmEnabled }), 200);
     } catch (err) {
-      return json({
-        ok: false,
-        message: `Unable to build swing orchestrated report: ${err instanceof Error ? err.message : String(err)}`,
-      }, 502);
+      return swingRouteError("Unable to build swing orchestrated report", err);
     }
   }],
 
