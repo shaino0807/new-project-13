@@ -19,7 +19,7 @@ Steps:
 2. Type 鴻海 in the stock code or name field and wait for the visible stock directory list below the field.
 3. Click the candidate labeled 2317 鴻海, then click the analysis button.
 4. Wait for the homepage decision cards to show 今日結論, 追高風險, 支撐, 壓力, and 失效.
-5. Click the deep-workspace arrow and confirm 股票深度頁 is visible.
+5. Click 查看完整分析 and confirm 股票完整分析 is visible.
 6. Change monthly budget to 5000.
 
 Expected: The name resolves to 2317 鴻海 using the Taiwan company directory, then the page shows stock metrics, technical sections, value radar, allocation guide, fundamentals, news, charts, and source/status text. An ambiguous partial name must show candidates instead of silently selecting a company. Budget-dependent sections update without reloading the page.
@@ -31,8 +31,8 @@ Description: Verifies the Agent panel answers questions about the currently load
 Steps:
 1. Navigate to the app.
 2. In the top hero stock code/name field, enter 2330 and click 分析; do not click the Dino doorway card.
-3. After the homepage decision cards appear, click the button labeled 進入深度 →.
-4. Explicitly click the 股票深度頁 workspace tab, then click the 互動分析 Agent shortcut at the top of that page.
+3. After the homepage decision cards appear, click the button labeled 查看完整分析 →.
+4. Explicitly click the 股票完整分析 workspace tab, then click the 互動分析 Agent shortcut at the top of that page.
 5. Confirm the page scrolls to the section titled 互動分析 Agent, then click the 支撐壓力 prompt inside that section.
 6. Wait for the Agent response.
 
@@ -46,22 +46,25 @@ Steps:
 1. Navigate to the app.
 2. Type 2454 in the stock code field.
 3. Click the analysis button.
-4. Wait until the 2454 home decision cards contain results, then click the button labeled 進入深度 → (not an unlabeled doorway arrow).
+4. Wait until the 2454 home decision cards contain results, then click the button labeled 查看完整分析 →.
 5. Wait until the stock deep page is visible, click 技術圖表, then inspect the six adjacent named chart panels and their accessible canvas labels.
 
 Expected: The visible stock deep page contains non-empty Price, MACD, RSI/KD, volume, Bollinger, and support/resistance chart canvases. Probability summary, value radar, chase-risk warning, fundamentals, news, strategy, and Agent sections are also visible. Do not fail merely because a chart is below the initial viewport; scroll to it and wait for Chart.js rendering.
 
-## Test 5 - Mobile page remains readable
+## Test 5 - Mobile first screen prioritizes the decision
 Viewport: mobile
-Description: Verifies the Agent remains usable on a narrow viewport without shrinking key numbers into unreadable text.
+Description: Verifies the Agent presents the decision immediately after stock selection without shrinking controls or evidence into unreadable text.
 
 Steps:
 1. Navigate to the app on a mobile-width viewport.
-2. Enter 0050 and run analysis.
-3. Confirm the homepage status tiles and 今日操作判斷 cards remain readable.
-4. Click the deep-workspace arrow and scroll from top to bottom.
+2. At both 390 × 844 and 320 × 844, confirm the visible stock input is followed by the compact 今日結論／追高風險／支撐／失效 area and then the collapsed 資料與更新時間 disclosure.
+3. Confirm the Hero is between 600 and 700 CSS pixels high, the data source is hidden until the disclosure is opened, and no separate stock-analysis doorway card duplicates the full-analysis action.
+4. Before analysis, confirm the only visible full-analysis action says 請先選擇股票 and is disabled.
+5. Enter 0050 and run analysis. Confirm that action changes to 查看完整分析, becomes enabled, and the compact decision cards remain readable without horizontal page overflow.
+6. Expand 資料與更新時間, inspect its four status cards, then open the full analysis and scroll from top to bottom.
+7. Open Dino K線選股 and inspect the candidate list at 390px and 320px widths.
 
-Expected: The input, metric cards, charts, ranking tables, risk tables, and Agent panel are readable. Dense tables scroll horizontally inside their panels when needed.
+Expected: The mobile sequence is stock input → compact decision/risk/support/invalidation → data/update disclosure → full analysis. The Hero remains within 600–700 CSS pixels in both target widths. Every visible interactive target is at least 44 × 44 CSS pixels, no visible text is below 12 CSS pixels, and the page has no horizontal overflow. General dense tables scroll inside their panels when needed, while Dino candidates render as labeled mobile cards without hiding rank, evidence, invalidation, or selection controls.
 
 ## Test 6 - Macro news degrades without fabrication
 Viewport: desktop
@@ -69,7 +72,7 @@ Description: Verifies the macro/news panel distinguishes readable evidence from 
 
 Steps:
 1. Navigate to the app.
-2. From the homepage doorway cards, click Dino K棒判斷策略 exactly once and wait until the workspace heading 1. 總經與最新新聞 is visible; do not click a hidden or already-active workspace tab.
+2. From the homepage doorway cards, click 開啟 Dino K線選股 exactly once and wait until the workspace heading 1. 總經與最新新聞 is visible; do not click a hidden or already-active workspace tab.
 3. Wait for that section to either render news cards or show its explicit timeout/unavailable state, independently of any stock search.
 4. If news cards are present, inspect their source links and whether the UI says article content or only RSS material was available. If no cards are present, inspect the unavailable explanation instead and stop.
 
@@ -93,8 +96,8 @@ Viewport: desktop
 Description: Verifies quota, authorization, maintenance, or upstream failures do not break existing features.
 
 Steps:
-1. Navigate to the app without entering a stock.
-2. Click the homepage doorway card 股票深度頁, then scroll to 小資價值雷達 where the 搜尋排行榜 button and ranking tabs are located.
+1. Navigate to the app and analyze 2330 so the stock-specific deep entry becomes available.
+2. Click 查看完整分析, then scroll to 小資價值雷達 where the 搜尋排行榜 button and ranking tabs are located.
 3. Observe the ranking snapshot status and click 搜尋排行榜 once. Wait until the job ID has been created and at least the company directory or first persisted batch status is visible; do not wait for all 1,984 stocks in this browser test.
 4. Switch between 最被低估, 最被高估, 現金流最佳, and 增長最佳 ranking tabs.
 
@@ -116,7 +119,7 @@ Viewport: desktop
 Description: Verifies Dino exposes evidence-gated market context and starts a persistent deep-analysis job without an immediate network failure.
 
 Steps:
-1. Navigate to the app and click the homepage Dino K棒判斷策略 doorway card once.
+1. Navigate to the app and click the homepage 開啟 Dino K線選股 doorway card once.
 2. Wait for macro/news, the 1-3 month screener, source panel, and either a complete thematic snapshot or the explicit full-market-building state.
 3. Confirm the legacy 16-stock theme rearrangement is not shown as a full-market result while the first valid snapshot is building.
 4. Enter the inactive/nonexistent code 2334 in the manual selection field and click 進入深度流程.
@@ -125,3 +128,28 @@ Steps:
 7. Wait until the persistent job progress panel shows a job ID or a named analysis stage; do not wait for every research stage or the final LLM report in this smoke test.
 
 Expected: Dino can load before a stock is selected. A completed thematic snapshot contains five independently scanned full-market Top 10 tables with coverage, reason, date/source, and invalidation fields; otherwise an honest building state is shown. The numeric input path validates current market membership instead of accepting any four digits. Invalid 2334 is rejected before job creation with a clear Chinese explanation. Starting valid 2330 creates or resumes the staged report job and displays progress instead of an immediate Network Error. A stage is shown as completed only when its required structured evidence passes; unavailable evidence cannot be labeled generated merely because AI prose exists. Long valuation, fundamental, technical, signal, and synthesis stages continue through the resumable job contract outside this short browser smoke test.
+
+## Test 11 - Keyboard, focus, and workspace history remain coherent
+Viewport: desktop and mobile
+Description: Verifies the revised progressive workflow is operable without a pointer and preserves browser navigation.
+
+Steps:
+1. Navigate to the app without a stock and use Tab to reach the stock input and 開始分析 button.
+2. Confirm the only stock-specific deep-analysis action says 請先選擇股票 and is disabled, while 自選股與持股 and Dino K線選股 remain available.
+3. Analyze 2330, activate 查看完整分析 by keyboard, then use ArrowRight and ArrowLeft on the workspace tab list.
+4. Confirm focus and `aria-selected` move together across visible tabs.
+5. Press the browser Back control or activate 返回首頁, then press browser Forward when available.
+6. Enable reduced motion and increased contrast preferences, then repeat the main navigation.
+
+Expected: Every interactive control has a visible focus indicator, status changes are announced through live regions, disabled entries do not receive accidental activation, and the workspace URL hash matches the active tab. Browser Back returns to the homepage rather than trapping the visitor, while Forward restores the prior workspace view. Reduced motion removes reveal/status animation without hiding content, and increased contrast keeps borders and focus rings visible.
+
+## Test 12 - Warning status remains readable
+Viewport: desktop and mobile
+Description: Prevents a generic warning utility class from overriding the Hero status-card palette.
+
+Steps:
+1. Navigate to the app and trigger or simulate the 價值雷達 waiting-for-data state.
+2. Inspect the Hero status tile class and its computed label, value, detail, background, and border colors.
+3. Repeat while another warning badge or decision card is visible elsewhere on the page.
+
+Expected: The Hero uses its component-specific `status-tone-warning` class rather than a generic `warn` class. Its label, value, and detail text remain white against the dark amber background, with a contrast ratio of at least 4.5:1. Other warning components keep their own scoped palettes and do not change the Hero tile.

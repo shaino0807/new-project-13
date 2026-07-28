@@ -10,72 +10,84 @@
       --bg:#f2f1ee; --ink:#222220; --muted:#6b6a66; --line:#dcdbd8; --card:#fff;
       --green:#0a5c38; --green-bg:#e0f5eb; --red:#8c1818; --red-bg:#fde8e8;
       --amber:#6e4400; --amber-bg:#fef3d8; --blue:#243c86; --teal:#168074;
+      --focus:#0b63ce; --focus-ring:#fff;
     }
     * { box-sizing:border-box; }
     body { margin:0; background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
-    html { scroll-behavior:smooth; }
+    html { scroll-behavior:smooth; scroll-padding-top:118px; }
     .page { max-width:1080px; margin:0 auto; padding:1rem; }
+    .page.workspace-active > .hero,.page.workspace-active > .home-decision,.page.workspace-active > .home-doorway { display:none; }
     .hero { position:relative; overflow:hidden; background:linear-gradient(135deg,#141414 0%,#243c86 48%,#168074 100%); color:#fff; border-radius:14px; padding:1.15rem; margin-bottom:1rem; min-height:420px; display:grid; align-content:space-between; gap:1rem; box-shadow:0 18px 46px rgba(22,32,48,.18); }
     .hero::before { content:""; position:absolute; inset:0; background:linear-gradient(90deg,rgba(255,255,255,.08) 1px,transparent 1px),linear-gradient(180deg,rgba(255,255,255,.08) 1px,transparent 1px); background-size:56px 56px; opacity:.23; pointer-events:none; }
     .hero > * { position:relative; z-index:1; }
     .hero-top { display:grid; grid-template-columns:minmax(0,1.08fr) minmax(300px,.92fr); gap:1rem; align-items:start; }
-    .hero-kicker { display:inline-flex; width:max-content; max-width:100%; border:1px solid #ffffff3d; border-radius:999px; padding:.2rem .55rem; color:#dbeee8; font-size:11px; font-weight:780; margin-bottom:.55rem; }
+    .hero-kicker { display:inline-flex; width:max-content; max-width:100%; border:1px solid #ffffff3d; border-radius:999px; padding:.2rem .55rem; color:#dbeee8; font-size:12px; font-weight:780; margin-bottom:.55rem; }
     h1 { margin:0; font-size:1.8rem; letter-spacing:0; }
     h2 { margin:0 0 .7rem; font-size:1rem; }
     p { margin:.35rem 0 0; line-height:1.65; }
     .hero p { opacity:.9; font-size:.92rem; }
     .hero-flow { display:flex; flex-wrap:wrap; gap:.35rem; align-items:center; margin:.85rem 0 .2rem; font-size:12px; color:#effaf6; }
-    .hero-flow span { border:1px solid #ffffff30; background:#ffffff16; border-radius:999px; padding:.2rem .5rem; }
+    .hero-flow span { border:1px solid #ffffff30; background:#ffffff16; border-radius:999px; padding:.28rem .55rem; }
     .hero-form-card { border:1px solid #ffffff2e; border-radius:10px; background:rgba(12,18,24,.48); padding:.8rem; backdrop-filter:blur(10px); }
     .hero-facts { display:flex; flex-wrap:wrap; gap:.45rem; margin-top:.7rem; }
-    .hero-fact { display:inline-flex; align-items:center; gap:.28rem; border-radius:999px; padding:.22rem .6rem; font-size:11px; font-weight:720; background:#ffffff24; border:1px solid #ffffff30; color:#fff; }
+    .hero-fact { display:inline-flex; align-items:center; gap:.28rem; border-radius:999px; padding:.22rem .6rem; font-size:12px; font-weight:720; background:#ffffff24; border:1px solid #ffffff30; color:#fff; }
     .view-tabs { display:flex; flex-wrap:wrap; gap:.45rem; margin:.85rem 0 0; }
-    .view-tab { background:#fff; border:1px solid var(--line); color:var(--ink); min-height:34px; border-radius:999px; font-size:12px; }
+    .view-tab { background:#fff; border:1px solid var(--line); color:var(--ink); min-height:44px; border-radius:999px; font-size:12px; }
     .view-tab.active { background:var(--ink); border-color:var(--ink); color:#fff; }
     .page-view[hidden] { display:none !important; }
     .form { display:flex; gap:.45rem; align-items:center; }
-    input { min-height:40px; border:1px solid var(--line); border-radius:8px; padding:0 .75rem; color:var(--ink); outline:none; }
+    input { min-height:44px; border:1px solid var(--line); border-radius:8px; padding:0 .75rem; color:var(--ink); background:#fff; }
     .form input { width:130px; }
     .stock-suggestion-list { display:grid; max-height:220px; overflow:auto; margin-top:.45rem; border:1px solid #ffffff38; background:#fff; color:#172126; }
     .stock-suggestion-list[hidden] { display:none; }
-    .stock-suggestion-list button { display:grid; grid-template-columns:minmax(130px,auto) 1fr; gap:.7rem; align-items:center; width:100%; min-height:42px; padding:.55rem .65rem; border:0; border-bottom:1px solid var(--line); border-radius:0; background:#fff; color:#172126; text-align:left; }
+    .stock-suggestion-list button { display:grid; grid-template-columns:minmax(130px,auto) 1fr; gap:.7rem; align-items:center; width:100%; min-height:44px; padding:.55rem .65rem; border:0; border-bottom:1px solid var(--line); border-radius:0; background:#fff; color:#172126; text-align:left; }
     .stock-suggestion-list button:last-child { border-bottom:0; }
     .stock-suggestion-list button:hover, .stock-suggestion-list button:focus-visible { background:#eef6f3; }
     .stock-suggestion-list small { color:#526068; }
-    button { border:0; border-radius:8px; background:var(--ink); color:#fff; min-height:40px; padding:0 .8rem; font-weight:700; cursor:pointer; }
+    button { border:0; border-radius:8px; background:var(--ink); color:#fff; min-height:44px; padding:0 .8rem; font-weight:700; cursor:pointer; }
+    button:disabled { cursor:not-allowed; opacity:.56; }
+    :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible { outline:3px solid var(--focus); outline-offset:3px; box-shadow:0 0 0 2px var(--focus-ring); }
     button.secondary { background:#ffffff22; border:1px solid #ffffff55; }
-    button.chip { min-height:30px; border-radius:999px; background:#fff; color:var(--ink); border:1px solid var(--line); padding:0 .7rem; font-size:12px; }
+    button.chip { min-height:44px; border-radius:999px; background:#fff; color:var(--ink); border:1px solid var(--line); padding:0 .7rem; font-size:12px; }
     .chips { display:flex; flex-wrap:wrap; gap:.45rem; margin-top:.7rem; }
+    .home-status-details { margin-top:.65rem; }
+    .home-status-details > summary { display:none; }
+    .home-status-details:not([open]) > :not(summary) { display:none; }
+    .home-status-summary { color:#dbeee8; font-size:12px; }
     .hero-status-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.65rem; margin-top:.6rem; }
     .hero-status-tile { position:relative; overflow:hidden; border:1px solid #ffffff30; border-radius:10px; background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.07)); padding:.72rem; min-height:98px; box-shadow:inset 0 1px 0 rgba(255,255,255,.18); }
     .hero-status-tile::after { content:""; position:absolute; left:.72rem; right:.72rem; bottom:.58rem; height:3px; border-radius:999px; background:linear-gradient(90deg,transparent,#ffffff80,transparent); transform:translateX(-55%); animation:tilePulse 2.2s ease-in-out infinite; opacity:.58; }
-    .hero-status-tile .tile-label { display:block; color:#d8efe9; font-size:11px; font-weight:760; }
+    .hero-status-tile .tile-label { display:block; color:#d8efe9; font-size:12px; font-weight:760; }
     .hero-status-tile .tile-value { display:block; margin-top:.2rem; color:#fff; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:1.02rem; font-weight:800; overflow-wrap:anywhere; }
-    .hero-status-tile .tile-detail { display:block; margin-top:.26rem; color:#d7e2df; font-size:11px; line-height:1.35; }
-    .hero-status-tile.active { border-color:#9be6cf; box-shadow:0 0 0 1px rgba(155,230,207,.22), inset 0 1px 0 rgba(255,255,255,.2); }
-    .hero-status-tile.warn { border-color:#f4cf75; }
-    .hero-status-tile.bear { border-color:#f49b9b; }
+    .hero-status-tile .tile-detail { display:block; margin-top:.26rem; color:#d7e2df; font-size:12px; line-height:1.4; }
+    .hero-status-tile.status-tone-active { border-color:#9be6cf; box-shadow:0 0 0 1px rgba(155,230,207,.22), inset 0 1px 0 rgba(255,255,255,.2); }
+    .hero-status-tile.status-tone-warning { color:#fff; background:linear-gradient(180deg,rgba(98,64,0,.56),rgba(70,45,0,.38)); border-color:#ffd77a; }
+    .hero-status-tile.status-tone-error { color:#fff; background:linear-gradient(180deg,rgba(120,24,24,.56),rgba(76,15,15,.38)); border-color:#ffb0b0; }
+    .hero-status-tile:is(.status-tone-warning,.status-tone-error) :is(.tile-label,.tile-value,.tile-detail) { color:#fff; }
     @keyframes tilePulse { 0%,100% { transform:translateX(-55%); opacity:.22; } 50% { transform:translateX(55%); opacity:.78; } }
     .home-decision,.home-doorway,.workspace-shell { margin:1rem 0; }
     .home-decision { border:.5px solid var(--line); border-radius:10px; background:#fff; padding:.9rem; }
     .home-decision-head { display:flex; flex-wrap:wrap; justify-content:space-between; gap:.65rem; align-items:flex-start; margin-bottom:.7rem; }
     .home-decision-head p { color:var(--muted); font-size:12px; }
     .home-decision .secondary,.workspace-head .secondary { background:#fff; color:var(--ink); border:1px solid var(--line); }
-    .home-decision-grid { display:grid; grid-template-columns:1.2fr repeat(4,minmax(0,1fr)); gap:.6rem; }
+    .home-decision-grid { display:grid; grid-template-columns:1.35fr repeat(4,minmax(0,1fr)); gap:.6rem; }
     .home-decision-card { border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.72rem; min-width:0; }
-    .home-decision-card b { display:block; color:var(--muted); font-size:11px; margin-bottom:.18rem; }
+    .home-decision-card b { display:block; color:var(--muted); font-size:12px; margin-bottom:.18rem; }
     .home-decision-card strong { display:block; font-size:1.08rem; line-height:1.25; overflow-wrap:anywhere; }
     .home-decision-card p { color:var(--muted); font-size:12px; line-height:1.55; }
-    .home-doorway { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.75rem; align-items:stretch; border:.5px solid var(--line); border-radius:10px; background:#f8f7f4; padding:.9rem; }
-    .doorway-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.6rem; }
+    .home-doorway { border:.5px solid var(--line); border-radius:10px; background:#f8f7f4; padding:.9rem; }
+    .doorway-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.6rem; }
     .doorway-card { border:.5px solid #e7e5e1; border-radius:8px; background:#fff; padding:.75rem; text-align:left; color:var(--ink); min-height:104px; }
+    .doorway-card:hover:not(:disabled) { border-color:#168074; background:#f4fbf9; transform:translateY(-1px); }
     .doorway-card b { display:block; font-size:12px; margin-bottom:.24rem; }
     .doorway-card span { display:block; color:var(--muted); font-size:12px; line-height:1.55; }
-    .doorway-action { align-self:center; min-width:112px; border-radius:999px; background:var(--teal); }
+    .mobile-decision { display:none; }
     .workspace-shell { border:.5px solid var(--line); border-radius:12px; background:#fff; padding:.9rem; }
     .workspace-shell[hidden] { display:none !important; }
+    .workspace-navigation { position:sticky; top:0; z-index:20; margin:-.9rem -.9rem .8rem; padding:.9rem .9rem .3rem; border-radius:12px 12px 0 0; background:rgba(255,255,255,.96); backdrop-filter:blur(12px); box-shadow:0 8px 18px rgba(22,32,48,.08); }
     .workspace-head { display:flex; justify-content:space-between; gap:.75rem; align-items:flex-start; padding-bottom:.65rem; border-bottom:.5px solid #ece9e4; }
     .workspace-head p { color:var(--muted); font-size:12px; }
+    .workspace-context { display:inline-flex; align-items:center; gap:.35rem; margin-top:.45rem; border-radius:999px; padding:.28rem .65rem; color:#0a5c38; background:#e0f5eb; font-size:12px; font-weight:760; }
     .workspace-tabs { margin:.75rem 0; }
     .workspace-body { display:block; }
     .reveal { opacity:0; transform:translateY(18px); transition:opacity .58s ease, transform .58s ease; }
@@ -85,7 +97,7 @@
     .two { grid-template-columns:1.12fr .88fr; align-items:start; }
     .mc,.panel { background:var(--card); border:.5px solid var(--line); border-radius:10px; min-width:0; }
     .mc { padding:.62rem .78rem; min-height:74px; }
-    .mc .k { font-size:11px; color:var(--muted); }
+    .mc .k { font-size:12px; color:var(--muted); }
     .mc .v { font-size:1.14rem; font-weight:760; margin-top:.18rem; overflow-wrap:anywhere; }
     .mc .v.up { color:var(--red); }
     .mc .v.down { color:var(--green); }
@@ -95,25 +107,25 @@
     .chartbox.sm { height:220px; }
     .sr { display:flex; justify-content:space-between; padding:6.5px 0; border-bottom:.5px solid #eee; gap:9px; }
     .sl { flex:1; font-size:12px; line-height:1.55; }
-    .badge { display:inline-flex; align-items:center; border-radius:999px; padding:2px 8px; font-size:11px; font-weight:750; white-space:nowrap; }
-    .bear { background:var(--red-bg); color:var(--red); }
-    .bull { background:var(--green-bg); color:var(--green); }
-    .warn { background:var(--amber-bg); color:var(--amber); }
-    .neut { background:#f0efed; color:#555; }
+    .badge { display:inline-flex; align-items:center; border-radius:999px; padding:2px 8px; font-size:12px; font-weight:750; white-space:nowrap; }
+    .badge.tone-bear,.home-decision-card strong.decision-tone-bear,.level-item span.level-tone-bear,.hero-fact.hero-tone-bear { background:var(--red-bg); color:var(--red); }
+    .badge.tone-bull,.home-decision-card strong.decision-tone-bull,.level-item span.level-tone-bull,.hero-fact.hero-tone-bull { background:var(--green-bg); color:var(--green); }
+    .badge.tone-warn,.home-decision-card strong.decision-tone-warn,.level-item span.level-tone-warn,.hero-fact.hero-tone-warn { background:var(--amber-bg); color:var(--amber); }
+    .badge.tone-neut,.home-decision-card strong.decision-tone-neut,.level-item span.level-tone-neut,.hero-fact.hero-tone-neut { background:#f0efed; color:#555; }
     .pb { display:grid; grid-template-columns:160px 1fr 44px; gap:.6rem; align-items:center; margin:.55rem 0; font-size:12px; }
     .pt { height:9px; background:#f0efed; border-radius:5px; overflow:hidden; }
     .pf { height:100%; border-radius:5px; }
     table { width:100%; border-collapse:collapse; font-size:12px; }
     th,td { border-bottom:.5px solid #e7e5e1; padding:.52rem; text-align:left; vertical-align:top; }
     td,th { overflow-wrap:anywhere; word-break:break-word; }
-    th { color:var(--muted); font-size:11px; }
+    th { color:var(--muted); font-size:12px; }
     .wave { display:flex; gap:.35rem; align-items:end; height:72px; margin:.5rem 0; }
-    .wave span { flex:1; border-radius:7px 7px 0 0; background:#d8e6ff; color:var(--blue); text-align:center; font-size:11px; padding-top:.25rem; font-weight:800; }
+    .wave span { flex:1; border-radius:7px 7px 0 0; background:#d8e6ff; color:var(--blue); text-align:center; font-size:12px; padding-top:.25rem; font-weight:800; }
     .wave-legend { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.35rem; margin:.4rem 0 .7rem; }
-    .wave-legend span { font-size:11px; color:var(--muted); text-align:center; }
+    .wave-legend span { font-size:12px; color:var(--muted); text-align:center; }
     .level-list { display:grid; gap:.35rem; }
     .level-item { display:flex; justify-content:space-between; gap:1rem; padding:.45rem .55rem; border-radius:8px; background:#faf9f7; font-size:12px; }
-    .note,.status { font-size:11px; line-height:1.6; color:var(--muted); }
+    .note,.status { font-size:12px; line-height:1.65; color:var(--muted); }
     .status { margin:.65rem 0 0; color:#fff; opacity:.95; }
     .status { overflow-wrap:anywhere; }
     .agent-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:10px; }
@@ -127,10 +139,10 @@
     .agent-msg ul { margin:8px 0 0; padding-left:18px; font-size:12px; line-height:1.65; }
     .agent-form { display:grid; grid-template-columns:1fr auto; gap:8px; margin-top:10px; }
     .source-list { display:flex; gap:.45rem; flex-wrap:wrap; margin-top:.5rem; }
-    .source-list a { font-size:11px; color:var(--blue); text-decoration:none; border-bottom:1px solid #c6cee8; }
+    .source-list a { font-size:12px; color:var(--blue); text-decoration:none; border-bottom:1px solid #c6cee8; }
     .control-row { display:flex; flex-wrap:wrap; gap:.65rem; align-items:center; margin-bottom:.7rem; }
     .control-row label { font-size:12px; color:var(--muted); display:flex; align-items:center; gap:.45rem; }
-    .control-row input { width:150px; min-height:34px; }
+    .control-row input { width:150px; min-height:44px; }
     .decision-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.6rem; }
     .decision-card,.horizon-card,.news-item { border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.72rem; min-width:0; }
     .decision-card b,.horizon-card b,.news-item b { display:block; font-size:12px; margin-bottom:.24rem; }
@@ -151,11 +163,11 @@
     .news-list { display:grid; gap:.55rem; }
     .news-meta { display:flex; flex-wrap:wrap; gap:.35rem; margin:.35rem 0; }
     .news-item a { color:var(--blue); text-decoration:none; border-bottom:1px solid #c6cee8; }
-    .fund-meta { margin-top:.7rem; padding-top:.55rem; border-top:.5px solid #e7e5e1; color:var(--muted); font-size:11px; line-height:1.65; }
+    .fund-meta { margin-top:.7rem; padding-top:.55rem; border-top:.5px solid #e7e5e1; color:var(--muted); font-size:12px; line-height:1.65; }
     .fund-meta a { color:var(--blue); }
     .value-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.6rem; margin:.65rem 0; }
     .value-card { border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.7rem; min-width:0; }
-    .value-card b { display:block; color:var(--muted); font-size:11px; margin-bottom:.18rem; }
+    .value-card b { display:block; color:var(--muted); font-size:12px; margin-bottom:.18rem; }
     .value-card strong { display:block; font-size:1.28rem; line-height:1.25; overflow-wrap:anywhere; }
     .value-card p { font-size:12px; line-height:1.55; margin:.24rem 0 0; }
     .data-status { border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.72rem; margin:.65rem 0; }
@@ -170,7 +182,7 @@
     .evidence-heading { margin:1rem 0 .25rem; font-size:.95rem; }
     .data-status-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.5rem; }
     .data-status-card { border:.5px solid #ece9e4; border-radius:8px; background:#fff; padding:.52rem; min-width:0; }
-    .data-status-card b { display:block; font-size:11px; color:var(--muted); margin-bottom:.18rem; }
+    .data-status-card b { display:block; font-size:12px; color:var(--muted); margin-bottom:.18rem; }
     .data-status-card strong { display:block; font-size:.95rem; line-height:1.35; overflow-wrap:anywhere; }
     .data-status-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.35rem .7rem; margin-top:.55rem; font-size:12px; }
     .data-status-list div { display:flex; justify-content:space-between; gap:.6rem; border-bottom:.5px solid #eee; padding:.25rem 0; }
@@ -184,7 +196,7 @@
     .mini-form { display:grid; gap:.55rem; }
     .mini-form label { display:grid; gap:.25rem; color:var(--muted); font-size:12px; }
     select, textarea { border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); font:inherit; }
-    select { min-height:38px; padding:0 .65rem; }
+    select { min-height:44px; padding:0 .65rem; }
     textarea { min-height:92px; resize:vertical; padding:.6rem .7rem; line-height:1.5; }
     .allocation-list { display:grid; gap:.45rem; margin-top:.65rem; }
     .allocation-row { display:grid; grid-template-columns:110px 72px 1fr; gap:.55rem; align-items:start; padding:.55rem .65rem; border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; font-size:12px; }
@@ -214,25 +226,25 @@
     .score-bar i { display:block; height:100%; border-radius:6px; background:var(--teal); }
     .workbench-list { display:grid; gap:.45rem; }
     .workbench-item { display:grid; grid-template-columns:96px 1fr auto; gap:.6rem; align-items:center; border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.55rem .65rem; font-size:12px; }
-    .workbench-item button { min-height:30px; border-radius:999px; background:#fff; color:var(--ink); border:1px solid var(--line); padding:0 .65rem; font-size:12px; }
-    .flow-steps { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.55rem; margin:.75rem 0; }
-    .flow-step { border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.65rem; min-height:86px; }
+    .workbench-item button { min-height:44px; border-radius:999px; background:#fff; color:var(--ink); border:1px solid var(--line); padding:0 .65rem; font-size:12px; }
+    .flow-steps { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.55rem; margin:.75rem 0; }
+    .flow-step { border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; color:var(--ink); padding:.65rem; min-height:92px; text-align:left; font-weight:400; }
     .flow-step b { display:block; font-size:12px; margin-bottom:.25rem; }
     .flow-step span { display:block; color:var(--muted); font-size:12px; line-height:1.45; }
     .flow-step.active { border-color:#168074; background:#eef8f5; }
     .swing-actions { display:flex; flex-wrap:wrap; gap:.55rem; align-items:flex-end; margin-top:.75rem; }
-    .swing-actions input { min-height:36px; border:1px solid var(--line); border-radius:8px; padding:.45rem .6rem; min-width:260px; }
+    .swing-actions input { min-height:44px; border:1px solid var(--line); border-radius:8px; padding:.45rem .6rem; min-width:260px; }
     .swing-picks { display:flex; flex-wrap:wrap; gap:.4rem; margin:.6rem 0; }
     .swing-pick { display:inline-flex; gap:.35rem; align-items:center; border:1px solid var(--line); border-radius:999px; padding:.22rem .55rem; background:#fff; font-size:12px; }
     .swing-pick input { accent-color:#168074; }
     .swing-section { display:grid; gap:.7rem; margin-top:.75rem; }
+    .sr-only { position:absolute !important; width:1px !important; height:1px !important; padding:0 !important; margin:-1px !important; overflow:hidden !important; clip:rect(0,0,0,0) !important; white-space:nowrap !important; border:0 !important; }
     @media (max-width:820px) {
       .hero-top,.two { grid-template-columns:1fr; }
       .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .decision-grid,.horizon-grid,.dow-grid,.strategy-grid,.wave-legend,.value-grid,.client-grid,.client-grid.two-col { grid-template-columns:1fr; }
       .hero-status-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .home-decision-grid,.home-doorway,.doorway-grid { grid-template-columns:1fr; }
-      .doorway-action { width:100%; }
+      .home-decision-grid,.doorway-grid { grid-template-columns:1fr; }
       .score-row,.workbench-item { grid-template-columns:1fr; }
       .client-form,.holding-grid,.holding-row,.scope-grid { grid-template-columns:1fr; }
       .flow-steps { grid-template-columns:1fr 1fr; }
@@ -255,9 +267,33 @@
     }
     @media (max-width:520px) {
       .page { padding:.72rem; }
-      .hero { border-radius:12px; padding:.85rem; }
-      .hero-status-grid { grid-template-columns:1fr; }
+      .hero { border-radius:12px; padding:.85rem; min-height:0; }
+      .hero-flow { display:none; }
+      .hero p { font-size:.86rem; line-height:1.55; }
+      #heroFacts,#valueRadarHeroBadge { display:none; }
+      .hero-form-card { padding:.7rem; }
+      .chips { flex-wrap:nowrap; overflow-x:auto; padding-bottom:.15rem; scroll-snap-type:x proximity; }
+      .chips button { flex:0 0 auto; scroll-snap-align:start; }
+      .mobile-decision { display:grid; gap:.55rem; border:1px solid #ffffff38; border-radius:10px; background:rgba(255,255,255,.1); padding:.7rem; }
+      .mobile-decision-head h2 { font-size:1rem; margin:0; }
+      .mobile-decision-head p { display:none; }
+      .mobile-decision-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.45rem; }
+      .mobile-decision-grid .home-decision-card { min-height:64px; padding:.5rem; background:#fff; }
+      .mobile-decision-grid .home-decision-card p { display:none; }
+      .mobile-decision-grid .home-decision-card strong { font-size:.9rem; }
+      .mobile-decision > button { width:100%; background:#fff; color:var(--ink); border:1px solid #ffffff90; }
+      .home-status-details { border:1px solid #ffffff36; border-radius:10px; background:#ffffff12; overflow:hidden; }
+      .home-status-details > summary { display:flex; min-height:48px; align-items:center; justify-content:space-between; gap:.75rem; padding:.65rem .75rem; color:#fff; cursor:pointer; font-size:13px; font-weight:760; }
+      .home-status-details[open] > summary { border-bottom:1px solid #ffffff2e; }
+      .home-status-details .hero-status-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.5rem; padding:.65rem; margin-top:0; }
+      .home-status-details .hero-status-tile { min-height:82px; padding:.6rem; }
+      .home-status-details .tile-detail { display:none; }
+      .home-status-details .status { margin:.1rem .65rem .7rem; }
+      .home-decision { display:none; }
       .workspace-head { display:grid; }
+      .workspace-navigation { margin:-.9rem -.9rem .7rem; padding:.75rem .9rem .25rem; }
+      .workspace-tabs { flex-wrap:nowrap; overflow-x:auto; padding:0 0 .45rem; scroll-snap-type:x proximity; }
+      .workspace-tabs .view-tab { flex:0 0 auto; min-height:44px; scroll-snap-align:start; }
       .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem; }
       .value-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .rank-tabs button { flex:1 1 calc(50% - .45rem); padding:0 .55rem; }
@@ -266,11 +302,25 @@
       .table-wrap.compact-table table { min-width:540px; }
       .table-wrap td:first-child,.table-wrap th:first-child { position:sticky; left:0; background:var(--card); z-index:1; box-shadow:8px 0 10px -12px rgba(0,0,0,.45); }
       .table-wrap tbody td:first-child { background:#fbfaf8; }
+      .swing-candidate-table { overflow:visible; margin-inline:0; }
+      .swing-candidate-table table { min-width:0; }
+      .swing-candidate-table thead { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+      .swing-candidate-table tbody,.swing-candidate-table tr { display:grid; gap:.2rem; width:100%; }
+      .swing-candidate-table tr { margin:.65rem 0; padding:.55rem .65rem; border:1px solid var(--line); border-radius:10px; background:#fbfaf8; }
+      .swing-candidate-table td { display:grid; grid-template-columns:minmax(94px,.42fr) 1fr; gap:.55rem; align-items:start; width:100%; padding:.38rem 0; border-bottom:1px solid #ece9e4; }
+      .swing-candidate-table td:last-child { border-bottom:0; }
+      .swing-candidate-table td::before { content:attr(data-label); color:var(--muted); font-size:12px; font-weight:760; }
+      .swing-candidate-table td[colspan] { display:block; }
+      .swing-candidate-table td[colspan]::before { content:none; }
+      .swing-candidate-table td:first-child { position:static; background:transparent; box-shadow:none; }
       .mc .v { font-size:1.18rem; }
       .value-card strong { font-size:1.3rem; }
       .client-card strong,.decision-card > span,.theory-card strong,.data-status-card strong { font-size:1.12rem; }
-      .flow-steps { grid-template-columns:1fr; }
+      .flow-steps { display:flex; gap:.5rem; overflow-x:auto; padding:.1rem .1rem .5rem; scroll-snap-type:x proximity; }
+      .flow-step { flex:0 0 190px; min-height:108px; scroll-snap-align:start; }
       .swing-actions input { min-width:0; width:100%; }
+      button,input,select,.view-tab,.stock-suggestion-list button,.control-row input,.workbench-item button,.swing-actions input,button.chip { min-height:44px; }
+      .note,.status { font-size:13px; }
     }
     @media (max-width:360px) {
       .metrics,.value-grid { grid-template-columns:1fr; }
@@ -280,21 +330,26 @@
       .reveal { opacity:1; transform:none; transition:none; }
       .hero-status-tile::after { animation:none; }
     }
+    @media (prefers-contrast:more) {
+      :root { --line:#77736c; --muted:#4f4c47; }
+      button,input,select,textarea,.panel,.doorway-card,.home-decision-card { border-width:2px; }
+      :where(a,button,input,select,textarea,summary,[role="tab"]):focus-visible { outline-width:4px; }
+    }
   </style>
 </head>
 <body>
-  <main class="page">
+  <main class="page" id="appPage">
     <section class="hero reveal">
       <div class="hero-top">
         <div>
           <span class="hero-kicker">1-3 &#x500b;&#x6708;&#x53f0;&#x80a1;&#x6ce2;&#x6bb5;</span>
           <h1 id="headline">&#x53f0;&#x80a1;&#x6ce2;&#x6bb5;&#x89c0;&#x5bdf;&#x5206;&#x6790;&#x5eab;</h1>
           <p id="subtitle">&#x8f38;&#x5165;&#x4f60;&#x60f3;&#x89c0;&#x5bdf;&#x7684;&#x80a1;&#x7968;&#xff0c;&#x5148;&#x770b;&#x8ffd;&#x9ad8;&#x98a8;&#x96aa;&#x3001;&#x652f;&#x6490;&#x58d3;&#x529b;&#x8207;&#x5931;&#x6548;&#x689d;&#x4ef6;&#x3002;<br>&#x518d;&#x5ef6;&#x4f38;&#x6210; 1-3 &#x500b;&#x6708;&#x6ce2;&#x6bb5;&#x89c0;&#x5bdf;&#x65b9;&#x6cd5;&#x3002;</p>
-          <div class="hero-flow" aria-label="homepage flow">
-            <span>&#x8f38;&#x5165;&#x80a1;&#x7968;</span>
-            <span>&#x4eca;&#x65e5;&#x64cd;&#x4f5c;&#x5224;&#x65b7;</span>
-            <span>&#x652f;&#x6490; / &#x58d3;&#x529b; / &#x5931;&#x6548;</span>
-            <span>&#x6df1;&#x5ea6;&#x5206;&#x9801;</span>
+          <div class="hero-flow" aria-label="&#x4f7f;&#x7528;&#x6d41;&#x7a0b;">
+            <span>1. &#x9078;&#x64c7;&#x80a1;&#x7968;</span>
+            <span>2. &#x67e5;&#x770b;&#x521d;&#x5224;</span>
+            <span>3. &#x78ba;&#x8a8d;&#x50f9;&#x683c;&#x8a08;&#x756b;</span>
+            <span>4. &#x9032;&#x5165;&#x6df1;&#x5ea6;&#x5206;&#x6790;</span>
           </div>
           <div class="hero-facts" id="heroFacts"></div>
           <div class="hero-facts" id="valueRadarHeroBadge"></div>
@@ -303,8 +358,8 @@
           <form class="form" id="stockForm">
             <input id="stockInput" list="stockSuggestions" autocomplete="off" placeholder="&#x4f8b;&#x5982; 2330&#x3001;&#x53f0;&#x7a4d;&#x96fb;&#x3001;&#x83ef;&#x90a6;&#x96fb;" aria-label="&#x80a1;&#x7968;&#x4ee3;&#x78bc;&#x6216;&#x540d;&#x7a31;">
             <datalist id="stockSuggestions"></datalist>
-            <button type="submit">&#x5206;&#x6790;</button>
-            <button class="secondary" type="button" id="resetBtn">&#x91cd;&#x8dd1;</button>
+            <button type="submit" id="analyzeBtn">&#x958b;&#x59cb;&#x5206;&#x6790;</button>
+            <button class="secondary" type="button" id="resetBtn" disabled>&#x91cd;&#x65b0;&#x5206;&#x6790;</button>
           </form>
           <div class="stock-suggestion-list" id="stockSuggestionList" role="listbox" aria-label="&#x80a1;&#x7968;&#x540d;&#x7a31;&#x5019;&#x9078;" hidden></div>
           <div class="chips" id="quickCodes">
@@ -315,13 +370,25 @@
           </div>
         </div>
       </div>
-      <div class="hero-status-grid" aria-label="analysis status">
-        <div class="hero-status-tile" id="homeStockStatus"><span class="tile-label">&#x80a1;&#x7968;</span><strong class="tile-value">&#x5f85;&#x8f38;&#x5165;</strong><span class="tile-detail">&#x7b49;&#x5f85;&#x4ee3;&#x78bc;&#x6216;&#x540d;&#x7a31;</span></div>
-        <div class="hero-status-tile" id="homeQuoteStatus"><span class="tile-label">&#x5831;&#x50f9;</span><strong class="tile-value">&#x5f85;&#x8f09;&#x5165;</strong><span class="tile-detail">&#x5c1a;&#x672a;&#x5411;&#x5f8c;&#x7aef;&#x53d6;&#x5f97;&#x6578;&#x64da;</span></div>
-        <div class="hero-status-tile" id="homeAnalysisStatus"><span class="tile-label">&#x5206;&#x6790;</span><strong class="tile-value">&#x5f85;&#x555f;&#x52d5;</strong><span class="tile-detail">&#x5c1a;&#x672a;&#x8a08;&#x7b97;&#x652f;&#x6490;&#x58d3;&#x529b;</span></div>
-        <div class="hero-status-tile" id="homeValueStatus"><span class="tile-label">&#x50f9;&#x503c;&#x96f7;&#x9054;</span><strong class="tile-value">&#x5f85;&#x8f38;&#x5165;</strong><span class="tile-detail">&#x7b49;&#x5f85;&#x516c;&#x958b;&#x8cc7;&#x6599;&#x8a55;&#x5206;</span></div>
-      </div>
-      <div class="status" id="status">&#x6e96;&#x5099;&#x8f09;&#x5165;&#x6700;&#x65b0;&#x8cc7;&#x6599;&#x3002;</div>
+      <section class="mobile-decision" id="mobileDecisionPanel" aria-labelledby="mobileDecisionTitle">
+        <div class="mobile-decision-head">
+          <h2 id="mobileDecisionTitle">&#x4eca;&#x65e5;&#x64cd;&#x4f5c;&#x5224;&#x65b7;</h2>
+          <p>&#x5148;&#x770b;&#x7d50;&#x8ad6;&#x8207;&#x8ffd;&#x9ad8;&#x98a8;&#x96aa;&#xff0c;&#x518d;&#x6c7a;&#x5b9a;&#x662f;&#x5426;&#x9032;&#x5165;&#x5b8c;&#x6574;&#x5206;&#x6790;&#x3002;</p>
+        </div>
+        <div class="mobile-decision-grid" id="mobileDecisionCards" aria-live="polite"></div>
+        <button type="button" id="mobileOpenWorkspaceBtn" disabled aria-describedby="mobileDecisionHelp">&#x8acb;&#x5148;&#x9078;&#x64c7;&#x80a1;&#x7968;</button>
+        <p class="sr-only" id="mobileDecisionHelp">&#x8acb;&#x5148;&#x5b8c;&#x6210;&#x4e00;&#x6b21;&#x80a1;&#x7968;&#x5206;&#x6790;&#x3002;</p>
+      </section>
+      <details class="home-status-details" id="homeStatusDetails" open>
+        <summary><span>&#x8cc7;&#x6599;&#x8207;&#x66f4;&#x65b0;&#x6642;&#x9593;</span><strong class="home-status-summary" id="homeStatusSummary">&#x7b49;&#x5f85;&#x9078;&#x80a1;</strong></summary>
+        <div class="hero-status-grid" aria-label="&#x5206;&#x6790;&#x72c0;&#x614b;">
+          <div class="hero-status-tile" id="homeStockStatus"><span class="tile-label">&#x80a1;&#x7968;</span><strong class="tile-value">&#x5f85;&#x8f38;&#x5165;</strong><span class="tile-detail">&#x7b49;&#x5f85;&#x4ee3;&#x78bc;&#x6216;&#x540d;&#x7a31;</span></div>
+          <div class="hero-status-tile" id="homeQuoteStatus"><span class="tile-label">&#x5831;&#x50f9;</span><strong class="tile-value">&#x5f85;&#x8f09;&#x5165;</strong><span class="tile-detail">&#x5c1a;&#x672a;&#x5411;&#x5f8c;&#x7aef;&#x53d6;&#x5f97;&#x6578;&#x64da;</span></div>
+          <div class="hero-status-tile" id="homeAnalysisStatus"><span class="tile-label">&#x5206;&#x6790;</span><strong class="tile-value">&#x5f85;&#x555f;&#x52d5;</strong><span class="tile-detail">&#x5c1a;&#x672a;&#x8a08;&#x7b97;&#x652f;&#x6490;&#x58d3;&#x529b;</span></div>
+          <div class="hero-status-tile" id="homeValueStatus"><span class="tile-label">&#x50f9;&#x503c;&#x96f7;&#x9054;</span><strong class="tile-value">&#x5f85;&#x8f38;&#x5165;</strong><span class="tile-detail">&#x7b49;&#x5f85;&#x516c;&#x958b;&#x8cc7;&#x6599;&#x8a55;&#x5206;</span></div>
+        </div>
+        <div class="status" id="status" role="status" aria-live="polite" aria-atomic="true">&#x6e96;&#x5099;&#x8f09;&#x5165;&#x6700;&#x65b0;&#x8cc7;&#x6599;&#x3002;</div>
+      </details>
     </section>
 
     <section class="home-decision reveal" id="homeDecisionPanel">
@@ -330,36 +397,38 @@
           <h2>&#x4eca;&#x65e5;&#x64cd;&#x4f5c;&#x5224;&#x65b7;</h2>
           <p>&#x8f38;&#x5165;&#x5f8c;&#x5148;&#x770b;&#x7d50;&#x8ad6;&#xff0c;&#x518d;&#x6c7a;&#x5b9a;&#x8981;&#x4e0d;&#x8981;&#x9032;&#x5165;&#x7d30;&#x7bc0;&#x5206;&#x9801;&#x3002;</p>
         </div>
-        <button type="button" class="secondary" id="openWorkspaceBtn">&#x9032;&#x5165;&#x6df1;&#x5ea6; &#x2192;</button>
+        <button type="button" class="secondary" id="openWorkspaceBtn" disabled aria-describedby="homeDecisionHelp">&#x67e5;&#x770b;&#x5b8c;&#x6574;&#x5206;&#x6790; &#x2192;</button>
       </div>
+      <p class="sr-only" id="homeDecisionHelp">&#x8acb;&#x5148;&#x5b8c;&#x6210;&#x4e00;&#x6b21;&#x80a1;&#x7968;&#x5206;&#x6790;&#x3002;</p>
       <div class="home-decision-grid" id="homeDecisionCards"></div>
     </section>
 
     <section class="home-doorway reveal" id="homeDoorway">
       <div class="doorway-grid">
-        <button class="doorway-card" type="button" data-doorway-view="stock"><b>&#x80a1;&#x7968;&#x6df1;&#x5ea6;&#x9801;</b><span>&#x5c55;&#x958b;&#x6280;&#x8853;&#x3001;&#x50f9;&#x503c;&#x3001;&#x65b0;&#x805e;&#x8207;&#x4ea4;&#x6613;&#x689d;&#x4ef6;&#x3002;</span></button>
-        <button class="doorway-card" type="button" data-doorway-view="client"><b>&#x5ba2;&#x6236;&#x5de5;&#x4f5c;&#x53f0;</b><span>&#x770b;&#x89c0;&#x5bdf;&#x6c60;&#x3001;&#x6301;&#x80a1;&#x98a8;&#x96aa;&#x8207;&#x6392;&#x884c;&#x699c;&#x3002;</span></button>
-        <button class="doorway-card" type="button" data-doorway-view="swing"><b>Dino K&#x68d2;&#x5224;&#x65b7;&#x7b56;&#x7565;</b><span>&#x9032;&#x5165;&#x6ce2;&#x6bb5;&#x9078;&#x80a1;&#x8207;&#x5c08;&#x5bb6;&#x5206;&#x6790;&#x6d41;&#x7a0b;&#x3002;</span></button>
+        <button class="doorway-card" type="button" data-doorway-view="client"><b>&#x958b;&#x555f;&#x81ea;&#x9078;&#x80a1;&#x8207;&#x6301;&#x80a1;</b><span>&#x67e5;&#x770b;&#x89c0;&#x5bdf;&#x6c60;&#x3001;&#x6301;&#x80a1;&#x98a8;&#x96aa;&#x8207;&#x6392;&#x884c;&#x699c;&#x3002;</span></button>
+        <button class="doorway-card" type="button" data-doorway-view="swing"><b>&#x958b;&#x555f; Dino K&#x7dda;&#x9078;&#x80a1;</b><span>&#x5148;&#x770b;&#x5e02;&#x5834;&#x4e3b;&#x984c;&#xff0c;&#x518d;&#x9078;&#x80a1;&#x4e26;&#x9032;&#x5165;&#x5c08;&#x5bb6;&#x5206;&#x6790;&#x3002;</span></button>
       </div>
-      <button class="doorway-action" type="button" data-doorway-view="stock">&#x2192;</button>
     </section>
 
     <section class="workspace-shell reveal" id="workspaceShell" hidden>
-      <div class="workspace-head">
-        <div>
-          <h2>&#x6df1;&#x5ea6;&#x529f;&#x80fd;&#x5de5;&#x4f5c;&#x5340;</h2>
-          <p>&#x9996;&#x9801;&#x5b8c;&#x6210;&#x521d;&#x5224;&#x5f8c;&#xff0c;&#x5728;&#x9019;&#x88e1;&#x5207;&#x63db;&#x80a1;&#x7968;&#x6df1;&#x5ea6;&#x3001;&#x5ba2;&#x6236;&#x5de5;&#x4f5c;&#x53f0;&#x8207; Dino &#x7b56;&#x7565;&#x3002;</p>
+      <div class="workspace-navigation">
+        <div class="workspace-head">
+          <div>
+            <h2>&#x6df1;&#x5ea6;&#x529f;&#x80fd;&#x5de5;&#x4f5c;&#x5340;</h2>
+            <p>&#x5728;&#x9019;&#x88e1;&#x5207;&#x63db;&#x80a1;&#x7968;&#x5b8c;&#x6574;&#x5206;&#x6790;&#x3001;&#x81ea;&#x9078;&#x80a1;&#x8207;&#x6301;&#x80a1;&#xff0c;&#x6216; Dino K&#x7dda;&#x9078;&#x80a1;&#x3002;</p>
+            <div class="workspace-context" id="workspaceContext" role="status" aria-live="polite">&#x76ee;&#x524d;&#x5c1a;&#x672a;&#x9078;&#x64c7;&#x80a1;&#x7968;</div>
+          </div>
+          <button type="button" class="secondary" id="backHomeBtn">&#x8fd4;&#x56de;&#x9996;&#x9801;</button>
         </div>
-        <button type="button" class="secondary" id="backHomeBtn">&#x56de;&#x5230;&#x9996;&#x9801;</button>
-      </div>
-      <div class="view-tabs workspace-tabs" id="viewTabs" aria-label="page switch">
-        <button class="view-tab active" type="button" data-view="stock">&#x80a1;&#x7968;&#x6df1;&#x5ea6;&#x9801;</button>
-        <button class="view-tab" type="button" data-view="client">&#x5ba2;&#x6236;&#x5de5;&#x4f5c;&#x53f0;</button>
-        <button class="view-tab" type="button" data-view="swing">Dino K&#x68d2;&#x5224;&#x65b7;&#x7b56;&#x7565;</button>
-        <button class="view-tab" type="button" data-view="admin" id="adminTab" hidden>&#x5f8c;&#x81fa;&#x8cc7;&#x6599;&#x6aa2;&#x67e5;</button>
+        <div class="view-tabs workspace-tabs" id="viewTabs" role="tablist" aria-label="&#x6df1;&#x5ea6;&#x529f;&#x80fd;&#x5207;&#x63db;">
+          <button class="view-tab active" type="button" role="tab" id="workspaceTabStock" aria-selected="true" aria-controls="stockPage" tabindex="0" data-view="stock">&#x80a1;&#x7968;&#x5b8c;&#x6574;&#x5206;&#x6790;</button>
+          <button class="view-tab" type="button" role="tab" id="workspaceTabClient" aria-selected="false" aria-controls="clientPage" tabindex="-1" data-view="client">&#x81ea;&#x9078;&#x80a1;&#x8207;&#x6301;&#x80a1;</button>
+          <button class="view-tab" type="button" role="tab" id="workspaceTabSwing" aria-selected="false" aria-controls="swingPage" tabindex="-1" data-view="swing">Dino K&#x7dda;&#x9078;&#x80a1;</button>
+          <button class="view-tab" type="button" role="tab" id="adminTab" aria-selected="false" aria-controls="adminPage" tabindex="-1" data-view="admin" hidden>&#x5f8c;&#x81fa;&#x8cc7;&#x6599;&#x6aa2;&#x67e5;</button>
+        </div>
       </div>
       <div class="workspace-body">
-    <div id="stockPage" class="page-view">
+    <div id="stockPage" class="page-view" role="tabpanel" aria-labelledby="workspaceTabStock">
     <div class="control-row">
       <span></span>
       <div class="control-row"><button type="button" class="secondary" id="openTechnicalChartsBtn">&#x6280;&#x8853;&#x5716;&#x8868;</button><button type="button" class="secondary" id="openAgentBtn">&#x4e92;&#x52d5;&#x5206;&#x6790; Agent</button></div>
@@ -416,7 +485,7 @@
           </tbody>
         </table>
       </div>
-      <p class="note" id="screenerNote">&#x5f8c;&#x81fa;&#x5df2;&#x9023;&#x7dda;&#x5168;&#x81fa;&#x80a1;&#x516c;&#x53f8; universe&#xff1b;&#x76ee;&#x524d;&#x6392;&#x884c;&#x699c;&#x70ba;&#x53ef;&#x63a7;&#x6279;&#x6b21;&#x8a55;&#x5206;&#xff0c;&#x4e0d;&#x5047;&#x88dd;&#x5df2;&#x5b8c;&#x6210;&#x5168;&#x5e02;&#x5834;&#x5373;&#x6642;&#x6392;&#x540d;&#x3002;</p>
+      <p class="note" id="screenerNote">&#x5f8c;&#x81fa;&#x5df2;&#x9023;&#x7dda;&#x5168;&#x81fa;&#x80a1;&#x516c;&#x53f8;&#x89c0;&#x5bdf;&#x7bc4;&#x570d;&#xff1b;&#x76ee;&#x524d;&#x6392;&#x884c;&#x699c;&#x70ba;&#x53ef;&#x63a7;&#x6279;&#x6b21;&#x8a55;&#x5206;&#xff0c;&#x4e0d;&#x5047;&#x88dd;&#x5df2;&#x5b8c;&#x6210;&#x5168;&#x5e02;&#x5834;&#x5373;&#x6642;&#x6392;&#x540d;&#x3002;</p>
     </section>
 
     <section class="grid two">
@@ -518,7 +587,7 @@
       <h2>&#x4e92;&#x52d5;&#x5206;&#x6790; Agent</h2>
       <div class="agent-head">
         <div class="agent-meta" id="agentMeta">&#x8f09;&#x5165;&#x80a1;&#x7968;&#x5f8c;&#x53ef;&#x76f4;&#x63a5;&#x63d0;&#x554f;&#x98a8;&#x96aa;&#x3001;&#x652f;&#x6490;&#x58d3;&#x529b;&#x3001;&#x6307;&#x6a19;&#x8207;&#x9032;&#x51fa;&#x5834;&#x8a08;&#x756b;&#x3002;</div>
-        <span class="badge neut" id="agentStance">&#x5f85;&#x547d;</span>
+        <span class="badge tone-neut" id="agentStance">&#x5f85;&#x547d;</span>
       </div>
       <div class="agent-log" id="agentLog" aria-live="polite"></div>
       <form class="agent-form" id="agentForm">
@@ -551,7 +620,7 @@
     </section>
     </div>
 
-    <div id="clientPage" class="page-view" hidden>
+    <div id="clientPage" class="page-view" role="tabpanel" aria-labelledby="workspaceTabClient" hidden>
       <section class="panel">
         <div class="control-row">
           <h2>&#x5ba2;&#x6236;&#x6295;&#x8cc7;&#x5de5;&#x4f5c;&#x53f0;</h2>
@@ -589,7 +658,7 @@
           </table>
         </div>
         <div class="scope-grid">
-          <div class="scope-item"><b>&#x5168;&#x81fa;&#x80a1;&#x516c;&#x53f8; universe</b><p>&#x5f8c;&#x81fa;&#x5df2;&#x63a5; FinMind TaiwanStockInfo&#xff0c;&#x7bc4;&#x570d;&#x542b;&#x4e0a;&#x5e02;&#x3001;&#x4e0a;&#x6ac3;&#x8207;&#x8208;&#x6ac3;&#x516c;&#x53f8;&#xff0c;&#x4e26;&#x6392;&#x9664; ETF&#x3001;ETN&#x3001;DR &#x8207;&#x57fa;&#x91d1;&#x578b;&#x5546;&#x54c1;&#x3002;</p></div>
+          <div class="scope-item"><b>&#x5168;&#x81fa;&#x80a1;&#x516c;&#x53f8;&#x89c0;&#x5bdf;&#x7bc4;&#x570d;</b><p>&#x5f8c;&#x81fa;&#x5df2;&#x63a5; FinMind TaiwanStockInfo&#xff0c;&#x7bc4;&#x570d;&#x542b;&#x4e0a;&#x5e02;&#x3001;&#x4e0a;&#x6ac3;&#x8207;&#x8208;&#x6ac3;&#x516c;&#x53f8;&#xff0c;&#x4e26;&#x6392;&#x9664; ETF&#x3001;ETN&#x3001;DR &#x8207;&#x57fa;&#x91d1;&#x578b;&#x5546;&#x54c1;&#x3002;</p></div>
           <div class="scope-item"><b>&#x76ee;&#x524d;&#x6392;&#x884c;&#x699c;</b><p>&#x76ee;&#x524d;&#x4ecd;&#x63a1;&#x53ef;&#x63a7;&#x6279;&#x6b21;&#x8a55;&#x5206;&#xff0c;&#x907f;&#x514d;&#x5373;&#x6642;&#x8acb;&#x6c42;&#x6578;&#x5343;&#x6a94;&#x9020;&#x6210;&#x914d;&#x984d;&#x7528;&#x5b8c;&#x6216;&#x8d85;&#x6642;&#x3002;&#x8981;&#x5be6;&#x73fe;&#x5168;&#x5e02;&#x5834;&#x6392;&#x540d;&#xff0c;&#x9700;&#x518d;&#x52a0;&#x6279;&#x6b21;&#x8a55;&#x5206;&#x8207;&#x6301;&#x4e45;&#x5316;&#x8cc7;&#x6599;&#x8868;&#x3002;</p></div>
           <div class="scope-item"><b>ETF &#x7368;&#x7acb;&#x699c;</b><p>ETF &#x4f7f;&#x7528;&#x7368;&#x7acb;&#x6a21;&#x578b;&#xff0c;&#x4e0d;&#x8207;&#x500b;&#x80a1;&#x8ca1;&#x5831;&#x6a21;&#x578b;&#x6df7;&#x6392;&#x3002;</p></div>
         </div>
@@ -609,7 +678,7 @@
         </div>
         <div class="holding-grid" id="clientPortfolioSummary"></div>
         <div class="workbench-list" id="clientHoldingScores"></div>
-        <p class="note" id="clientPortfolioNote">&#x53ea;&#x4f7f;&#x7528;&#x76ee;&#x524d; universe &#x5167;&#x5df2;&#x53d6;&#x5f97;&#x8a55;&#x5206;&#x7684;&#x8cc7;&#x6599;&#xff1b;&#x6c92;&#x6709;&#x8a55;&#x5206;&#x7684;&#x6301;&#x80a1;&#x6703;&#x6a19;&#x793a;&#x8cc7;&#x6599;&#x4e0d;&#x8db3;&#x3002;</p>
+        <p class="note" id="clientPortfolioNote">&#x53ea;&#x4f7f;&#x7528;&#x76ee;&#x524d;&#x89c0;&#x5bdf;&#x7bc4;&#x570d;&#x5167;&#x5df2;&#x53d6;&#x5f97;&#x8a55;&#x5206;&#x7684;&#x8cc7;&#x6599;&#xff1b;&#x6c92;&#x6709;&#x8a55;&#x5206;&#x7684;&#x6301;&#x80a1;&#x6703;&#x6a19;&#x793a;&#x8cc7;&#x6599;&#x4e0d;&#x8db3;&#x3002;</p>
       </section>
       <section class="grid two">
         <section class="panel"><h2>&#x4eca;&#x65e5;&#x503c;&#x5f97;&#x89c0;&#x5bdf;&#x6e05;&#x55ae;</h2><div class="workbench-list" id="todayWatchList"></div></section>
@@ -617,12 +686,12 @@
       </section>
       <section class="panel">
         <h2>&#x50f9;&#x503c;&#x8a55;&#x4f30;&#x6e05;&#x55ae;</h2>
-        <div class="rank-tabs" id="clientScopeTabs" aria-label="client ranking scope filters">
+        <div class="rank-tabs" id="clientScopeTabs" aria-label="&#x6392;&#x884c;&#x699c;&#x7bc4;&#x570d;&#x7be9;&#x9078;">
           <button type="button" class="active" data-client-scope="all">&#x89c0;&#x5bdf;&#x6c60;</button>
           <button type="button" data-client-scope="stock">&#x500b;&#x80a1;</button>
           <button type="button" data-client-scope="etf">ETF</button>
         </div>
-        <div class="rank-tabs" id="clientRankingTabs" aria-label="client ranking filters">
+        <div class="rank-tabs" id="clientRankingTabs" aria-label="&#x6392;&#x884c;&#x699c;&#x689d;&#x4ef6;&#x7be9;&#x9078;">
           <button type="button" class="active" data-client-mode="undervalued">&#x4f4e;&#x4f30;</button>
           <button type="button" data-client-mode="overvalued">&#x9ad8;&#x4f30;</button>
           <button type="button" data-client-mode="cashflow">&#x73fe;&#x91d1;&#x6d41;</button>
@@ -639,54 +708,56 @@
       </section>
     </div>
 
-    <div id="swingPage" class="page-view" hidden>
-      <section class="panel">
+    <div id="swingPage" class="page-view" role="tabpanel" aria-labelledby="workspaceTabSwing" hidden>
+      <div class="flow-steps" id="swingFlowSteps" aria-label="Dino K&#x7dda;&#x9078;&#x80a1;&#x6d41;&#x7a0b;"></div>
+      <section class="panel" id="swingStepMacro">
         <h2>1. &#x7e3d;&#x7d93;&#x8207;&#x6700;&#x65b0;&#x65b0;&#x805e;</h2>
         <div class="client-grid" id="swingMacroCards"></div>
         <div class="news-list" id="swingMacroNews"><p class="note">&#x7b49;&#x5f85;&#x7e3d;&#x7d93;&#x65b0;&#x805e;&#x8f09;&#x5165;&#x3002;</p></div>
       </section>
-      <section class="panel">
+      <section class="panel" id="swingStepScreen">
         <h2>2. &#x53f0;&#x80a1;&#x7be9;&#x9078;&#x6392;&#x884c;&#x699c;</h2>
         <div id="swingScreenerLogic"></div>
-        <div class="table-wrap">
+        <p class="note">&#x624b;&#x6a5f;&#x7248;&#x6703;&#x4ee5;&#x6458;&#x8981;&#x5361;&#x986f;&#x793a;&#xff0c;&#x53ef;&#x76f4;&#x63a5;&#x9078;&#x53d6;&#x80a1;&#x7968;&#x518d;&#x67e5;&#x770b;&#x5b8c;&#x6574;&#x8b49;&#x64da;&#x3002;</p>
+        <div class="table-wrap swing-candidate-table">
           <table>
-            <thead><tr><th>&#x9078;&#x53d6;</th><th>Rank</th><th>&#x4ee3;&#x78bc; / &#x540d;&#x7a31;</th><th>&#x6700;&#x65b0;&#x6536;&#x76e4;</th><th>20MA</th><th>1-3 &#x6708;&#x578b;&#x614b;&#x8aaa;&#x660e;</th><th>&#x4e3b;&#x8981;&#x7be9;&#x9078;&#x8b49;&#x64da;</th><th>&#x7814;&#x7a76;&#x7528;&#x5931;&#x6548;&#x7dda; / &#x689d;&#x4ef6;</th><th>&#x512a;&#x5148;&#x5ea6;</th></tr></thead>
+            <thead><tr><th>&#x9078;&#x53d6;</th><th>&#x6392;&#x540d;</th><th>&#x4ee3;&#x78bc; / &#x540d;&#x7a31;</th><th>&#x6700;&#x65b0;&#x6536;&#x76e4;</th><th>20 &#x65e5;&#x5747;&#x7dda;</th><th>1-3 &#x6708;&#x578b;&#x614b;&#x8aaa;&#x660e;</th><th>&#x4e3b;&#x8981;&#x7be9;&#x9078;&#x8b49;&#x64da;</th><th>&#x7814;&#x7a76;&#x7528;&#x5931;&#x6548;&#x7dda; / &#x689d;&#x4ef6;</th><th>&#x512a;&#x5148;&#x5ea6;</th></tr></thead>
             <tbody id="swingCandidateRows"><tr><td colspan="9">&#x8f09;&#x5165; Dino &#x5019;&#x9078;&#x6e05;&#x55ae;...</td></tr></tbody>
           </table>
         </div>
       </section>
-      <section class="panel">
+      <section class="panel" id="swingStepThemes">
         <h2>3. &#x4e3b;&#x984c;&#x5f0f;&#x9078;&#x80a1;</h2>
         <div class="control-row">
-          <p class="note" id="swingThemeRefreshStatus">&#x53ea;&#x6703;&#x986f;&#x793a;&#x901a;&#x904e;&#x8b49;&#x64da;&#x9580;&#x6abb;&#x7684;&#x5168;&#x5e02;&#x5834;&#x5feb;&#x7167;&#x3002;</p>
+          <p class="note" id="swingThemeRefreshStatus" role="status" aria-live="polite">&#x53ea;&#x6703;&#x986f;&#x793a;&#x901a;&#x904e;&#x8b49;&#x64da;&#x9580;&#x6abb;&#x7684;&#x5168;&#x5e02;&#x5834;&#x5feb;&#x7167;&#x3002;</p>
           <button type="button" class="secondary" id="refreshSwingThemesBtn">&#x958b;&#x59cb; / &#x7e8c;&#x8dd1;&#x5168;&#x5e02;&#x5834;&#x6383;&#x63cf;</button>
         </div>
         <div class="swing-section" id="swingThemeTables"><p class="note">&#x8f09;&#x5165;&#x4e94;&#x7a2e;&#x4e3b;&#x984c;&#x5f0f;&#x9078;&#x80a1;&#x8868;&#x3002;</p></div>
         <h3>&#x4eca;&#x65e5;&#x65b0;&#x805e;&#x4e3b;&#x984c;</h3>
         <div class="swing-section" id="swingNewsThemeTables"><p class="note">&#x8f09;&#x5165;&#x901a;&#x904e;&#x539f;&#x6587;&#x8207;&#x516c;&#x53f8;&#x95dc;&#x806f;&#x9a57;&#x8b49;&#x7684;&#x65b0;&#x805e;&#x4e3b;&#x984c;&#x3002;</p></div>
       </section>
-      <section class="panel">
-        <h2>4. &#x4f7f;&#x7528;&#x8005;&#x9078;&#x80a1; Gate</h2>
+      <section class="panel" id="swingStepGate">
+        <h2>4. &#x9078;&#x80a1;&#x78ba;&#x8a8d;</h2>
         <div class="swing-actions">
           <label>&#x624b;&#x52d5;&#x8f38;&#x5165;&#x4ee3;&#x78bc;
-            <input id="swingSelectedInput" autocomplete="off" placeholder="&#x4f8b;&#xff1a;2330, 2317, 2454" aria-label="Dino K&#x68d2;&#x9078;&#x80a1;&#x4ee3;&#x78bc;">
+            <input id="swingSelectedInput" autocomplete="off" placeholder="&#x4f8b;&#xff1a;2330, 2317, 2454" aria-label="Dino K&#x7dda;&#x9078;&#x80a1;&#x4ee3;&#x78bc;">
           </label>
           <button type="button" id="runSwingDeepBtn">&#x9032;&#x5165;&#x6df1;&#x5ea6;&#x6d41;&#x7a0b;</button>
         </div>
         <div class="swing-picks" id="swingSelectedPicks"></div>
-        <p class="note" id="swingGateNote">&#x8acb;&#x5148;&#x5f9e;&#x5019;&#x9078;&#x6e05;&#x55ae;&#x52fe;&#x9078;&#x80a1;&#x7968;&#xff0c;&#x518d;&#x57f7;&#x884c;&#x53ef;&#x6bd4;&#x4f30;&#x503c;&#x3001;&#x500b;&#x80a1;&#x6df1;&#x5ea6;&#x3001;&#x65e5;&#x7dda;&#x6280;&#x8853;&#x8207; K &#x7dda;&#x8a0a;&#x865f;&#x3002;</p>
+        <p class="note" id="swingGateNote" role="status" aria-live="polite">&#x8acb;&#x5148;&#x5f9e;&#x5019;&#x9078;&#x6e05;&#x55ae;&#x52fe;&#x9078;&#x80a1;&#x7968;&#xff0c;&#x518d;&#x57f7;&#x884c;&#x53ef;&#x6bd4;&#x4f30;&#x503c;&#x3001;&#x500b;&#x80a1;&#x6df1;&#x5ea6;&#x3001;&#x65e5;&#x7dda;&#x6280;&#x8853;&#x8207; K &#x7dda;&#x8a0a;&#x865f;&#x3002;</p>
       </section>
       <section class="grid two">
         <section class="panel"><h2>&#x4eca;&#x65e5;&#x503c;&#x5f97;&#x89c0;&#x5bdf;</h2><div class="workbench-list" id="swingTodayWatch"></div></section>
         <section class="panel"><h2>&#x7be9;&#x9078;&#x908f;&#x8f2f;&#x8207;&#x8cc7;&#x6599;&#x4f86;&#x6e90;</h2><div id="swingSourcePanel"></div></section>
       </section>
-      <section class="panel">
+      <section class="panel" id="swingStepDeep">
         <h2>5. &#x6df1;&#x5ea6;&#x5206;&#x6790;&#x8207;&#x6700;&#x7d42;&#x6574;&#x5408;</h2>
-        <div class="swing-section" id="swingDeepResults"><p class="note">&#x5b8c;&#x6210;&#x9078;&#x80a1; gate &#x5f8c;&#xff0c;&#x9019;&#x88e1;&#x6703;&#x986f;&#x793a;&#x53ef;&#x6bd4;&#x4f30;&#x503c;&#x3001;&#x500b;&#x80a1;&#x6df1;&#x5ea6;&#x3001;&#x65e5;&#x7dda;&#x6280;&#x8853;&#x3001;K &#x7dda;&#x591a;&#x7a7a;&#x8207;&#x6700;&#x7d42;&#x7814;&#x7a76;&#x7acb;&#x5834;&#x3002;</p></div>
+        <div class="swing-section" id="swingDeepResults" role="status" aria-live="polite"><p class="note">&#x5b8c;&#x6210;&#x9078;&#x80a1;&#x78ba;&#x8a8d;&#x5f8c;&#xff0c;&#x9019;&#x88e1;&#x6703;&#x986f;&#x793a;&#x53ef;&#x6bd4;&#x4f30;&#x503c;&#x3001;&#x500b;&#x80a1;&#x6df1;&#x5ea6;&#x3001;&#x65e5;&#x7dda;&#x6280;&#x8853;&#x3001;K &#x7dda;&#x591a;&#x7a7a;&#x8207;&#x6700;&#x7d42;&#x7814;&#x7a76;&#x7acb;&#x5834;&#x3002;</p></div>
       </section>
     </div>
 
-    <div id="adminPage" class="page-view" hidden>
+    <div id="adminPage" class="page-view" role="tabpanel" aria-labelledby="adminTab" hidden>
       <section class="panel">
         <div class="control-row">
           <h2>&#x5f8c;&#x81fa;&#x8cc7;&#x6599;&#x6aa2;&#x67e5;</h2>
@@ -741,7 +812,7 @@
     const pct = (n) => Number.isFinite(Number(n)) ? `${n >= 0 ? "+" : ""}${fmt(n, 2)}%` : "--";
     const last = (a) => Array.isArray(a) ? a[a.length - 1] : undefined;
     const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-    const badge = (text, cls) => `<span class="badge ${cls}">${escapeHtml(decodeText(text))}</span>`;
+    const badge = (text, cls = "neut") => `<span class="badge tone-${cls}">${escapeHtml(decodeText(text))}</span>`;
     const lastFiniteLocal = (a) => Array.isArray(a) ? [...a].reverse().find((v) => Number.isFinite(v)) : NaN;
 
     function escapeHtml(value) {
@@ -821,7 +892,7 @@
     }
 
     function heroFact(text, cls = "neut") {
-      return `<span class="hero-fact ${cls}">${escapeHtml(text)}</span>`;
+      return `<span class="hero-fact hero-tone-${cls}">${escapeHtml(text)}</span>`;
     }
 
     function setDefaultHeroCopy() {
@@ -833,11 +904,34 @@
       const ids = { stock:"homeStockStatus", quote:"homeQuoteStatus", analysis:"homeAnalysisStatus", value:"homeValueStatus" };
       const tile = $(ids[key]);
       if (!tile) return;
-      tile.className = `hero-status-tile ${tone || ""}`.trim();
+      const toneClasses = { active:"status-tone-active", warn:"status-tone-warning", bear:"status-tone-error" };
+      tile.className = `hero-status-tile ${toneClasses[tone] || ""}`.trim();
       const valueNode = tile.querySelector(".tile-value");
       const detailNode = tile.querySelector(".tile-detail");
       if (valueNode) valueNode.textContent = value;
       if (detailNode) detailNode.textContent = detail;
+    }
+
+    function setHomeStatusSummary(text) {
+      const summary = $("homeStatusSummary");
+      if (summary) summary.textContent = text;
+    }
+
+    function syncHomeEntryAvailability(hasStock, code = "", name = "") {
+      const stockLabel = [code, name].filter(Boolean).join(" ");
+      $("openWorkspaceBtn").disabled = !hasStock;
+      $("mobileOpenWorkspaceBtn").disabled = !hasStock;
+      $("openWorkspaceBtn").textContent = hasStock ? "\u67e5\u770b\u5b8c\u6574\u5206\u6790 \u2192" : "\u8acb\u5148\u9078\u64c7\u80a1\u7968";
+      $("mobileOpenWorkspaceBtn").textContent = hasStock ? "\u67e5\u770b\u5b8c\u6574\u5206\u6790 \u2192" : "\u8acb\u5148\u9078\u64c7\u80a1\u7968";
+      $("homeDecisionHelp").textContent = hasStock
+        ? `\u5df2\u5b8c\u6210 ${stockLabel} \u521d\u5224\uff0c\u53ef\u9032\u5165\u5b8c\u6574\u5206\u6790\u3002`
+        : "\u8acb\u5148\u5b8c\u6210\u4e00\u6b21\u80a1\u7968\u5206\u6790\u3002";
+      $("mobileDecisionHelp").textContent = hasStock
+        ? `${stockLabel} \u5df2\u5e36\u5165\uff0c\u53ef\u67e5\u770b\u6280\u8853\u3001\u50f9\u503c\u3001\u65b0\u805e\u8207\u4ea4\u6613\u689d\u4ef6\u3002`
+        : "\u8acb\u5148\u5b8c\u6210\u4e00\u6b21\u80a1\u7968\u5206\u6790\u3002";
+      $("workspaceContext").textContent = hasStock
+        ? `${stockLabel}\uff5c\u5df2\u5f9e\u9996\u9801\u5e36\u5165\u5b8c\u6574\u5206\u6790`
+        : "\u76ee\u524d\u5c1a\u672a\u9078\u64c7\u80a1\u7968";
     }
 
     function resetHomeStatuses() {
@@ -845,11 +939,19 @@
       setHomeStatus("quote", "\u5f85\u8f09\u5165", "\u5c1a\u672a\u5411\u5f8c\u7aef\u53d6\u5f97\u6578\u64da");
       setHomeStatus("analysis", "\u5f85\u555f\u52d5", "\u5c1a\u672a\u8a08\u7b97\u652f\u6490\u58d3\u529b");
       setHomeStatus("value", "\u5f85\u8f38\u5165", "\u7b49\u5f85\u516c\u958b\u8cc7\u6599\u8a55\u5206");
+      setHomeStatusSummary("\u7b49\u5f85\u8f38\u5165\u80a1\u7968");
     }
 
     function homeDecisionCard(label, value, detail, cls = "") {
-      const toneClass = cls ? ` ${cls}` : "";
+      const toneClass = cls ? `decision-tone-${cls}` : "";
       return `<div class="home-decision-card"><b>${escapeHtml(label)}</b><strong class="${toneClass.trim()}">${escapeHtml(value)}</strong><p>${escapeHtml(detail)}</p></div>`;
+    }
+
+    function syncMobileDecisionCards() {
+      const sourceCards = [...$("homeDecisionCards").children];
+      $("mobileDecisionCards").innerHTML = [0, 1, 2, 4]
+        .map(index => sourceCards[index]?.outerHTML || "")
+        .join("");
     }
 
     function renderHomeDecisionWaiting() {
@@ -860,6 +962,7 @@
         homeDecisionCard("\u58d3\u529b", "--", "\u5c1a\u672a\u53d6\u5f97\u50f9\u683c\u7d50\u69cb\u3002"),
         homeDecisionCard("\u5931\u6548", "--", "\u5c1a\u672a\u5efa\u7acb\u64cd\u4f5c\u689d\u4ef6\u3002"),
       ].join("");
+      syncMobileDecisionCards();
     }
 
     function renderHomeDecision(data, name) {
@@ -883,18 +986,45 @@
         homeDecisionCard("\u58d3\u529b", `${fmt(data.resistance)} / ${fmt(data.resistance2)}`, "\u63a5\u8fd1\u58d3\u529b\u6642\u5148\u770b\u91cf\u80fd\u662f\u5426\u80fd\u7e8c\u63a5\u3002", "warn"),
         homeDecisionCard("\u5931\u6548", `${fmt(Math.min(data.support2 * .97, ma20 * .98))}`, `\u8dcc\u7834\u4e2d\u671f\u652f\u6490\u6216 MA20 ${fmt(ma20)}\u5f8c\u7121\u6cd5\u6536\u56de\uff0c\u89c0\u5bdf\u689d\u4ef6\u5931\u6548\u3002`),
       ].join("");
+      syncMobileDecisionCards();
       setHomeStatus("stock", `${data.code} ${name}`, "\u5df2\u5efa\u7acb\u89c0\u5bdf\u6a19\u7684", "active");
       setHomeStatus("quote", `${fmt(data.close)} \u5143`, "\u5831\u50f9\u8207\u65e5\u7dda\u5df2\u53d6\u5f97", "active");
       setHomeStatus("analysis", stance, `MA5 ${fmt(ma5)} / MA20 ${fmt(ma20)}`, data.pullback >= 70 ? "warn" : "active");
+      setHomeStatusSummary(`${data.code} ${name} \u521d\u5224\u5b8c\u6210`);
+      syncHomeEntryAvailability(true, data.code, name);
+      $("resetBtn").disabled = false;
+      if (!$("swingSelectedInput").value.trim()) setSwingSelected([data.code]);
     }
 
-    function openWorkspace(view = "stock") {
+    function openWorkspace(view = "stock", historyMode = "push") {
       const shell = $("workspaceShell");
       if (!shell) return;
+      if (view === "stock" && !activeData) {
+        $("status").textContent = "\u8acb\u5148\u5728\u9996\u9801\u5b8c\u6210\u4e00\u6b21\u80a1\u7968\u5206\u6790\u3002";
+        $("stockInput").focus();
+        return;
+      }
+      $("appPage").classList.add("workspace-active");
       shell.hidden = false;
       shell.classList.add("is-visible");
-      switchView(view);
+      switchView(view, false);
+      if (historyMode !== "none") {
+        const nextHash = `#workspace-${view}`;
+        const state = { ...(history.state || {}), workspaceView:view };
+        if (historyMode === "replace") history.replaceState(state, "", nextHash);
+        else if (location.hash !== nextHash) history.pushState(state, "", nextHash);
+      }
       shell.scrollIntoView({ behavior:"smooth", block:"start" });
+    }
+
+    function closeWorkspace(restoreScroll = true) {
+      const shell = $("workspaceShell");
+      $("appPage").classList.remove("workspace-active");
+      if (shell) {
+        shell.hidden = true;
+        shell.classList.remove("is-visible");
+      }
+      if (restoreScroll) $("homeDecisionPanel").scrollIntoView({ behavior:"smooth", block:"start" });
     }
 
     function setupReveal() {
@@ -966,6 +1096,24 @@
       });
     }
 
+    function setupResponsiveStatusDisclosure() {
+      const details = $("homeStatusDetails");
+      if (!details || !window.matchMedia) return;
+      const mobile = window.matchMedia("(max-width:520px)");
+      const apply = () => { details.open = !mobile.matches; };
+      apply();
+      if (mobile.addEventListener) mobile.addEventListener("change", apply);
+      else if (mobile.addListener) mobile.addListener(apply);
+    }
+
+    function localizeSourceLabel(value) {
+      return String(value || "")
+        .replace(/Yahoo Finance daily OHLCV \+ TWSE MIS latest quote/gi, "\u0059\u0061\u0068\u006f\u006f \u0046\u0069\u006e\u0061\u006e\u0063\u0065 \u6bcf\u65e5\u958b\u9ad8\u4f4e\u6536\u91cf\uff0b\u8b49\u4ea4\u6240\u6700\u65b0\u5831\u50f9")
+        .replace(/daily OHLCV/gi, "\u6bcf\u65e5\u958b\u9ad8\u4f4e\u6536\u91cf")
+        .replace(/TWSE MIS/gi, "\u8b49\u4ea4\u6240\u5373\u6642\u8cc7\u8a0a")
+        .replace(/latest quote/gi, "\u6700\u65b0\u5831\u50f9");
+    }
+
     async function getQuote(code) {
       const api = await waitForAppApi();
       const { data } = await api.get(`/api/quote?code=${encodeURIComponent(code)}`);
@@ -989,7 +1137,7 @@
     async function getUniverse() {
       const api = await waitForAppApi();
       const { data } = await api.get("/api/universe");
-      if (!data || !data.ok) throw new Error(data?.message || "\u5168\u81fa\u80a1 universe \u8f09\u5165\u5931\u6557");
+      if (!data || !data.ok) throw new Error(data?.message || "\u5168\u81fa\u80a1\u89c0\u5bdf\u7bc4\u570d\u8f09\u5165\u5931\u6557");
       return data;
     }
 
@@ -1130,7 +1278,7 @@
       const stageLabel = (value) => ({
         macro:"總經與市場", screener:"台股篩選", "user-selection-gate":"有效標的驗證",
         valuation:"可比估值", "deep-analysis":"基本面深度", technical:"日線技術",
-        signal:"K 棒訊號", summary:"最終整合"
+        signal:"K 線訊號", summary:"最終整合"
       })[value] || value || "--";
       const statusLabel = (value) => ({
         queued:"等待中", pending:"等待中", running:"處理中", passed:"已通過", generated:"已完成",
@@ -1154,7 +1302,7 @@
             <div class="data-status-card"><b>\u76ee\u524d\u968e\u6bb5</b><strong>${escapeHtml(stageLabel(job?.currentStage || "--"))}</strong></div>
             <div class="data-status-card"><b>\u9032\u5ea6</b><strong>${Number.isFinite(Number(progress.percent)) ? progress.percent : 0}%</strong></div>
           </div>
-          <p class="note">\u5f8c\u7aef\u6703\u4f9d\u5e8f\u5b8c\u6210\u7e3d\u7d93\u3001\u7be9\u9078\u3001\u6709\u6548\u6a19\u7684\u9a57\u8b49\u3001\u4f30\u503c\u3001\u57fa\u672c\u9762\u3001\u6280\u8853\u3001K \u68d2\u8207\u6700\u7d42\u6574\u5408\uff0c\u672a\u9054\u8b49\u64da\u9580\u6abb\u7684\u968e\u6bb5\u4e0d\u6703\u7528 AI \u63a8\u6e2c\u88dc\u9f4a\u3002</p>
+          <p class="note">\u5f8c\u7aef\u6703\u4f9d\u5e8f\u5b8c\u6210\u7e3d\u7d93\u3001\u7be9\u9078\u3001\u6709\u6548\u6a19\u7684\u9a57\u8b49\u3001\u4f30\u503c\u3001\u57fa\u672c\u9762\u3001\u6280\u8853\u3001K \u7dda\u8207\u6700\u7d42\u6574\u5408\uff0c\u672a\u9054\u8b49\u64da\u9580\u6abb\u7684\u968e\u6bb5\u4e0d\u6703\u7528 AI \u63a8\u6e2c\u88dc\u9f4a\u3002</p>
           ${tableFromRows(["\u968e\u6bb5", "\u5206\u6790\u6a21\u7d44", "\u72c0\u614b", "\u8aaa\u660e"], [rows || `<tr><td colspan="4">\u6b63\u5728\u5efa\u7acb\u5de5\u4f5c\u3002</td></tr>`])}
         </section>`;
     }
@@ -1373,7 +1521,7 @@
     function sourceLinks(urls = {}) {
       const links = [
         urls.yahoo ? `<a href="${escapeHtml(urls.yahoo)}" target="_blank" rel="noreferrer">Yahoo Finance</a>` : "",
-        urls.twseMis ? `<a href="${escapeHtml(urls.twseMis)}" target="_blank" rel="noreferrer">TWSE MIS</a>` : "",
+        urls.twseMis ? `<a href="${escapeHtml(urls.twseMis)}" target="_blank" rel="noreferrer">\u8b49\u4ea4\u6240\u5373\u6642\u8cc7\u8a0a</a>` : "",
         urls.exchange ? `<a href="${escapeHtml(urls.exchange)}" target="_blank" rel="noreferrer">TWSE/TPEX OpenAPI</a>` : "",
         urls.goodinfo ? `<a href="${escapeHtml(urls.goodinfo)}" target="_blank" rel="noreferrer">Goodinfo</a>` : ""
       ].filter(Boolean).join("");
@@ -2243,7 +2391,7 @@
           </div>
           <div class="data-status-list">${datasetRows}</div>
           <p class="note">\u7f3a\u8cc7\u6599\u9805\u76ee\uff1a${escapeHtml(missingText)}\u3002</p>
-          <p class="note">\u5168\u81fa\u80a1\u516c\u53f8 universe \u7531\u5f8c\u81fa\u6aa2\u67e5\uff1b\u6392\u884c\u699c\u76ee\u524d\u4f7f\u7528\u53ef\u63a7\u6279\u6b21\u8a55\u5206\uff0c\u907f\u514d\u4e0a\u6e38 API \u914d\u984d\u8207\u8d85\u6642\u3002</p>
+          <p class="note">\u5168\u81fa\u80a1\u516c\u53f8\u89c0\u5bdf\u7bc4\u570d\u7531\u5f8c\u81fa\u6aa2\u67e5\uff1b\u6392\u884c\u699c\u76ee\u524d\u4f7f\u7528\u53ef\u63a7\u6279\u6b21\u8a55\u5206\uff0c\u907f\u514d\u4e0a\u6e38 API \u914d\u984d\u8207\u8d85\u6642\u3002</p>
         </div>`;
     }
 
@@ -2363,8 +2511,8 @@
       const meta = payload?.universeMeta || {};
       const groups = Array.isArray(meta.groups) && meta.groups.length ? `\uff1b\u5206\u7d44 ${meta.groups.join(" / ")}` : "";
       const fullMarketText = meta.fullMarketCompanyCount
-        ? `\u5f8c\u81fa\u5168\u81fa\u80a1\u516c\u53f8 universe ${meta.fullMarketCompanyCount} \u6a94\u5df2\u9023\u7dda`
-        : "\u5f8c\u81fa\u5168\u81fa\u80a1\u516c\u53f8 universe \u5f85\u6aa2\u67e5";
+        ? `\u5f8c\u81fa\u5168\u81fa\u80a1\u516c\u53f8\u89c0\u5bdf\u7bc4\u570d ${meta.fullMarketCompanyCount} \u6a94\u5df2\u9023\u7dda`
+        : "\u5f8c\u81fa\u5168\u81fa\u80a1\u516c\u53f8\u89c0\u5bdf\u7bc4\u570d\u5f85\u6aa2\u67e5";
       const gate = payload?.evidenceGate || {};
       const snapshotTime = payload?.snapshotGeneratedAt ? new Date(payload.snapshotGeneratedAt).toLocaleString("zh-TW") : "\u5c1a\u7121\u5b8c\u6574\u5feb\u7167";
       $("rankingSnapshotStatus").textContent = payload?.snapshotStatus === "complete"
@@ -2479,7 +2627,7 @@
             <span>${badge(rating.grade || "X", tone)} \u7e3d\u5206 ${scoreText(rating.total)}\uff0c\u8ffd\u9ad8 ${scoreText(item.score.scores?.chaseRisk?.score)}\uff0c\u8cc7\u6599\u8986\u84cb ${item.score.dataStatus?.coverage?.percent || 0}%</span>
           </div>`;
       }).join("");
-      $("clientPortfolioNote").textContent = `\u6301\u80a1\u98a8\u96aa\u4f9d\u76ee\u524d\u5de5\u4f5c\u53f0 universe \u8a08\u7b97\uff1b${missing.length ? `${missing.length} \u6a94\u6c92\u6709\u53ef\u7528\u8a55\u5206\uff0c\u5df2\u6a19\u793a\u8cc7\u6599\u4e0d\u8db3\u3002` : "\u5df2\u8f09\u5165\u7684\u6301\u80a1\u90fd\u6709\u53ef\u7528\u8a55\u5206\u3002"}`;
+      $("clientPortfolioNote").textContent = `\u6301\u80a1\u98a8\u96aa\u4f9d\u76ee\u524d\u5de5\u4f5c\u5340\u89c0\u5bdf\u7bc4\u570d\u8a08\u7b97\uff1b${missing.length ? `${missing.length} \u6a94\u6c92\u6709\u53ef\u7528\u8a55\u5206\uff0c\u5df2\u6a19\u793a\u8cc7\u6599\u4e0d\u8db3\u3002` : "\u5df2\u8f09\u5165\u7684\u6301\u80a1\u90fd\u6709\u53ef\u7528\u8a55\u5206\u3002"}`;
     }
 
     function renderClientRanking(mode = clientRankingMode) {
@@ -2503,8 +2651,8 @@
       const meta = clientWorkbench?.universeMeta || {};
       const scopeLabel = clientRankingScope === "stock" ? "\u500b\u80a1" : clientRankingScope === "etf" ? "ETF" : "\u89c0\u5bdf\u6c60";
       const marketText = meta.fullMarketCompanyCount
-        ? `\u5f8c\u81fa\u5168\u81fa\u80a1\u516c\u53f8 universe ${meta.fullMarketCompanyCount} \u6a94\u5df2\u9023\u7dda`
-        : "\u5f8c\u81fa\u5168\u81fa\u80a1\u516c\u53f8 universe \u5f85\u6aa2\u67e5";
+        ? `\u5f8c\u81fa\u5168\u81fa\u80a1\u516c\u53f8\u89c0\u5bdf\u7bc4\u570d ${meta.fullMarketCompanyCount} \u6a94\u5df2\u9023\u7dda`
+        : "\u5f8c\u81fa\u5168\u81fa\u80a1\u516c\u53f8\u89c0\u5bdf\u7bc4\u570d\u5f85\u6aa2\u67e5";
       $("clientRankingNote").textContent = `${scopeLabel}\uff1a${meta.name || "\u53f0\u80a1\u6279\u6b21\u8a55\u5206"} ${meta.version || ""}\uff0c\u672c\u6b21\u8a55\u5206 ${meta.scoredCount || 0} / ${meta.requestedCount || 0} \u6a94\uff0c\u76ee\u524d\u986f\u793a ${rows.length} \u6a94\u3002${marketText}\uff1b\u76ee\u524d\u6392\u884c\u4ecd\u662f\u53ef\u63a7\u6279\u6b21\uff0c\u4e0d\u5047\u88dd\u70ba\u5168\u5e02\u5834\u5373\u6642\u6392\u540d\u3002`;
     }
 
@@ -2524,7 +2672,7 @@
       const state = payload?.marketState || {};
       const meta = payload?.universeMeta || {};
       $("clientSummary").innerHTML = [
-        valueCard("\u5168\u81fa\u80a1\u516c\u53f8", meta.fullMarketCompanyCount ? `${meta.fullMarketCompanyCount} \u6a94` : "\u5f85\u6aa2\u67e5", meta.fullMarketStatus === "connected" ? "\u5f8c\u81fa universe \u5df2\u9023\u7dda" : (meta.fullMarketMessage || "\u8acb\u5230\u5f8c\u81fa\u6aa2\u67e5"), meta.fullMarketStatus === "connected" ? "bull" : "warn"),
+        valueCard("\u5168\u81fa\u80a1\u516c\u53f8", meta.fullMarketCompanyCount ? `${meta.fullMarketCompanyCount} \u6a94` : "\u5f85\u6aa2\u67e5", meta.fullMarketStatus === "connected" ? "\u5f8c\u81fa\u89c0\u5bdf\u7bc4\u570d\u5df2\u9023\u7dda" : (meta.fullMarketMessage || "\u8acb\u5230\u5f8c\u81fa\u6aa2\u67e5"), meta.fullMarketStatus === "connected" ? "bull" : "warn"),
         valueCard("\u672c\u6b21\u6279\u6b21\u8a55\u5206", `${meta.scoredCount || 0}/${meta.requestedCount || 0}`, meta.version || "", "neut"),
         valueCard("\u5e73\u5747\u5c08\u696d\u5206", scoreText(state.avgScore), state.note || "", state.tone === "opportunity" ? "bull" : state.tone === "risk" ? "bear" : "warn"),
         valueCard("FinMind", payload?.finmind?.status || "\u672a\u6aa2\u67e5", payload?.finmind?.note || "", "bull"),
@@ -2556,7 +2704,7 @@
         renderClientWorkbench(clientWorkbench);
         return;
       }
-      $("clientSummary").innerHTML = valueCard("\u5de5\u4f5c\u53f0", "\u8f09\u5165\u4e2d", "\u6b63\u5728\u8b80\u53d6 universe\u3001\u6392\u884c\u699c\u8207\u56de\u6e2c\u7d50\u679c\u3002", "warn");
+      $("clientSummary").innerHTML = valueCard("\u5de5\u4f5c\u5340", "\u8f09\u5165\u4e2d", "\u6b63\u5728\u8b80\u53d6\u89c0\u5bdf\u7bc4\u570d\u3001\u6392\u884c\u699c\u8207\u56de\u6e2c\u7d50\u679c\u3002", "warn");
       try {
         renderClientWorkbench(await getWorkbench());
       } catch (err) {
@@ -2772,13 +2920,13 @@
         ["macro", "1. \u7e3d\u7d93\u8207\u65b0\u805e", "\u53f0\u80a1\u3001\u7f8e\u80a1\u3001\u5229\u7387\u532f\u7387\u8207\u534a\u5c0e\u9ad4\u4e8b\u4ef6"],
         ["screen", "2. \u53f0\u80a1\u7be9\u9078", "\u4e3b\u984c\u5951\u5408\u3001\u6210\u4ea4\u503c\u300120MA \u4f4d\u7f6e\u8207\u659c\u7387"],
         ["themes", "3. \u4e3b\u984c\u5f0f\u9078\u80a1", "\u71b1\u9580\u3001\u5916\u8cc7/\u6b96\u5229\u7387\u3001EPS\u3001\u9ad8\u6210\u4ea4\u503c\u300120MA \u5019\u9078"],
-        ["gate", "4. \u4f7f\u7528\u8005\u9078\u80a1", "\u5f9e\u6392\u884c\u699c\u52fe\u9078\u5f8c\u624d\u9032\u5165\u6df1\u5ea6\u5206\u6790"],
+        ["gate", "4. \u9078\u80a1\u78ba\u8a8d", "\u5f9e\u6392\u884c\u699c\u52fe\u9078\u5f8c\u624d\u9032\u5165\u6df1\u5ea6\u5206\u6790"],
         ["deep", "5. \u6df1\u5ea6\u6574\u5408", "\u500b\u80a1\u6df1\u5ea6\u3001\u65e5\u7dda\u6280\u8853\u3001K \u7dda\u591a\u7a7a\u8207\u6700\u7d42\u7acb\u5834"]
       ];
       target.innerHTML = steps.map(([key, title, body]) => `
-        <div class="flow-step ${key === active ? "active" : ""}">
+        <button type="button" class="flow-step ${key === active ? "active" : ""}" data-swing-step="${key}" aria-current="${key === active ? "step" : "false"}">
           <b>${title}</b><span>${body}</span>
-        </div>`).join("");
+        </button>`).join("");
     }
 
     function renderSwingMacro(macro) {
@@ -2891,7 +3039,7 @@
           <p><b>\u539f\u56e0\uff1a</b>${escapeHtml(item.reason || "\u672a\u547d\u4e2d\u9ad8\u5f71\u97ff\u95dc\u9375\u8a5e\uff0c\u5148\u5217\u5165\u80cc\u666f\u89c0\u5bdf\u3002")}</p>
           <p><b>\u5e02\u5834\u5f71\u97ff\uff1a</b>${escapeHtml(item.marketImpact || item.snippet || "")}</p>
           <p><b>\u5c0d\u7be9\u9078\u7684\u7528\u6cd5\uff1a</b>${escapeHtml(item.screeningUse || "\u5217\u5165\u80cc\u666f\u8ffd\u8e64\u3002")}</p>
-          <p class="note">Evidence ID ${escapeHtml(item.evidenceId || "--")}\uff1b${escapeHtml(item.source || "\u65b0\u805e")}\uff1b${escapeHtml(item.horizon || "\u6642\u9593\u5c3a\u5ea6\u672a\u5206\u985e")}\uff1b${escapeHtml(item.articleReadStatus || "\u50c5\u8b80\u53d6 RSS \u6a19\u984c\u8207\u6458\u8981")}${item.evidenceGate?.limitation ? `\uff1b${escapeHtml(item.evidenceGate.limitation)}` : ""}</p>
+          <p class="note">\u8b49\u64da\u7de8\u865f ${escapeHtml(item.evidenceId || "--")}\uff1b${escapeHtml(item.source || "\u65b0\u805e")}\uff1b${escapeHtml(item.horizon || "\u6642\u9593\u5c3a\u5ea6\u672a\u5206\u985e")}\uff1b${escapeHtml(item.articleReadStatus || "\u50c5\u8b80\u53d6 RSS \u6a19\u984c\u8207\u6458\u8981")}${item.evidenceGate?.limitation ? `\uff1b${escapeHtml(item.evidenceGate.limitation)}` : ""}</p>
         </div>`).join("")}` : `<p class="note">\u76ee\u524d\u7e3d\u7d93\u65b0\u805e\u4f86\u6e90\u66ab\u6642\u4e0d\u53ef\u7528\uff0c\u8acb\u7a0d\u5f8c\u91cd\u65b0\u7522\u751f\u5019\u9078\u3002</p>`;
       $("swingMacroNews").innerHTML = gatePanel + marketStatus + focusPanel + observationPanel + assetPanel + sourcePanel + newsPanel;
     }
@@ -2995,15 +3143,15 @@
       const rows = textPayload.ranking || payload?.ranking || [];
       $("swingCandidateRows").innerHTML = rows.length ? rows.map((item, index) => `
         <tr>
-          <td><input type="checkbox" data-swing-code="${escapeHtml(item.code)}" ${swingSelectedCodes.includes(item.code) ? "checked" : ""} aria-label="${escapeHtml(item.code)}"></td>
-          <td>${index + 1}</td>
-          <td><button type="button" class="chip" data-swing-open="${escapeHtml(item.code)}">${escapeHtml(item.code)} ${escapeHtml(item.name)}</button></td>
-          <td>${fmt(item.latestClose)}</td>
-          <td>${fmt(item.sortKeys?.ma20)}</td>
-          <td><b>${escapeHtml(item.setupType || "--")}</b><br><span class="note">${escapeHtml(item.setupDetail || "")}</span></td>
-          <td>${escapeHtml((item.primaryEvidence || []).slice(0, 3).join("\uff1b"))}</td>
-          <td><b>${item.levels?.invalidation ? fmt(item.levels.invalidation) : "--"}</b><br><span class="note">${escapeHtml(item.invalidationNote || item.keyRisk || "")}</span></td>
-          <td>${badge(item.watchPriority || "--", item.watchPriority === "\u9ad8" ? "bull" : item.watchPriority === "\u4e2d" ? "warn" : "neut")}<br><span class="note">${scoreText(item.swingScore)}</span></td>
+          <td data-label="\u9078\u53d6"><input type="checkbox" data-swing-code="${escapeHtml(item.code)}" ${swingSelectedCodes.includes(item.code) ? "checked" : ""} aria-label="\u9078\u53d6 ${escapeHtml(item.code)} ${escapeHtml(item.name || "")}"></td>
+          <td data-label="\u6392\u540d">${index + 1}</td>
+          <td data-label="\u4ee3\u78bc / \u540d\u7a31"><button type="button" class="chip" data-swing-open="${escapeHtml(item.code)}">${escapeHtml(item.code)} ${escapeHtml(item.name)}</button></td>
+          <td data-label="\u6700\u65b0\u6536\u76e4">${fmt(item.latestClose)}</td>
+          <td data-label="20 \u65e5\u5747\u7dda">${fmt(item.sortKeys?.ma20)}</td>
+          <td data-label="1-3 \u6708\u578b\u614b"><b>${escapeHtml(item.setupType || "--")}</b><br><span class="note">${escapeHtml(item.setupDetail || "")}</span></td>
+          <td data-label="\u4e3b\u8981\u8b49\u64da">${escapeHtml((item.primaryEvidence || []).slice(0, 3).join("\uff1b"))}</td>
+          <td data-label="\u5931\u6548\u689d\u4ef6"><b>${item.levels?.invalidation ? fmt(item.levels.invalidation) : "--"}</b><br><span class="note">${escapeHtml(item.invalidationNote || item.keyRisk || "")}</span></td>
+          <td data-label="\u512a\u5148\u5ea6">${badge(item.watchPriority || "--", item.watchPriority === "\u9ad8" ? "bull" : item.watchPriority === "\u4e2d" ? "warn" : "neut")}<br><span class="note">${scoreText(item.swingScore)}</span></td>
         </tr>`).join("") : `<tr><td colspan="9">\u6c92\u6709\u53ef\u7528 Dino \u5019\u9078\u3002</td></tr>`;
       const themeStatus = textPayload.themeStatus || payload?.themeStatus || {};
       renderSwingThemeTables(textPayload.themeTables || payload?.themeTables || [], themeStatus);
@@ -3025,7 +3173,7 @@
       $("swingScreenerLogic").innerHTML = `
         <div class="data-status">
           <p class="note">${escapeHtml(method.formula || "\u4e3b\u984c\u5951\u5408\u3001\u6210\u4ea4\u503c\u3001\u6536\u76e4\u76f8\u5c0d 20MA\u300120MA \u659c\u7387\u3002")}</p>
-          <p class="note">\u50f9\u683c\u8207 20MA \u512a\u5148\u4f86\u81ea ${escapeHtml(method.officialPriceSource || "TWSE STOCK_DAY")}\uff1b${escapeHtml(method.fallback || "")}</p>
+          <p class="note">\u50f9\u683c\u8207 20 \u65e5\u5747\u7dda\u512a\u5148\u4f86\u81ea ${escapeHtml(method.officialPriceSource || "\u8b49\u4ea4\u6240\u65e5\u6210\u4ea4\u8cc7\u6599")}\uff1b${escapeHtml(method.fallback || "")}</p>
         </div>`;
       $("swingSourcePanel").innerHTML = `
         <div class="data-status">
@@ -3143,7 +3291,7 @@
       const flowStageLabel = (value) => ({
         macro:"總經與市場", screener:"台股篩選", "user-selection-gate":"有效標的驗證",
         valuation:"可比估值", "deep-analysis":"基本面深度", technical:"日線技術",
-        signal:"K 棒訊號", summary:"最終整合"
+        signal:"K 線訊號", summary:"最終整合"
       })[value] || value || "--";
       const flowStatusLabel = (value) => ({
         pending:"等待中", running:"處理中", passed:"已通過", generated:"已完成",
@@ -3170,7 +3318,7 @@
           ${llmStepRows ? tableFromRows(["階段", "分析角色", "狀態", "訊息"], [llmStepRows]) : ""}
           ${tableFromRows(["階段", "分析模組", "專案內來源"], [specialistRows || `<tr><td colspan="3">未提供</td></tr>`])}
         </details>` : "";
-      const evidenceStageLabel = (value) => ({ valuation:"估值", deep:"基本面", technical:"日線技術", signal:"K 棒訊號", summary:"最終整合" })[value] || value || "--";
+      const evidenceStageLabel = (value) => ({ valuation:"估值", deep:"基本面", technical:"日線技術", signal:"K 線訊號", summary:"最終整合" })[value] || value || "--";
       const evidenceRows = (evidenceManifest.entries || []).slice(0, 30).map(item => `
         <tr><td>${escapeHtml(item.evidenceId || "")}</td><td>${escapeHtml(item.code || "")}</td><td>${escapeHtml(evidenceStageLabel(item.stage))}</td><td>${escapeHtml(missingLabel(item.field || ""))}</td><td>${escapeHtml(item.value ?? "")}</td><td>${escapeHtml(item.date || "--")}</td><td>${item.sourceUrl ? `<a href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noopener">${escapeHtml(item.source || "查看來源")}</a>` : escapeHtml(item.source || "未標示")}</td></tr>`).join("");
       const evidencePanel = `
@@ -3355,7 +3503,7 @@
         return;
       }
       renderSwingFlow("deep");
-      $("swingDeepResults").innerHTML = `<p class="note">\u6b63\u5728\u5efa\u7acb Dino background specialist chain job\uff1a\u5f8c\u7aef\u6703\u4f9d\u9806\u5e8f\u7522\u751f\u5b8c\u6574\u5831\u544a\uff0c\u9019\u500b\u756b\u9762\u6703\u81ea\u52d5\u66f4\u65b0\u9032\u5ea6\u3002</p>`;
+      $("swingDeepResults").innerHTML = `<p class="note">\u6b63\u5728\u5efa\u7acb Dino \u80cc\u666f\u5c08\u5bb6\u5206\u6790\u5de5\u4f5c\uff1a\u5f8c\u7aef\u6703\u4f9d\u9806\u5e8f\u7522\u751f\u5b8c\u6574\u5831\u544a\uff0c\u9019\u500b\u756b\u9762\u6703\u81ea\u52d5\u66f4\u65b0\u9032\u5ea6\u3002</p>`;
       try {
         swingDeepPayload = await getSwingOrchestratedReport(swingSelectedCodes, renderSwingJobProgress);
         renderSwingDeep(swingDeepPayload);
@@ -3365,7 +3513,9 @@
       }
     }
 
-    function switchView(view) {
+    function switchView(view, updateHistory = false) {
+      const validViews = new Set(["stock", "client", "swing", "admin"]);
+      if (!validViews.has(view)) view = "stock";
       const shell = $("workspaceShell");
       if (shell) {
         shell.hidden = false;
@@ -3378,7 +3528,15 @@
       $("clientPage").hidden = !client;
       $("swingPage").hidden = !swing;
       $("adminPage").hidden = !admin;
-      $("viewTabs").querySelectorAll("[data-view]").forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view));
+      $("viewTabs").querySelectorAll("[data-view]").forEach((btn) => {
+        const selected = btn.dataset.view === view;
+        btn.classList.toggle("active", selected);
+        btn.setAttribute("aria-selected", String(selected));
+        btn.tabIndex = selected ? 0 : -1;
+      });
+      if (updateHistory && $("appPage").classList.contains("workspace-active")) {
+        history.replaceState({ ...(history.state || {}), workspaceView:view }, "", `#workspace-${view}`);
+      }
       if (client) loadClientWorkbench();
       if (swing) loadSwingWorkflow();
       if (admin) {
@@ -3386,6 +3544,12 @@
         loadAdminScoreV2();
         renderCurrentScoreV2(activeValueScore);
       }
+    }
+
+    function syncWorkspaceFromLocation() {
+      const match = location.hash.match(/^#workspace-(stock|client|swing|admin)$/);
+      if (match) openWorkspace(match[1], "none");
+      else closeWorkspace(false);
     }
 
     function portfolioEntries() {
@@ -3530,7 +3694,7 @@
       if (screenerResult.status === "fulfilled") {
         renderScreener(screenerResult.value, currentScreenerMode);
       } else {
-        $("screenerRows").innerHTML = `<tr><td colspan="10">${escapeHtml(screenerResult.reason?.message || "Ranking failed to load.")}</td></tr>`;
+        $("screenerRows").innerHTML = `<tr><td colspan="10">${escapeHtml(screenerResult.reason?.message || "\u6392\u884c\u699c\u8f09\u5165\u5931\u6557\u3002")}</td></tr>`;
       }
     }
 
@@ -3701,7 +3865,7 @@
         ["MA120 \u534a\u5e74\u7dda", ma120, "neut"],
         ["\u5e03\u6797\u4e0b\u8ecc / \u9577\u7dda\u9632\u7dda", Math.min(bbLow, data.low52), "neut"]
       ].filter(([, value]) => Number.isFinite(value));
-      $("levelRows").innerHTML = rows.map(([label, value, cls]) => `<div class="level-item"><b>${label}</b><span class="${cls}">${fmt(value)}</span></div>`).join("");
+      $("levelRows").innerHTML = rows.map(([label, value, cls]) => `<div class="level-item"><b>${label}</b><span class="level-tone-${cls}">${fmt(value)}</span></div>`).join("");
       return rows;
     }
 
@@ -3785,7 +3949,7 @@
     }
 
     function setAgentStance(text, cls = "neut") {
-      $("agentStance").className = `badge ${cls}`;
+      $("agentStance").className = `badge tone-${cls}`;
       $("agentStance").textContent = text;
     }
 
@@ -3800,7 +3964,7 @@
       activeCode = data.code;
       activeData = data;
       setAgentStance(data.pullback >= 70 ? "\u9ad8\u98a8\u96aa" : data.close > last(data.ma20) ? "\u504f\u591a" : "\u89c0\u5bdf", tone);
-      $("agentMeta").textContent = `${data.code} ${q.name || fallbackNames[data.code] || ""} | ${q.source || "\u516c\u958b\u5831\u50f9"} | \u53ef\u76f4\u63a5\u8ffd\u554f\u76ee\u524d\u80a1\u7968\u3002`;
+      $("agentMeta").textContent = `${data.code} ${q.name || fallbackNames[data.code] || ""} | ${localizeSourceLabel(q.source) || "\u516c\u958b\u5831\u50f9"} | \u53ef\u76f4\u63a5\u8ffd\u554f\u76ee\u524d\u80a1\u7968\u3002`;
       $("agentLog").innerHTML = "";
       appendAgentMessage("agent", "Agent \u6458\u8981", `
         <p>${escapeHtml(data.code)} \u76ee\u524d\u6536\u76e4 ${fmt(data.close)}\uff0c\u56de\u6a94\u6a5f\u7387 ${data.pullback}%\u3002\u77ed\u652f\u6490 ${fmt(data.support)}\uff0c\u4e2d\u652f\u6490 ${fmt(data.support2)}\uff0c\u77ed\u58d3 ${fmt(data.resistance)}\u3002</p>
@@ -3880,7 +4044,7 @@
         metric("\u77ed\u7dda\u58d3\u529b", fmt(data.resistance)),
         metric("\u56de\u6a94\u6a5f\u7387", `${data.pullback}%`)
       ].join("");
-      $("status").textContent = q.source ? `\u8cc7\u6599\u4f86\u6e90\uff1a${q.source}\u3002\u9801\u9762\u6bcf\u6b21\u958b\u555f\u90fd\u6703\u91cd\u65b0\u5411\u5f8c\u7aef\u8acb\u6c42\u6700\u65b0\u8cc7\u6599\u3002` : "\u5df2\u8f09\u5165\u516c\u958b\u5831\u50f9\u8cc7\u6599\u3002";
+      $("status").textContent = q.source ? `\u8cc7\u6599\u4f86\u6e90\uff1a${localizeSourceLabel(q.source)}\u3002\u9801\u9762\u6bcf\u6b21\u958b\u555f\u90fd\u6703\u91cd\u65b0\u5411\u5f8c\u7aef\u8acb\u6c42\u6700\u65b0\u8cc7\u6599\u3002` : "\u5df2\u8f09\u5165\u516c\u958b\u5831\u50f9\u8cc7\u6599\u3002";
       renderRetailDecision(data);
       renderEntryQuality(data);
       renderEntrySupportPanels(data);
@@ -3943,6 +4107,9 @@
       setHomeStatus("quote", "\u8f09\u5165\u5931\u6557", "\u5f8c\u7aef\u672a\u56de\u50b3\u53ef\u7528\u5831\u50f9", "bear");
       setHomeStatus("analysis", "\u672a\u5b8c\u6210", "\u9700\u5148\u53d6\u5f97\u5831\u50f9", "bear");
       setHomeStatus("value", "\u672a\u555f\u52d5", "\u5831\u50f9\u5931\u6557\u6642\u4e0d\u555f\u52d5", "bear");
+      setHomeStatusSummary(`${code || "\u80a1\u7968"} \u8cc7\u6599\u4e0d\u53ef\u7528`);
+      syncHomeEntryAvailability(false);
+      $("resetBtn").disabled = false;
       $("homeDecisionCards").innerHTML = [
         homeDecisionCard("\u4eca\u65e5\u7d50\u8ad6", "\u8f09\u5165\u5931\u6557", "\u7121\u6cd5\u5efa\u7acb\u4eca\u65e5\u5224\u65b7\u3002", "bear"),
         homeDecisionCard("\u8ffd\u9ad8\u98a8\u96aa", "--", "\u5831\u50f9\u5931\u6557\uff0c\u4e0d\u63a8\u6e2c\u98a8\u96aa\u3002"),
@@ -3950,6 +4117,7 @@
         homeDecisionCard("\u58d3\u529b", "--", "\u7f3a\u5c11\u65e5\u7dda\u8cc7\u6599\u3002"),
         homeDecisionCard("\u5931\u6548", "--", "\u5c1a\u672a\u5efa\u7acb\u689d\u4ef6\u3002"),
       ].join("");
+      syncMobileDecisionCards();
       $("heroFacts").innerHTML = "";
       $("valueRadarHeroBadge").innerHTML = "";
       $("metrics").innerHTML = "";
@@ -3993,6 +4161,8 @@
       activeValueScore = null;
       setDefaultHeroCopy();
       resetHomeStatuses();
+      syncHomeEntryAvailability(false);
+      $("resetBtn").disabled = true;
       renderHomeDecisionWaiting();
       $("heroFacts").innerHTML = [
         ["\u80a1\u7968", "\u5f85\u8f38\u5165"],
@@ -4026,15 +4196,19 @@
         code = await resolveStockInput(code);
       } catch (err) {
         $("status").textContent = err.message || "\u7121\u6cd5\u89e3\u6790\u9019\u500b\u80a1\u7968\u540d\u7a31\u3002";
+        setHomeStatusSummary("\u8acb\u78ba\u8a8d\u80a1\u7968\u4ee3\u78bc\u6216\u540d\u7a31");
         return;
       }
       renderStockSuggestions([]);
       $("stockInput").value = code;
+      $("resetBtn").disabled = true;
+      syncHomeEntryAvailability(false);
       setDefaultHeroCopy();
       setHomeStatus("stock", code, "\u6b63\u5728\u89e3\u6790\u8f38\u5165", "active");
       setHomeStatus("quote", "\u8f09\u5165\u4e2d", "\u6b63\u5728\u5411\u5f8c\u7aef\u53d6\u5f97\u5831\u50f9", "warn");
       setHomeStatus("analysis", "\u5f85\u5831\u50f9", "\u5831\u50f9\u5b8c\u6210\u5f8c\u555f\u52d5", "warn");
       setHomeStatus("value", "\u5f85\u5831\u50f9", "\u5831\u50f9\u5b8c\u6210\u5f8c\u555f\u52d5", "warn");
+      setHomeStatusSummary(`${code} \u8cc7\u6599\u8f09\u5165\u4e2d`);
       $("status").textContent = `\u6b63\u5728\u8f09\u5165 ${code} \u6700\u65b0\u8cc7\u6599...`;
       try {
         const quote = await getQuote(code);
@@ -4070,11 +4244,15 @@
     });
     $("resetBtn").addEventListener("click", () => run($("stockInput").value));
     $("openWorkspaceBtn").addEventListener("click", () => openWorkspace("stock"));
+    $("mobileOpenWorkspaceBtn").addEventListener("click", () => openWorkspace("stock"));
     $("openTechnicalChartsBtn").addEventListener("click", () => $("priceChart").closest(".panel").scrollIntoView({ behavior:"smooth", block:"start" }));
     $("openAgentBtn").addEventListener("click", () => $("agentPanel").scrollIntoView({ behavior:"smooth", block:"start" }));
     $("backHomeBtn").addEventListener("click", () => {
-      $("workspaceShell").hidden = true;
-      $("homeDecisionPanel").scrollIntoView({ behavior:"smooth", block:"start" });
+      if (history.state?.workspaceView && location.hash.startsWith("#workspace-")) history.back();
+      else {
+        history.replaceState({}, "", `${location.pathname}${location.search}`);
+        closeWorkspace();
+      }
     });
     $("homeDoorway").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-doorway-view]");
@@ -4086,7 +4264,21 @@
     });
     $("viewTabs").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-view]");
-      if (btn) switchView(btn.dataset.view);
+      if (btn) switchView(btn.dataset.view, true);
+    });
+    $("viewTabs").addEventListener("keydown", (e) => {
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+      const tabs = [...$("viewTabs").querySelectorAll("[data-view]:not([hidden])")];
+      const current = tabs.indexOf(document.activeElement);
+      if (current < 0) return;
+      e.preventDefault();
+      const nextIndex = e.key === "Home"
+        ? 0
+        : e.key === "End"
+          ? tabs.length - 1
+          : (current + (e.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+      tabs[nextIndex].focus();
+      switchView(tabs[nextIndex].dataset.view, true);
     });
     $("agentForm").addEventListener("submit", (e) => { e.preventDefault(); askAgent($("agentInput").value); });
     $("agentPrompts").addEventListener("click", (e) => {
@@ -4127,6 +4319,18 @@
       }
     });
     $("runSwingDeepBtn").addEventListener("click", runSwingDeepFlow);
+    $("swingFlowSteps").addEventListener("click", (e) => {
+      const step = e.target.closest("[data-swing-step]");
+      if (!step) return;
+      const targets = {
+        macro:"swingStepMacro",
+        screen:"swingStepScreen",
+        themes:"swingStepThemes",
+        gate:"swingStepGate",
+        deep:"swingStepDeep"
+      };
+      $(targets[step.dataset.swingStep])?.scrollIntoView({ behavior:"smooth", block:"start" });
+    });
     $("swingSelectedInput").addEventListener("input", updateSwingSelectedUI);
     $("swingCandidateRows").addEventListener("change", (e) => {
       const box = e.target.closest("[data-swing-code]");
@@ -4140,7 +4344,7 @@
     $("swingPage").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-swing-open]");
       if (btn) {
-        switchView("stock");
+        switchView("stock", true);
         run(btn.dataset.swingOpen);
       }
     });
@@ -4168,19 +4372,24 @@
     $("clientPage").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-rank-code]");
       if (!btn) return;
-      switchView("stock");
+      switchView("stock", true);
       run(btn.dataset.rankCode);
     });
     if (adminEnabled) {
       $("adminTab").hidden = false;
     }
+    window.addEventListener("popstate", syncWorkspaceFromLocation);
+    setupResponsiveStatusDisclosure();
     setupReveal();
     renderPortfolioHealth();
     const initialCode = new URLSearchParams(location.search).get("code");
-    if (initialCode) run(initialCode);
-    else renderEmptyStockState();
+    if (initialCode) run(initialCode).then(syncWorkspaceFromLocation);
+    else {
+      renderEmptyStockState();
+      syncWorkspaceFromLocation();
+    }
     loadScreenerMode(currentScreenerMode);
-    if (adminEnabled) switchView("admin");
+    if (adminEnabled) openWorkspace("admin", "replace");
   </script>
 </body>
 </html>
