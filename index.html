@@ -81,7 +81,6 @@
     .doorway-card:hover:not(:disabled) { border-color:#168074; background:#f4fbf9; transform:translateY(-1px); }
     .doorway-card b { display:block; font-size:12px; margin-bottom:.24rem; }
     .doorway-card span { display:block; color:var(--muted); font-size:12px; line-height:1.55; }
-    .mobile-decision { display:none; }
     .workspace-shell { border:.5px solid var(--line); border-radius:12px; background:#fff; padding:.9rem; }
     .workspace-shell[hidden] { display:none !important; }
     .workspace-navigation { position:sticky; top:0; z-index:20; margin:-.9rem -.9rem .8rem; padding:.9rem .9rem .3rem; border-radius:12px 12px 0 0; background:rgba(255,255,255,.96); backdrop-filter:blur(12px); box-shadow:0 8px 18px rgba(22,32,48,.08); }
@@ -89,7 +88,33 @@
     .workspace-head p { color:var(--muted); font-size:12px; }
     .workspace-context { display:inline-flex; align-items:center; gap:.35rem; margin-top:.45rem; border-radius:999px; padding:.28rem .65rem; color:#0a5c38; background:#e0f5eb; font-size:12px; font-weight:760; }
     .workspace-tabs { margin:.75rem 0; }
+    .stock-section-nav { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.4rem; padding:.1rem 0 .55rem; }
+    .stock-section-nav[hidden] { display:none !important; }
+    .stock-section-nav a { display:flex; min-height:40px; align-items:center; justify-content:center; border:1px solid #e1ded8; border-radius:999px; background:#fff; color:var(--ink); font-size:12px; font-weight:760; text-align:center; text-decoration:none; }
+    .stock-section-nav a:hover { border-color:var(--teal); background:#f2faf8; color:#075d54; }
     .workspace-body { display:block; }
+    .analysis-section { scroll-margin-top:188px; }
+    .analysis-section + .analysis-section { margin-top:1rem; padding-top:.2rem; border-top:1px solid #e7e5e1; }
+    .analysis-section-head { display:flex; flex-wrap:wrap; align-items:end; justify-content:space-between; gap:.55rem; margin:.2rem 0 .65rem; }
+    .analysis-section-head h2 { font-size:1.12rem; }
+    .analysis-section-head p { max-width:680px; color:var(--muted); font-size:12px; line-height:1.55; }
+    .advanced-analysis { margin:.75rem 0; border:1px solid #dedbd5; border-radius:10px; background:#f8f7f4; overflow:hidden; }
+    .advanced-analysis > summary { display:flex; min-height:48px; align-items:center; justify-content:space-between; gap:.75rem; padding:.7rem .85rem; cursor:pointer; color:var(--ink); font-size:13px; font-weight:780; }
+    .advanced-analysis > summary::after { content:"展開"; color:var(--muted); font-size:12px; font-weight:650; }
+    .advanced-analysis[open] > summary::after { content:"收合"; }
+    .advanced-analysis[open] > summary { border-bottom:1px solid #dedbd5; }
+    .advanced-analysis-body { padding:.15rem .75rem .75rem; }
+    .indicator-switcher { margin:.75rem 0; }
+    .indicator-tabs { display:flex; flex-wrap:wrap; gap:.45rem; margin:.65rem 0; }
+    .indicator-tab { min-height:44px; border:1px solid #d9d5cf; background:#fff; color:var(--ink); }
+    .indicator-tab[aria-selected="true"] { border-color:#0d6f65; background:#e6f4f1; color:#075d54; box-shadow:0 0 0 1px #0d6f65 inset; }
+    .indicator-panel[hidden] { display:none !important; }
+    .chart-alternative { margin-top:.65rem; border-top:1px solid #ece9e4; padding-top:.6rem; }
+    .chart-alternative summary { min-height:44px; cursor:pointer; color:var(--muted); font-size:12px; font-weight:760; }
+    .chart-alternative .table-wrap { margin-top:.45rem; }
+    .chart-alternative table { max-width:620px; }
+    .chart-summary { margin:.45rem 0 0; color:var(--muted); font-size:12px; line-height:1.6; }
+    .legacy-stock-tools[hidden] { display:none !important; }
     .reveal { opacity:0; transform:translateY(18px); transition:opacity .58s ease, transform .58s ease; }
     .reveal.is-visible { opacity:1; transform:none; }
     .grid { display:grid; gap:.75rem; }
@@ -103,7 +128,8 @@
     .mc .v.down { color:var(--green); }
     .mc .v.flat { color:var(--amber); }
     .panel { padding:.85rem; margin:.75rem 0; }
-    .chartbox { height:285px; }
+    .chartbox { height:285px; min-width:0; overflow:hidden; }
+    .chartbox canvas { max-width:100% !important; }
     .chartbox.sm { height:220px; }
     .sr { display:flex; justify-content:space-between; padding:6.5px 0; border-bottom:.5px solid #eee; gap:9px; }
     .sl { flex:1; font-size:12px; line-height:1.55; }
@@ -139,7 +165,7 @@
     .agent-msg ul { margin:8px 0 0; padding-left:18px; font-size:12px; line-height:1.65; }
     .agent-form { display:grid; grid-template-columns:1fr auto; gap:8px; margin-top:10px; }
     .source-list { display:flex; gap:.45rem; flex-wrap:wrap; margin-top:.5rem; }
-    .source-list a { font-size:12px; color:var(--blue); text-decoration:none; border-bottom:1px solid #c6cee8; }
+    .source-list a { display:inline-flex; min-height:44px; align-items:center; padding:0 .2rem; font-size:12px; color:var(--blue); text-decoration:none; border-bottom:1px solid #c6cee8; }
     .control-row { display:flex; flex-wrap:wrap; gap:.65rem; align-items:center; margin-bottom:.7rem; }
     .control-row label { font-size:12px; color:var(--muted); display:flex; align-items:center; gap:.45rem; }
     .control-row input { width:150px; min-height:44px; }
@@ -162,9 +188,9 @@
     .prob-summary b { color:#8c1818; }
     .news-list { display:grid; gap:.55rem; }
     .news-meta { display:flex; flex-wrap:wrap; gap:.35rem; margin:.35rem 0; }
-    .news-item a { color:var(--blue); text-decoration:none; border-bottom:1px solid #c6cee8; }
+    .news-item a { display:inline-flex; min-height:44px; align-items:center; color:var(--blue); text-decoration:none; border-bottom:1px solid #c6cee8; }
     .fund-meta { margin-top:.7rem; padding-top:.55rem; border-top:.5px solid #e7e5e1; color:var(--muted); font-size:12px; line-height:1.65; }
-    .fund-meta a { color:var(--blue); }
+    .fund-meta a { display:inline-flex; min-height:44px; align-items:center; color:var(--blue); }
     .value-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.6rem; margin:.65rem 0; }
     .value-card { border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.7rem; min-width:0; }
     .value-card b { display:block; color:var(--muted); font-size:12px; margin-bottom:.18rem; }
@@ -244,7 +270,9 @@
       .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .decision-grid,.horizon-grid,.dow-grid,.strategy-grid,.wave-legend,.value-grid,.client-grid,.client-grid.two-col { grid-template-columns:1fr; }
       .hero-status-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .home-decision-grid,.doorway-grid { grid-template-columns:1fr; }
+      .home-decision-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .home-decision-grid .home-decision-card:first-child { grid-column:1 / -1; }
+      .doorway-grid { grid-template-columns:1fr; }
       .score-row,.workbench-item { grid-template-columns:1fr; }
       .client-form,.holding-grid,.holding-row,.scope-grid { grid-template-columns:1fr; }
       .flow-steps { grid-template-columns:1fr 1fr; }
@@ -274,14 +302,8 @@
       .hero-form-card { padding:.7rem; }
       .chips { flex-wrap:nowrap; overflow-x:auto; padding-bottom:.15rem; scroll-snap-type:x proximity; }
       .chips button { flex:0 0 auto; scroll-snap-align:start; }
-      .mobile-decision { display:grid; gap:.55rem; border:1px solid #ffffff38; border-radius:10px; background:rgba(255,255,255,.1); padding:.7rem; }
-      .mobile-decision-head h2 { font-size:1rem; margin:0; }
-      .mobile-decision-head p { display:none; }
-      .mobile-decision-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.45rem; }
-      .mobile-decision-grid .home-decision-card { min-height:64px; padding:.5rem; background:#fff; }
-      .mobile-decision-grid .home-decision-card p { display:none; }
-      .mobile-decision-grid .home-decision-card strong { font-size:.9rem; }
-      .mobile-decision > button { width:100%; background:#fff; color:var(--ink); border:1px solid #ffffff90; }
+      #quickCodes { flex-wrap:wrap; overflow:visible; }
+      #quickCodes button { flex:1 1 calc(50% - .45rem); }
       .home-status-details { border:1px solid #ffffff36; border-radius:10px; background:#ffffff12; overflow:hidden; }
       .home-status-details > summary { display:flex; min-height:48px; align-items:center; justify-content:space-between; gap:.75rem; padding:.65rem .75rem; color:#fff; cursor:pointer; font-size:13px; font-weight:760; }
       .home-status-details[open] > summary { border-bottom:1px solid #ffffff2e; }
@@ -289,11 +311,26 @@
       .home-status-details .hero-status-tile { min-height:82px; padding:.6rem; }
       .home-status-details .tile-detail { display:none; }
       .home-status-details .status { margin:.1rem .65rem .7rem; }
-      .home-decision { display:none; }
+      .home-decision { display:block; padding:.75rem; }
+      .home-decision-head { display:grid; }
+      .home-decision-head .secondary { width:100%; }
+      .home-decision-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.45rem; }
+      .home-decision-card { min-height:72px; padding:.55rem; }
+      .home-decision-card:first-child { min-height:82px; }
+      .home-decision-card p { margin-top:.18rem; }
+      .home-decision-card:not(:first-child) p { display:none; }
+      .home-decision-card strong { font-size:.96rem; }
       .workspace-head { display:grid; }
       .workspace-navigation { margin:-.9rem -.9rem .7rem; padding:.75rem .9rem .25rem; }
       .workspace-tabs { flex-wrap:nowrap; overflow-x:auto; padding:0 0 .45rem; scroll-snap-type:x proximity; }
       .workspace-tabs .view-tab { flex:0 0 auto; min-height:44px; scroll-snap-align:start; }
+      .stock-section-nav { display:flex; overflow-x:auto; padding:.05rem 0 .55rem; scroll-snap-type:x proximity; }
+      .stock-section-nav a { flex:0 0 auto; min-width:92px; min-height:44px; scroll-snap-align:start; }
+      .analysis-section { scroll-margin-top:220px; }
+      .analysis-section-head { display:block; }
+      .analysis-section-head p { margin-top:.25rem; }
+      .indicator-tabs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .indicator-tab { width:100%; }
       .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem; }
       .value-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .rank-tabs button { flex:1 1 calc(50% - .45rem); padding:0 .55rem; }
@@ -370,15 +407,6 @@
           </div>
         </div>
       </div>
-      <section class="mobile-decision" id="mobileDecisionPanel" aria-labelledby="mobileDecisionTitle">
-        <div class="mobile-decision-head">
-          <h2 id="mobileDecisionTitle">&#x4eca;&#x65e5;&#x64cd;&#x4f5c;&#x5224;&#x65b7;</h2>
-          <p>&#x5148;&#x770b;&#x7d50;&#x8ad6;&#x8207;&#x8ffd;&#x9ad8;&#x98a8;&#x96aa;&#xff0c;&#x518d;&#x6c7a;&#x5b9a;&#x662f;&#x5426;&#x9032;&#x5165;&#x5b8c;&#x6574;&#x5206;&#x6790;&#x3002;</p>
-        </div>
-        <div class="mobile-decision-grid" id="mobileDecisionCards" aria-live="polite"></div>
-        <button type="button" id="mobileOpenWorkspaceBtn" disabled aria-describedby="mobileDecisionHelp">&#x8acb;&#x5148;&#x9078;&#x64c7;&#x80a1;&#x7968;</button>
-        <p class="sr-only" id="mobileDecisionHelp">&#x8acb;&#x5148;&#x5b8c;&#x6210;&#x4e00;&#x6b21;&#x80a1;&#x7968;&#x5206;&#x6790;&#x3002;</p>
-      </section>
       <details class="home-status-details" id="homeStatusDetails" open>
         <summary><span>&#x8cc7;&#x6599;&#x8207;&#x66f4;&#x65b0;&#x6642;&#x9593;</span><strong class="home-status-summary" id="homeStatusSummary">&#x7b49;&#x5f85;&#x9078;&#x80a1;</strong></summary>
         <div class="hero-status-grid" aria-label="&#x5206;&#x6790;&#x72c0;&#x614b;">
@@ -426,198 +454,232 @@
           <button class="view-tab" type="button" role="tab" id="workspaceTabSwing" aria-selected="false" aria-controls="swingPage" tabindex="-1" data-view="swing">Dino K&#x7dda;&#x9078;&#x80a1;</button>
           <button class="view-tab" type="button" role="tab" id="adminTab" aria-selected="false" aria-controls="adminPage" tabindex="-1" data-view="admin" hidden>&#x5f8c;&#x81fa;&#x8cc7;&#x6599;&#x6aa2;&#x67e5;</button>
         </div>
+        <nav class="stock-section-nav" id="stockSectionNav" aria-label="&#x500b;&#x80a1;&#x5206;&#x6790;&#x6bb5;&#x843d;">
+          <a href="#stock-overview">&#x6982;&#x89bd;</a>
+          <a href="#stock-price">&#x50f9;&#x683c;&#xff0f;&#x5716;&#x8868;</a>
+          <a href="#stock-fundamentals">&#x57fa;&#x672c;&#x9762;</a>
+          <a href="#stock-catalysts">&#x50ac;&#x5316;</a>
+          <a href="#stock-plan">&#x8a08;&#x756b;</a>
+        </nav>
       </div>
       <div class="workspace-body">
     <div id="stockPage" class="page-view" role="tabpanel" aria-labelledby="workspaceTabStock">
-    <div class="control-row">
-      <span></span>
-      <div class="control-row"><button type="button" class="secondary" id="openTechnicalChartsBtn">&#x6280;&#x8853;&#x5716;&#x8868;</button><button type="button" class="secondary" id="openAgentBtn">&#x4e92;&#x52d5;&#x5206;&#x6790; Agent</button></div>
-    </div>
-    <section class="grid metrics" id="metrics"></section>
-
-    <section class="panel">
-      <div class="control-row">
-        <h2>&#x5c0f;&#x8cc7;&#x6c7a;&#x7b56;&#x5361;</h2>
-        <label>&#x6bcf;&#x6708;&#x53ef;&#x6295;&#x5165;
-          <input id="monthlyBudget" type="number" min="1000" step="500" value="10000" aria-label="&#x6bcf;&#x6708;&#x53ef;&#x6295;&#x5165;&#x91d1;&#x984d;">
-        </label>
-      </div>
-      <div class="decision-grid" id="retailDecision"></div>
-      <p class="note">&#x91d1;&#x984d;&#x53ea;&#x7528;&#x4f86;&#x4f30;&#x7b97;&#x5206;&#x6279;&#x8207;&#x505c;&#x640d;&#x627f;&#x53d7;&#x5ea6;&#xff0c;&#x4e0d;&#x6703;&#x9001;&#x51fa;&#x6216;&#x5132;&#x5b58;&#x3002;</p>
-    </section>
-
-    <section class="panel">
-      <h2>&#x5c0f;&#x8cc7;&#x50f9;&#x503c;&#x96f7;&#x9054;</h2>
-      <p class="note">&#x8a55;&#x5206;&#x53ea;&#x4f7f;&#x7528;&#x516c;&#x958b;&#x5831;&#x50f9;&#x8207; FinMind &#x53ef;&#x53d6;&#x5f97;&#x8cc7;&#x6599;&#x3002;&#x7f3a;&#x8cc7;&#x6599;&#x6642;&#x6703;&#x6a19;&#x793a;&#x8cc7;&#x6599;&#x4e0d;&#x8db3;&#xff0c;&#x4e0d;&#x7528;&#x5047;&#x6578;&#x5b57;&#x88dc;&#x5206;&#x3002;</p>
-      <div class="value-grid" id="valueScoreCards"></div>
-      <div id="valueDataStatus"></div>
-      <div id="chaseRiskPanel"></div>
-      <div class="control-row">
-        <p class="note" id="rankingSnapshotStatus">&#x6b63;&#x5728;&#x8b80;&#x53d6;&#x6700;&#x8fd1;&#x4e00;&#x6b21;&#x5b8c;&#x6574;&#x6392;&#x884c;&#x699c;&#x5feb;&#x7167;&#x3002;</p>
-        <button type="button" class="secondary" id="refreshRankingBtn">&#x641c;&#x5c0b;&#x6392;&#x884c;&#x699c;</button>
-      </div>
-      <div class="rank-tabs" id="screenerTabs" aria-label="&#x50f9;&#x503c;&#x6392;&#x884c;&#x699c;&#x5207;&#x63db;">
-        <button type="button" class="active" data-mode="undervalued">&#x6700;&#x88ab;&#x4f4e;&#x4f30;</button>
-        <button type="button" data-mode="overvalued">&#x6700;&#x88ab;&#x9ad8;&#x4f30;</button>
-        <button type="button" data-mode="active">&#x89c0;&#x5bdf;&#x6c60;&#x6700;&#x6d3b;&#x8e8d;</button>
-        <button type="button" data-mode="cashflow">&#x73fe;&#x91d1;&#x6d41;&#x6700;&#x4f73;</button>
-        <button type="button" data-mode="growth">&#x589e;&#x9577;&#x6700;&#x4f73;</button>
-        <button type="button" data-mode="small-investor">&#x5c0f;&#x8cc7;&#x53cb;&#x5584;</button>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>&#x80a1;&#x7968;</th>
-              <th>&#x73fe;&#x50f9;</th>
-              <th>&#x4f4e;&#x4f30;</th>
-              <th>&#x9ad8;&#x4f30;</th>
-              <th>&#x5c0f;&#x8cc7;</th>
-              <th>&#x516c;&#x5141;&#x50f9;</th>
-              <th>&#x4e0a;&#x6f32;&#x7a7a;&#x9593;</th>
-              <th>&#x73fe;&#x91d1;&#x6d41;</th>
-              <th>&#x589e;&#x9577;</th>
-              <th>&#x5e02;&#x5834;&#x4fe1;&#x5fc3;</th>
-            </tr>
-          </thead>
-          <tbody id="screenerRows">
-            <tr><td colspan="10">&#x8f09;&#x5165;&#x89c0;&#x5bdf;&#x6c60;&#x6392;&#x884c;&#x699c;...</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p class="note" id="screenerNote">&#x5f8c;&#x81fa;&#x5df2;&#x9023;&#x7dda;&#x5168;&#x81fa;&#x80a1;&#x516c;&#x53f8;&#x89c0;&#x5bdf;&#x7bc4;&#x570d;&#xff1b;&#x76ee;&#x524d;&#x6392;&#x884c;&#x699c;&#x70ba;&#x53ef;&#x63a7;&#x6279;&#x6b21;&#x8a55;&#x5206;&#xff0c;&#x4e0d;&#x5047;&#x88dd;&#x5df2;&#x5b8c;&#x6210;&#x5168;&#x5e02;&#x5834;&#x5373;&#x6642;&#x6392;&#x540d;&#x3002;</p>
-    </section>
-
-    <section class="grid two">
-      <section class="panel" hidden>
-        <h2>&#x914d;&#x7f6e;&#x52a9;&#x624b;</h2>
-        <div class="mini-form">
-          <label>&#x98a8;&#x96aa;&#x504f;&#x597d;
-            <select id="riskProfile" aria-label="&#x98a8;&#x96aa;&#x504f;&#x597d;">
-              <option value="balanced">&#x7a69;&#x5065;</option>
-              <option value="conservative">&#x4fdd;&#x5b88;</option>
-              <option value="active">&#x7a4d;&#x6975;</option>
-            </select>
-          </label>
+      <section class="analysis-section" id="stock-overview" aria-labelledby="stockOverviewTitle">
+        <div class="analysis-section-head">
+          <div>
+            <h2 id="stockOverviewTitle">&#x6982;&#x89bd;</h2>
+            <p>&#x5148;&#x770b;&#x4eca;&#x65e5;&#x7d50;&#x8ad6;&#x3001;&#x95dc;&#x9375;&#x50f9;&#x4f4d;&#x8207;&#x98a8;&#x96aa;&#xff0c;&#x518d;&#x6c7a;&#x5b9a;&#x8981;&#x4e0d;&#x8981;&#x7e7c;&#x7e8c;&#x7814;&#x7a76;&#x3002;</p>
+          </div>
+          <div class="control-row">
+            <button type="button" class="secondary" id="openTechnicalChartsBtn">&#x524d;&#x5f80;&#x50f9;&#x683c;&#x5716;&#x8868;</button>
+            <button type="button" class="secondary" id="openAgentBtn">&#x524d;&#x5f80;&#x4e92;&#x52d5; Agent</button>
+          </div>
         </div>
+        <section class="panel">
+          <div class="control-row">
+            <h2>&#x5c0f;&#x8cc7;&#x6c7a;&#x7b56;&#x5361;</h2>
+            <label>&#x6bcf;&#x6708;&#x53ef;&#x6295;&#x5165;
+              <input id="monthlyBudget" type="number" min="1000" step="500" value="10000" aria-label="&#x6bcf;&#x6708;&#x53ef;&#x6295;&#x5165;&#x91d1;&#x984d;">
+            </label>
+          </div>
+          <div class="decision-grid" id="retailDecision"></div>
+          <p class="note">&#x91d1;&#x984d;&#x53ea;&#x7528;&#x4f86;&#x4f30;&#x7b97;&#x5206;&#x6279;&#x8207;&#x505c;&#x640d;&#x627f;&#x53d7;&#x5ea6;&#xff0c;&#x4e0d;&#x6703;&#x9001;&#x51fa;&#x6216;&#x5132;&#x5b58;&#x3002;</p>
+        </section>
+        <details class="advanced-analysis">
+          <summary>&#x5168;&#x90e8;&#x884c;&#x60c5;&#x8207;&#x6280;&#x8853;&#x6458;&#x8981;</summary>
+          <div class="advanced-analysis-body">
+            <section class="grid metrics" id="metrics"></section>
+          </div>
+        </details>
+      </section>
+
+      <section class="analysis-section" id="stock-price" aria-labelledby="stockPriceTitle">
+        <div class="analysis-section-head">
+          <div>
+            <h2 id="stockPriceTitle">&#x50f9;&#x683c;&#xff0f;&#x5716;&#x8868;</h2>
+            <p>&#x4fdd;&#x7559;&#x73fe;&#x6709;&#x6536;&#x76e4;&#x50f9;&#x3001;&#x5747;&#x7dda;&#x8207;&#x6307;&#x6a19;&#x8a08;&#x7b97;&#xff1b;&#x672c;&#x7248;&#x4e0d;&#x65b0;&#x589e; OHLC &#x6216; K &#x68d2;&#x3002;</p>
+          </div>
+        </div>
+        <section class="panel">
+          <h2>&#x50f9;&#x683c;&#x3001;&#x5747;&#x7dda;&#x8207;&#x5e03;&#x6797;&#x901a;&#x9053;</h2>
+          <div class="chartbox"><canvas id="priceChart" role="img" aria-label="價格、均線與布林通道 Price chart"></canvas></div>
+          <p class="chart-summary" id="priceChartSummary" aria-live="polite">&#x5f85;&#x8f09;&#x5165;&#x50f9;&#x683c;&#x8cc7;&#x6599;&#x3002;</p>
+          <details class="chart-alternative">
+            <summary>&#x67e5;&#x770b;&#x50f9;&#x683c;&#x5716;&#x6587;&#x5b57;&#x8207;&#x6578;&#x64da;&#x8868;</summary>
+            <div class="table-wrap compact-table">
+              <table>
+                <thead><tr><th>&#x9805;&#x76ee;</th><th>&#x6700;&#x65b0;&#x503c;</th></tr></thead>
+                <tbody id="priceChartDataRows"></tbody>
+              </table>
+            </div>
+          </details>
+        </section>
+        <section class="panel indicator-switcher" aria-labelledby="indicatorSwitcherTitle">
+          <h2 id="indicatorSwitcherTitle">&#x6280;&#x8853;&#x526f;&#x5716;</h2>
+          <p class="note">&#x4e00;&#x6b21;&#x53ea;&#x986f;&#x793a;&#x4e00;&#x7d44;&#x65e2;&#x6709;&#x6307;&#x6a19;&#xff0c;&#x907f;&#x514d;&#x9023;&#x7e8c;&#x5806;&#x758a;&#x3002;</p>
+          <div class="indicator-tabs" id="indicatorTabs" role="tablist" aria-label="&#x6280;&#x8853;&#x526f;&#x5716;&#x5207;&#x63db;">
+            <button type="button" class="indicator-tab" id="indicatorTabVolume" role="tab" aria-selected="true" aria-controls="indicatorPanelVolume" tabindex="0" data-indicator="volume">&#x6210;&#x4ea4;&#x91cf;</button>
+            <button type="button" class="indicator-tab" id="indicatorTabMacd" role="tab" aria-selected="false" aria-controls="indicatorPanelMacd" tabindex="-1" data-indicator="macd">MACD</button>
+            <button type="button" class="indicator-tab" id="indicatorTabRsi" role="tab" aria-selected="false" aria-controls="indicatorPanelRsi" tabindex="-1" data-indicator="rsi">RSI / KD</button>
+            <button type="button" class="indicator-tab" id="indicatorTabBoll" role="tab" aria-selected="false" aria-controls="indicatorPanelBoll" tabindex="-1" data-indicator="boll">Bollinger</button>
+          </div>
+          <div class="indicator-panel" id="indicatorPanelVolume" role="tabpanel" aria-labelledby="indicatorTabVolume" data-indicator-panel="volume">
+            <div class="chartbox sm"><canvas id="volChart" role="img" aria-label="成交量 Volume chart"></canvas></div>
+          </div>
+          <div class="indicator-panel" id="indicatorPanelMacd" role="tabpanel" aria-labelledby="indicatorTabMacd" data-indicator-panel="macd" hidden>
+            <div class="chartbox sm"><canvas id="macdChart" role="img" aria-label="MACD 技術指標圖"></canvas></div>
+          </div>
+          <div class="indicator-panel" id="indicatorPanelRsi" role="tabpanel" aria-labelledby="indicatorTabRsi" data-indicator-panel="rsi" hidden>
+            <div class="chartbox sm"><canvas id="rsiChart" role="img" aria-label="RSI 與 KD 技術指標圖"></canvas></div>
+          </div>
+          <div class="indicator-panel" id="indicatorPanelBoll" role="tabpanel" aria-labelledby="indicatorTabBoll" data-indicator-panel="boll" hidden>
+            <div class="chartbox sm"><canvas id="bollChart" role="img" aria-label="布林通道百分比與頻寬 Bollinger chart"></canvas></div>
+          </div>
+          <p class="chart-summary" id="indicatorSummary" aria-live="polite">&#x6210;&#x4ea4;&#x91cf;&#x6703;&#x986f;&#x793a;&#x7576;&#x65e5;&#x91cf;&#x80fd;&#x8207;&#x6f32;&#x8dcc;&#x8272;&#x5f69;&#x3002;</p>
+          <details class="chart-alternative">
+            <summary>&#x67e5;&#x770b;&#x76ee;&#x524d;&#x526f;&#x5716;&#x7684;&#x6587;&#x5b57;&#x8207;&#x6578;&#x64da;&#x8868;</summary>
+            <div class="table-wrap compact-table">
+              <table>
+                <thead><tr><th>&#x9805;&#x76ee;</th><th>&#x6700;&#x65b0;&#x503c;</th></tr></thead>
+                <tbody id="indicatorDataRows"></tbody>
+              </table>
+            </div>
+          </details>
+        </section>
+        <section class="panel">
+          <h2>&#x652f;&#x6490;&#xff0f;&#x58d3;&#x529b;</h2>
+          <div class="chartbox sm"><canvas id="suppChart" role="img" aria-label="支撐與壓力 Support and resistance chart"></canvas></div>
+          <div class="level-list" id="levelRows"></div>
+        </section>
+        <details class="advanced-analysis">
+          <summary>&#x9032;&#x968e;&#x6280;&#x8853;&#x7406;&#x8ad6;&#x8207;&#x8a0a;&#x865f;&#x8b49;&#x64da;</summary>
+          <div class="advanced-analysis-body">
+            <section class="panel">
+              <h2>Elliott Wave / Chan &#x7d50;&#x69cb;</h2>
+              <div class="wave" id="wave"></div>
+              <div class="wave-legend" id="waveLegend"></div>
+              <div id="structureRows"></div>
+            </section>
+            <section class="panel">
+              <h2>&#x845b;&#x862d;&#x5a01;&#x723e;&#x516b;&#x5927;&#x6cd5;&#x5247;&#x7576;&#x524d;&#x4f4d;&#x7f6e;</h2>
+              <div id="granvilleRows"></div>
+            </section>
+            <section class="panel">
+              <h2>&#x9053;&#x6c0f;&#x7406;&#x8ad6;&#x4e09;&#x671f;&#x8da8;&#x52e2;</h2>
+              <div class="dow-grid" id="dowRows"></div>
+              <div class="grid two" style="margin-top:.75rem">
+                <div class="summary-box" id="dowConfirm"></div>
+                <div class="summary-box" id="dowWarning"></div>
+              </div>
+            </section>
+            <section class="panel">
+              <h2>&#x5341;&#x4e8c;&#x7dad;&#x8a0a;&#x865f;&#x5224;&#x8b80;</h2>
+              <div id="signalRows"></div>
+            </section>
+          </div>
+        </details>
+      </section>
+
+      <section class="analysis-section" id="stock-fundamentals" aria-labelledby="stockFundamentalsTitle">
+        <div class="analysis-section-head">
+          <div>
+            <h2 id="stockFundamentalsTitle">&#x57fa;&#x672c;&#x9762;</h2>
+            <p>&#x628a;&#x5df2;&#x53d6;&#x5f97;&#x7684;&#x8ca1;&#x52d9;&#x8cc7;&#x6599;&#x7ffb;&#x6210;&#x767d;&#x8a71;&#xff0c;&#x8f09;&#x5165;&#x6642;&#x6a5f;&#x8207;&#x8cc7;&#x6599;&#x4f86;&#x6e90;&#x4fdd;&#x6301;&#x539f;&#x72c0;&#x3002;</p>
+          </div>
+        </div>
+        <section class="panel">
+          <h2>&#x5c0f;&#x8cc7;&#x50f9;&#x503c;&#x96f7;&#x9054;</h2>
+          <p class="note">&#x53ea;&#x4f7f;&#x7528;&#x73fe;&#x6709;&#x516c;&#x958b;&#x5831;&#x50f9;&#x8207; FinMind &#x53ef;&#x53d6;&#x5f97;&#x8cc7;&#x6599;&#xff1b;&#x7f3a;&#x8cc7;&#x6599;&#x6642;&#x6703;&#x76f4;&#x63a5;&#x6a19;&#x793a;&#xff0c;&#x4e0d;&#x7528;&#x5047;&#x6578;&#x5b57;&#x88dc;&#x5206;&#x3002;</p>
+          <div class="value-grid" id="valueScoreCards"></div>
+          <div id="valueDataStatus"></div>
+          <div id="chaseRiskPanel"></div>
+        </section>
+        <section class="panel">
+          <h2>&#x57fa;&#x672c;&#x9762;&#x767d;&#x8a71;&#x5316;</h2>
+          <div id="plainFundamentals"></div>
+        </section>
+      </section>
+
+      <section class="analysis-section" id="stock-catalysts" aria-labelledby="stockCatalystsTitle">
+        <div class="analysis-section-head">
+          <div>
+            <h2 id="stockCatalystsTitle">&#x50ac;&#x5316;</h2>
+            <p>&#x96c6;&#x4e2d;&#x67e5;&#x770b;&#x53ef;&#x80fd;&#x6539;&#x8b8a;&#x5224;&#x65b7;&#x7684;&#x65b0;&#x805e;&#x8207;&#x5916;&#x90e8;&#x4e8b;&#x4ef6;&#x3002;</p>
+          </div>
+        </div>
+        <section class="panel">
+          <h2>&#x65b0;&#x805e;&#x95dc;&#x806f;&#x5206;&#x6790;</h2>
+          <div id="newsRows" class="news-list"></div>
+          <p class="note" id="newsNote">&#x8f38;&#x5165;&#x80a1;&#x7968;&#x5f8c;&#x6703;&#x641c;&#x5c0b;&#x5916;&#x90e8;&#x65b0;&#x805e;&#x4f86;&#x6e90;&#xff0c;&#x4e26;&#x5224;&#x8b80;&#x95dc;&#x806f;&#x6027;&#x8207;&#x5f71;&#x97ff;&#x65b9;&#x5411;&#x3002;</p>
+        </section>
+      </section>
+
+      <section class="analysis-section" id="stock-plan" aria-labelledby="stockPlanTitle">
+        <div class="analysis-section-head">
+          <div>
+            <h2 id="stockPlanTitle">&#x8a08;&#x756b;</h2>
+            <p>&#x628a;&#x524d;&#x9762;&#x7684;&#x50f9;&#x683c;&#x3001;&#x98a8;&#x96aa;&#x8207;&#x50ac;&#x5316;&#x8a0a;&#x865f;&#x6536;&#x65c2;&#x6210;&#x9032;&#x5834;&#x3001;&#x5931;&#x6548;&#x8207;&#x6642;&#x9593;&#x89c0;&#x5bdf;&#x689d;&#x4ef6;&#x3002;</p>
+          </div>
+        </div>
+        <section class="panel">
+          <h2>&#x8cb7;&#x9ede;&#x597d;&#x58de;&#x5224;&#x65b7;</h2>
+          <div id="entryQuality"></div>
+          <div id="entryPlanPanel"></div>
+          <div id="entryChecklistPanel"></div>
+        </section>
+        <section class="panel">
+          <h2>&#x77ed;&#x4e2d;&#x9577;&#x7dda;&#x5206;&#x5c64;</h2>
+          <div class="horizon-grid" id="horizonRows"></div>
+        </section>
+        <section class="panel">
+          <h2>&#x56de;&#x6a94;&#x6a5f;&#x7387;</h2>
+          <div id="probRows"></div>
+          <div id="probSummary"></div>
+        </section>
+        <section class="panel">
+          <h2>&#x4ea4;&#x6613;&#x7b56;&#x7565;</h2>
+          <div id="strategy"></div>
+          <div id="rrCompare"></div>
+          <p class="note">&#x672c;&#x9801;&#x70ba;&#x6280;&#x8853;&#x5206;&#x6790;&#x8207;&#x60c5;&#x5883;&#x63a8;&#x4f30;&#x5de5;&#x5177;&#xff0c;&#x4e0d;&#x69cb;&#x6210;&#x4efb;&#x4f55;&#x8cb7;&#x8ce3;&#x5efa;&#x8b70;&#x3002;&#x5be6;&#x969b;&#x4ea4;&#x6613;&#x4ecd;&#x9700;&#x642d;&#x914d;&#x98a8;&#x96aa;&#x63a7;&#x7ba1;&#x3001;&#x6210;&#x4ea4;&#x91cf;&#x3001;&#x7c4c;&#x78bc;&#x8207;&#x91cd;&#x5927;&#x65b0;&#x805e;&#x9a57;&#x8b49;&#x3002;</p>
+        </section>
+        <section class="panel" id="agentPanel">
+          <h2>&#x4e92;&#x52d5;&#x5206;&#x6790; Agent</h2>
+          <div class="agent-head">
+            <div class="agent-meta" id="agentMeta">&#x8f09;&#x5165;&#x80a1;&#x7968;&#x5f8c;&#x53ef;&#x76f4;&#x63a5;&#x63d0;&#x554f;&#x98a8;&#x96aa;&#x3001;&#x652f;&#x6490;&#x58d3;&#x529b;&#x3001;&#x6307;&#x6a19;&#x8207;&#x9032;&#x51fa;&#x5834;&#x8a08;&#x756b;&#x3002;</div>
+            <span class="badge tone-neut" id="agentStance">&#x5f85;&#x547d;</span>
+          </div>
+          <div class="agent-log" id="agentLog" aria-live="polite"></div>
+          <form class="agent-form" id="agentForm">
+            <input id="agentInput" autocomplete="off" placeholder="&#x4f8b;&#x5982;&#xff1a;&#x73fe;&#x5728;&#x53ef;&#x4ee5;&#x8ffd;&#x55ce;&#xff1f;&#x505c;&#x640d;&#x8981;&#x653e;&#x54ea;&#x88e1;&#xff1f;" aria-label="&#x8a62;&#x554f;&#x80a1;&#x7968;&#x5206;&#x6790; Agent">
+            <button type="submit" id="agentAskBtn">&#x63d0;&#x554f;</button>
+          </form>
+          <div class="chips" id="agentPrompts">
+            <button class="chip" type="button" data-question="&#x652f;&#x6490;&#x58d3;&#x529b;&#x5728;&#x54ea;&#xff1f;">&#x652f;&#x6490;&#x58d3;&#x529b;</button>
+            <button class="chip" type="button" data-question="&#x56de;&#x6a94;&#x98a8;&#x96aa;&#x9ad8;&#x55ce;&#xff1f;">&#x56de;&#x6a94;&#x98a8;&#x96aa;</button>
+            <button class="chip" type="button" data-question="&#x73fe;&#x5728;&#x53ef;&#x4ee5;&#x8ffd;&#x55ce;&#xff1f;">&#x80fd;&#x4e0d;&#x80fd;&#x8ffd;</button>
+          </div>
+        </section>
+      </section>
+
+      <section class="legacy-stock-tools" hidden aria-hidden="true">
+        <select id="riskProfile" aria-label="&#x98a8;&#x96aa;&#x504f;&#x597d;"><option value="balanced">&#x7a69;&#x5065;</option><option value="conservative">&#x4fdd;&#x5b88;</option><option value="active">&#x7a4d;&#x6975;</option></select>
         <div id="allocationGuide"></div>
-        <p class="note">&#x914d;&#x7f6e;&#x52a9;&#x624b;&#x7528;&#x76ee;&#x524d;&#x55ae;&#x80a1;&#x5206;&#x6578;&#x8207;&#x6bcf;&#x6708;&#x53ef;&#x6295;&#x5165;&#x91d1;&#x984d;&#x505a;&#x60c5;&#x5883;&#x62c6;&#x5206;&#xff0c;&#x4e0d;&#x69cb;&#x6210;&#x8cb7;&#x8ce3;&#x5efa;&#x8b70;&#x3002;</p>
-      </section>
-      <section class="panel">
-        <h2>&#x6301;&#x80a1;&#x5065;&#x5eb7;&#x6aa2;&#x67e5;</h2>
-        <div class="mini-form">
-          <label>&#x76ee;&#x524d;&#x914d;&#x7f6e;
-            <textarea id="portfolioInput" aria-label="&#x76ee;&#x524d;&#x914d;&#x7f6e;" placeholder="&#x4f8b;&#xff1a;0050 40%, 2330 30%, 2454 10%, &#x73fe;&#x91d1; 20%"></textarea>
-          </label>
-          <button type="button" id="portfolioCheckBtn">&#x6aa2;&#x67e5;&#x914d;&#x7f6e;</button>
-        </div>
+        <textarea id="portfolioInput" aria-label="&#x76ee;&#x524d;&#x914d;&#x7f6e;"></textarea>
+        <button type="button" id="portfolioCheckBtn">&#x6aa2;&#x67e5;&#x914d;&#x7f6e;</button>
         <div id="portfolioHealth"></div>
-        <p class="note">&#x53ef;&#x8f38;&#x5165;&#x767e;&#x5206;&#x6bd4;&#x6216;&#x91d1;&#x984d;&#x3002;&#x672a;&#x77e5;&#x80a1;&#x7968;&#x53ea;&#x505a;&#x96c6;&#x4e2d;&#x5ea6;&#x6aa2;&#x67e5;&#xff0c;&#x4e0d;&#x6703;&#x63a8;&#x6e2c;&#x4e0d;&#x5b58;&#x5728;&#x7684;&#x8cc7;&#x6599;&#x3002;</p>
+        <p id="rankingSnapshotStatus"></p>
+        <button type="button" id="refreshRankingBtn">&#x641c;&#x5c0b;&#x6392;&#x884c;&#x699c;</button>
+        <div id="screenerTabs">
+          <button type="button" class="active" data-mode="undervalued">&#x4f4e;&#x4f30;</button>
+          <button type="button" data-mode="overvalued">&#x9ad8;&#x4f30;</button>
+          <button type="button" data-mode="active">&#x6d3b;&#x8e8d;</button>
+          <button type="button" data-mode="cashflow">&#x73fe;&#x91d1;&#x6d41;</button>
+          <button type="button" data-mode="growth">&#x6210;&#x9577;</button>
+          <button type="button" data-mode="small-investor">&#x5c0f;&#x8cc7;</button>
+        </div>
+        <table><tbody id="screenerRows"><tr><td colspan="10">&#x5f85;&#x8f09;&#x5165;</td></tr></tbody></table>
+        <p id="screenerNote"></p>
       </section>
-    </section>
-
-    <section class="grid two">
-      <section class="panel">
-        <h2>&#x8cb7;&#x9ede;&#x597d;&#x58de;&#x5224;&#x65b7;</h2>
-        <div id="entryQuality"></div>
-        <div id="entryPlanPanel"></div>
-        <div id="entryChecklistPanel"></div>
-      </section>
-      <section class="panel">
-        <h2>&#x57fa;&#x672c;&#x9762;&#x767d;&#x8a71;&#x5316;</h2>
-        <div id="plainFundamentals"></div>
-      </section>
-    </section>
-
-    <section class="panel">
-      <h2>&#x77ed;&#x4e2d;&#x9577;&#x7dda;&#x5206;&#x5c64;</h2>
-      <div class="horizon-grid" id="horizonRows"></div>
-    </section>
-
-    <section class="panel">
-      <h2>&#x65b0;&#x805e;&#x95dc;&#x806f;&#x5206;&#x6790;</h2>
-      <div id="newsRows" class="news-list"></div>
-      <p class="note" id="newsNote">&#x8f38;&#x5165;&#x80a1;&#x7968;&#x5f8c;&#x6703;&#x641c;&#x5c0b;&#x5916;&#x90e8;&#x65b0;&#x805e;&#x4f86;&#x6e90;&#xff0c;&#x4e26;&#x5224;&#x8b80;&#x95dc;&#x806f;&#x6027;&#x8207;&#x5f71;&#x97ff;&#x65b9;&#x5411;&#x3002;</p>
-    </section>
-
-    <section class="panel">
-      <h2>&#x50f9;&#x683c;&#x3001;&#x5747;&#x7dda;&#x8207;&#x5e03;&#x6797;&#x901a;&#x9053;</h2>
-      <div class="chartbox"><canvas id="priceChart" role="img" aria-label="價格、均線與布林通道 Price chart"></canvas></div>
-    </section>
-
-    <section class="grid two">
-      <section class="panel"><h2>MACD</h2><div class="chartbox sm"><canvas id="macdChart" role="img" aria-label="MACD 技術指標圖"></canvas></div></section>
-      <section class="panel"><h2>RSI / KD</h2><div class="chartbox sm"><canvas id="rsiChart" role="img" aria-label="RSI 與 KD 技術指標圖"></canvas></div></section>
-    </section>
-
-    <section class="grid two">
-      <section class="panel"><h2>&#x6210;&#x4ea4;&#x91cf;</h2><div class="chartbox sm"><canvas id="volChart" role="img" aria-label="成交量 Volume chart"></canvas></div></section>
-      <section class="panel"><h2>Bollinger %B / Bandwidth</h2><div class="chartbox sm"><canvas id="bollChart" role="img" aria-label="布林通道百分比與頻寬 Bollinger chart"></canvas></div></section>
-    </section>
-
-    <section class="grid two">
-      <section class="panel">
-        <h2>&#x652f;&#x6490; / &#x58d3;&#x529b;</h2>
-        <div class="chartbox sm"><canvas id="suppChart" role="img" aria-label="支撐與壓力 Support and resistance chart"></canvas></div>
-        <div class="level-list" id="levelRows"></div>
-      </section>
-      <section class="panel">
-        <h2>Elliott Wave / Chan &#x7d50;&#x69cb;</h2>
-        <div class="wave" id="wave"></div>
-        <div class="wave-legend" id="waveLegend"></div>
-        <div id="structureRows"></div>
-      </section>
-    </section>
-
-    <section class="panel">
-      <h2>&#x845b;&#x862d;&#x5a01;&#x723e;&#x516b;&#x5927;&#x6cd5;&#x5247;&#x7576;&#x524d;&#x4f4d;&#x7f6e;</h2>
-      <div id="granvilleRows"></div>
-    </section>
-
-    <section class="panel">
-      <h2>&#x9053;&#x6c0f;&#x7406;&#x8ad6;&#x4e09;&#x671f;&#x8da8;&#x52e2;</h2>
-      <div class="dow-grid" id="dowRows"></div>
-      <div class="grid two" style="margin-top:.75rem">
-        <div class="summary-box" id="dowConfirm"></div>
-        <div class="summary-box" id="dowWarning"></div>
-      </div>
-    </section>
-
-    <section class="panel" id="agentPanel">
-      <h2>&#x4e92;&#x52d5;&#x5206;&#x6790; Agent</h2>
-      <div class="agent-head">
-        <div class="agent-meta" id="agentMeta">&#x8f09;&#x5165;&#x80a1;&#x7968;&#x5f8c;&#x53ef;&#x76f4;&#x63a5;&#x63d0;&#x554f;&#x98a8;&#x96aa;&#x3001;&#x652f;&#x6490;&#x58d3;&#x529b;&#x3001;&#x6307;&#x6a19;&#x8207;&#x9032;&#x51fa;&#x5834;&#x8a08;&#x756b;&#x3002;</div>
-        <span class="badge tone-neut" id="agentStance">&#x5f85;&#x547d;</span>
-      </div>
-      <div class="agent-log" id="agentLog" aria-live="polite"></div>
-      <form class="agent-form" id="agentForm">
-        <input id="agentInput" autocomplete="off" placeholder="&#x4f8b;&#x5982;&#xff1a;&#x73fe;&#x5728;&#x53ef;&#x4ee5;&#x8ffd;&#x55ce;&#xff1f;&#x505c;&#x640d;&#x8981;&#x653e;&#x54ea;&#x88e1;&#xff1f;" aria-label="&#x8a62;&#x554f;&#x80a1;&#x7968;&#x5206;&#x6790; Agent">
-        <button type="submit" id="agentAskBtn">&#x63d0;&#x554f;</button>
-      </form>
-      <div class="chips" id="agentPrompts">
-        <button class="chip" type="button" data-question="&#x652f;&#x6490;&#x58d3;&#x529b;&#x5728;&#x54ea;&#xff1f;">&#x652f;&#x6490;&#x58d3;&#x529b;</button>
-        <button class="chip" type="button" data-question="&#x56de;&#x6a94;&#x98a8;&#x96aa;&#x9ad8;&#x55ce;&#xff1f;">&#x56de;&#x6a94;&#x98a8;&#x96aa;</button>
-        <button class="chip" type="button" data-question="&#x73fe;&#x5728;&#x53ef;&#x4ee5;&#x8ffd;&#x55ce;&#xff1f;">&#x80fd;&#x4e0d;&#x80fd;&#x8ffd;</button>
-      </div>
-    </section>
-
-    <section class="panel">
-      <h2>&#x5341;&#x4e8c;&#x7dad;&#x8a0a;&#x865f;&#x5224;&#x8b80;</h2>
-      <div id="signalRows"></div>
-    </section>
-
-    <section class="panel">
-      <h2>&#x56de;&#x6a94;&#x6a5f;&#x7387;</h2>
-      <div id="probRows"></div>
-      <div id="probSummary"></div>
-    </section>
-
-    <section class="panel">
-      <h2>&#x4ea4;&#x6613;&#x7b56;&#x7565;</h2>
-      <div id="strategy"></div>
-      <div id="rrCompare"></div>
-      <p class="note">&#x672c;&#x9801;&#x70ba;&#x6280;&#x8853;&#x5206;&#x6790;&#x8207;&#x60c5;&#x5883;&#x63a8;&#x4f30;&#x5de5;&#x5177;&#xff0c;&#x4e0d;&#x69cb;&#x6210;&#x4efb;&#x4f55;&#x8cb7;&#x8ce3;&#x5efa;&#x8b70;&#x3002;&#x5be6;&#x969b;&#x4ea4;&#x6613;&#x4ecd;&#x9700;&#x642d;&#x914d;&#x98a8;&#x96aa;&#x63a7;&#x7ba1;&#x3001;&#x6210;&#x4ea4;&#x91cf;&#x3001;&#x7c4c;&#x78bc;&#x8207;&#x91cd;&#x5927;&#x65b0;&#x805e;&#x9a57;&#x8b49;&#x3002;</p>
-    </section>
     </div>
 
     <div id="clientPage" class="page-view" role="tabpanel" aria-labelledby="workspaceTabClient" hidden>
@@ -806,6 +868,7 @@
     let stockSuggestionTimer = null;
     let adminUniverse = null;
     let adminScoreV2Workbench = null;
+    let currentIndicator = "volume";
     const adminEnabled = new URLSearchParams(location.search).get("admin") === "1" || location.hash.toLowerCase() === "#admin";
 
     const fmt = (n, d=2) => Number.isFinite(Number(n)) ? Number(n).toLocaleString("zh-TW", { maximumFractionDigits:d, minimumFractionDigits:d }) : "--";
@@ -823,6 +886,17 @@
       const text = String(value ?? "");
       if (!/%[0-9A-Fa-f]{2}/.test(text)) return text;
       try { return decodeURIComponent(text); } catch { return text; }
+    }
+
+    function friendlyRequestError(error, fallback = "\u76ee\u524d\u7121\u6cd5\u53d6\u5f97\u8cc7\u6599\u3002") {
+      const message = decodeText(error?.message ?? error ?? "").trim();
+      if (/failed to fetch|network error|network request failed|load failed/i.test(message)) {
+        return "\u76ee\u524d\u7121\u6cd5\u9023\u7dda\u5206\u6790\u670d\u52d9\u3002\u8acb\u78ba\u8a8d\u7db2\u8def\u5f8c\u518d\u8a66\uff1b\u82e5\u6301\u7e8c\u767c\u751f\uff0c\u670d\u52d9\u53ef\u80fd\u66ab\u6642\u5fd9\u788c\u3002";
+      }
+      if (/abort|timed? ?out|timeout/i.test(message)) {
+        return "\u5206\u6790\u670d\u52d9\u56de\u61c9\u903e\u6642\u3002\u8acb\u7a0d\u5f8c\u91cd\u8a66\uff0c\u4e0d\u6703\u4f7f\u7528\u904e\u671f\u8cc7\u6599\u88dc\u503c\u3002";
+      }
+      return message || fallback;
     }
 
     function decodeTree(value) {
@@ -920,14 +994,9 @@
     function syncHomeEntryAvailability(hasStock, code = "", name = "") {
       const stockLabel = [code, name].filter(Boolean).join(" ");
       $("openWorkspaceBtn").disabled = !hasStock;
-      $("mobileOpenWorkspaceBtn").disabled = !hasStock;
       $("openWorkspaceBtn").textContent = hasStock ? "\u67e5\u770b\u5b8c\u6574\u5206\u6790 \u2192" : "\u8acb\u5148\u9078\u64c7\u80a1\u7968";
-      $("mobileOpenWorkspaceBtn").textContent = hasStock ? "\u67e5\u770b\u5b8c\u6574\u5206\u6790 \u2192" : "\u8acb\u5148\u9078\u64c7\u80a1\u7968";
       $("homeDecisionHelp").textContent = hasStock
         ? `\u5df2\u5b8c\u6210 ${stockLabel} \u521d\u5224\uff0c\u53ef\u9032\u5165\u5b8c\u6574\u5206\u6790\u3002`
-        : "\u8acb\u5148\u5b8c\u6210\u4e00\u6b21\u80a1\u7968\u5206\u6790\u3002";
-      $("mobileDecisionHelp").textContent = hasStock
-        ? `${stockLabel} \u5df2\u5e36\u5165\uff0c\u53ef\u67e5\u770b\u6280\u8853\u3001\u50f9\u503c\u3001\u65b0\u805e\u8207\u4ea4\u6613\u689d\u4ef6\u3002`
         : "\u8acb\u5148\u5b8c\u6210\u4e00\u6b21\u80a1\u7968\u5206\u6790\u3002";
       $("workspaceContext").textContent = hasStock
         ? `${stockLabel}\uff5c\u5df2\u5f9e\u9996\u9801\u5e36\u5165\u5b8c\u6574\u5206\u6790`
@@ -947,13 +1016,6 @@
       return `<div class="home-decision-card"><b>${escapeHtml(label)}</b><strong class="${toneClass.trim()}">${escapeHtml(value)}</strong><p>${escapeHtml(detail)}</p></div>`;
     }
 
-    function syncMobileDecisionCards() {
-      const sourceCards = [...$("homeDecisionCards").children];
-      $("mobileDecisionCards").innerHTML = [0, 1, 2, 4]
-        .map(index => sourceCards[index]?.outerHTML || "")
-        .join("");
-    }
-
     function renderHomeDecisionWaiting() {
       $("homeDecisionCards").innerHTML = [
         homeDecisionCard("\u4eca\u65e5\u7d50\u8ad6", "\u5f85\u8f38\u5165", "\u8f38\u5165\u80a1\u7968\u5f8c\u7522\u751f\u521d\u5224\u3002", "warn"),
@@ -962,7 +1024,6 @@
         homeDecisionCard("\u58d3\u529b", "--", "\u5c1a\u672a\u53d6\u5f97\u50f9\u683c\u7d50\u69cb\u3002"),
         homeDecisionCard("\u5931\u6548", "--", "\u5c1a\u672a\u5efa\u7acb\u64cd\u4f5c\u689d\u4ef6\u3002"),
       ].join("");
-      syncMobileDecisionCards();
     }
 
     function renderHomeDecision(data, name) {
@@ -986,7 +1047,6 @@
         homeDecisionCard("\u58d3\u529b", `${fmt(data.resistance)} / ${fmt(data.resistance2)}`, "\u63a5\u8fd1\u58d3\u529b\u6642\u5148\u770b\u91cf\u80fd\u662f\u5426\u80fd\u7e8c\u63a5\u3002", "warn"),
         homeDecisionCard("\u5931\u6548", `${fmt(Math.min(data.support2 * .97, ma20 * .98))}`, `\u8dcc\u7834\u4e2d\u671f\u652f\u6490\u6216 MA20 ${fmt(ma20)}\u5f8c\u7121\u6cd5\u6536\u56de\uff0c\u89c0\u5bdf\u689d\u4ef6\u5931\u6548\u3002`),
       ].join("");
-      syncMobileDecisionCards();
       setHomeStatus("stock", `${data.code} ${name}`, "\u5df2\u5efa\u7acb\u89c0\u5bdf\u6a19\u7684", "active");
       setHomeStatus("quote", `${fmt(data.close)} \u5143`, "\u5831\u50f9\u8207\u65e5\u7dda\u5df2\u53d6\u5f97", "active");
       setHomeStatus("analysis", stance, `MA5 ${fmt(ma5)} / MA20 ${fmt(ma20)}`, data.pullback >= 70 ? "warn" : "active");
@@ -1083,6 +1143,75 @@
     function destroyCharts() {
       Object.values(charts).forEach((chart) => chart && chart.destroy());
       Object.keys(charts).forEach((key) => delete charts[key]);
+      if ($("priceChartSummary")) $("priceChartSummary").textContent = "\u5f85\u8f09\u5165\u50f9\u683c\u8cc7\u6599\u3002";
+      if ($("priceChartDataRows")) $("priceChartDataRows").innerHTML = `<tr><td colspan="2">\u5f85\u8f09\u5165\u50f9\u683c\u8cc7\u6599\u3002</td></tr>`;
+      if ($("indicatorSummary")) $("indicatorSummary").textContent = "\u5f85\u8f09\u5165\u6280\u8853\u6307\u6a19\u3002";
+      if ($("indicatorDataRows")) $("indicatorDataRows").innerHTML = `<tr><td colspan="2">\u5f85\u8f09\u5165\u6280\u8853\u6307\u6a19\u3002</td></tr>`;
+    }
+
+    function renderChartAlternatives(data) {
+      const priceRows = [
+        ["\u6536\u76e4\u50f9", data.close],
+        ["MA5", last(data.ma5)],
+        ["MA20", last(data.ma20)],
+        ["MA60", last(data.ma60)],
+        ["MA120", last(data.ma120)],
+        ["\u5e03\u6797\u4e0a\u8ecc", last(data.bb?.up)],
+        ["\u5e03\u6797\u4e0b\u8ecc", last(data.bb?.low)],
+      ];
+      $("priceChartDataRows").innerHTML = priceRows
+        .map(([label, value]) => `<tr><td>${escapeHtml(label)}</td><td>${fmt(value)}</td></tr>`)
+        .join("");
+      const ma20 = Number(last(data.ma20));
+      const relation = Number.isFinite(ma20)
+        ? data.close >= ma20 ? "\u6536\u76e4\u50f9\u4f4d\u65bc MA20 \u4e4b\u4e0a" : "\u6536\u76e4\u50f9\u4f4d\u65bc MA20 \u4e4b\u4e0b"
+        : "\u7121\u6cd5\u6bd4\u8f03 MA20";
+      $("priceChartSummary").textContent = `\u6700\u65b0\u6536\u76e4 ${fmt(data.close)}\uff1b${relation}\uff0c\u77ed\u7dda\u652f\u6490 ${fmt(data.support)}\uff0c\u58d3\u529b ${fmt(data.resistance)}\u3002`;
+      renderIndicatorAlternative(data, currentIndicator);
+    }
+
+    function renderIndicatorAlternative(data, indicator) {
+      const latest = (values) => lastFiniteLocal(values);
+      const definitions = {
+        volume:{
+          summary:`\u6700\u65b0\u6210\u4ea4\u91cf ${fmt(latest(data.vols), 0)}\uff1b\u8207\u524d\u4e00\u671f\u76f8\u6bd4\u53ef\u7528\u4f86\u78ba\u8a8d\u50f9\u683c\u8a0a\u865f\u662f\u5426\u6709\u91cf\u80fd\u652f\u6301\u3002`,
+          rows:[["\u6210\u4ea4\u91cf", fmt(latest(data.vols), 0)], ["\u524d\u671f\u6210\u4ea4\u91cf", fmt(data.vols?.[data.vols.length - 2], 0)]],
+        },
+        macd:{
+          summary:`MACD \u6700\u65b0 DIF ${fmt(latest(data.dif))}\u3001DEA ${fmt(latest(data.dea))}\u3001\u67f1\u72c0\u9ad4 ${fmt(latest(data.hist))}\u3002`,
+          rows:[["DIF", fmt(latest(data.dif))], ["DEA", fmt(latest(data.dea))], ["Hist", fmt(latest(data.hist))]],
+        },
+        rsi:{
+          summary:`RSI14 ${fmt(latest(data.rsi14), 1)}\uff0cKD \u7684 K ${fmt(latest(data.kdData?.k), 1)}\u3001D ${fmt(latest(data.kdData?.d), 1)}\u3002`,
+          rows:[["RSI14", fmt(latest(data.rsi14), 1)], ["K", fmt(latest(data.kdData?.k), 1)], ["D", fmt(latest(data.kdData?.d), 1)]],
+        },
+        boll:{
+          summary:`Bollinger %B ${fmt(latest(data.bb?.pctB), 2)}\uff0cBandwidth ${fmt(latest(data.bb?.bw), 2)}\u3002`,
+          rows:[["%B", fmt(latest(data.bb?.pctB), 2)], ["Bandwidth", fmt(latest(data.bb?.bw), 2)]],
+        },
+      };
+      const selected = definitions[indicator] || definitions.volume;
+      $("indicatorSummary").textContent = selected.summary;
+      $("indicatorDataRows").innerHTML = selected.rows
+        .map(([label, value]) => `<tr><td>${escapeHtml(label)}</td><td>${escapeHtml(value)}</td></tr>`)
+        .join("");
+    }
+
+    function activateIndicator(indicator, moveFocus = false) {
+      const valid = new Set(["volume", "macd", "rsi", "boll"]);
+      currentIndicator = valid.has(indicator) ? indicator : "volume";
+      $("indicatorTabs").querySelectorAll("[data-indicator]").forEach((button) => {
+        const selected = button.dataset.indicator === currentIndicator;
+        button.setAttribute("aria-selected", String(selected));
+        button.tabIndex = selected ? 0 : -1;
+        if (selected && moveFocus) button.focus();
+      });
+      document.querySelectorAll("[data-indicator-panel]").forEach((panel) => {
+        panel.hidden = panel.dataset.indicatorPanel !== currentIndicator;
+      });
+      if (activeData) renderIndicatorAlternative(activeData, currentIndicator);
+      const chartKey = { volume:"vol", macd:"macd", rsi:"rsi", boll:"boll" }[currentIndicator];
+      requestAnimationFrame(() => charts[chartKey]?.resize());
     }
 
     function waitForAppApi(timeoutMs = 5000) {
@@ -3528,6 +3657,7 @@
       $("clientPage").hidden = !client;
       $("swingPage").hidden = !swing;
       $("adminPage").hidden = !admin;
+      $("stockSectionNav").hidden = view !== "stock";
       $("viewTabs").querySelectorAll("[data-view]").forEach((btn) => {
         const selected = btn.dataset.view === view;
         btn.classList.toggle("active", selected);
@@ -3543,6 +3673,9 @@
         loadAdminUniverse();
         loadAdminScoreV2();
         renderCurrentScoreV2(activeValueScore);
+      }
+      if (view === "stock") {
+        requestAnimationFrame(() => Object.values(charts).forEach((chart) => chart?.resize()));
       }
     }
 
@@ -4059,6 +4192,8 @@
       resetAgentPanel(data);
       loadSupplementalData(data);
       prepareValueFeatures(data);
+      renderChartAlternatives(data);
+      activateIndicator(currentIndicator);
       if (!window.Chart) {
         $("status").textContent += " Chart.js \u672a\u8f09\u5165\uff0c\u6587\u5b57\u8cc7\u6599\u4ecd\u53ef\u4f7f\u7528\u3002";
         return;
@@ -4098,9 +4233,11 @@
         parsing:{ xAxisKey:"x", yAxisKey:"y" },
         backgroundColor:levelRows.map(([, , cls]) => cls === "bear" ? "#d95b4f" : cls === "warn" ? "#df8b6b" : cls === "bull" ? "#2d8a62" : "#222220")
       }]}, options:{...common, indexAxis:"y", scales:{ x:{ type:"linear", min:Math.min(...values)*.97, max:Math.max(...values)*1.03, grid }, y:{ type:"category", grid:{ display:false } }}, plugins:{ legend:{ display:false } } } });
+      activateIndicator(currentIndicator);
     }
 
     function showLoadError(code, message) {
+      const readableMessage = friendlyRequestError(message);
       destroyCharts();
       setDefaultHeroCopy();
       setHomeStatus("stock", code || "\u5f85\u8f38\u5165", "\u8acb\u78ba\u8a8d\u4ee3\u78bc\u6216\u540d\u7a31", "bear");
@@ -4117,7 +4254,6 @@
         homeDecisionCard("\u58d3\u529b", "--", "\u7f3a\u5c11\u65e5\u7dda\u8cc7\u6599\u3002"),
         homeDecisionCard("\u5931\u6548", "--", "\u5c1a\u672a\u5efa\u7acb\u689d\u4ef6\u3002"),
       ].join("");
-      syncMobileDecisionCards();
       $("heroFacts").innerHTML = "";
       $("valueRadarHeroBadge").innerHTML = "";
       $("metrics").innerHTML = "";
@@ -4152,7 +4288,7 @@
       $("agentMeta").textContent = "\u8cc7\u6599\u8f09\u5165\u5931\u6557\u6642\uff0cAgent \u6703\u66ab\u505c\uff0c\u907f\u514d\u7528\u904e\u671f\u8cc7\u6599\u56de\u7b54\u3002";
       $("agentLog").innerHTML = "";
       setAgentStance("\u932f\u8aa4", "bear");
-      $("status").textContent = `${code} \u7121\u6cd5\u53d6\u5f97\u6700\u65b0\u8cc7\u6599\uff1a${message}`;
+      $("status").textContent = `${code} \u7121\u6cd5\u53d6\u5f97\u6700\u65b0\u8cc7\u6599\uff1a${readableMessage}`;
     }
 
     function renderEmptyStockState() {
@@ -4195,7 +4331,7 @@
       try {
         code = await resolveStockInput(code);
       } catch (err) {
-        $("status").textContent = err.message || "\u7121\u6cd5\u89e3\u6790\u9019\u500b\u80a1\u7968\u540d\u7a31\u3002";
+        $("status").textContent = friendlyRequestError(err, "\u7121\u6cd5\u89e3\u6790\u9019\u500b\u80a1\u7968\u540d\u7a31\u3002");
         setHomeStatusSummary("\u8acb\u78ba\u8a8d\u80a1\u7968\u4ee3\u78bc\u6216\u540d\u7a31");
         return;
       }
@@ -4217,7 +4353,7 @@
         render(analyze(code, quote));
       } catch (err) {
         console.error(err);
-        showLoadError(code, err.message || "\u672a\u77e5\u932f\u8aa4");
+        showLoadError(code, err);
       }
     }
 
@@ -4244,8 +4380,7 @@
     });
     $("resetBtn").addEventListener("click", () => run($("stockInput").value));
     $("openWorkspaceBtn").addEventListener("click", () => openWorkspace("stock"));
-    $("mobileOpenWorkspaceBtn").addEventListener("click", () => openWorkspace("stock"));
-    $("openTechnicalChartsBtn").addEventListener("click", () => $("priceChart").closest(".panel").scrollIntoView({ behavior:"smooth", block:"start" }));
+    $("openTechnicalChartsBtn").addEventListener("click", () => $("stock-price").scrollIntoView({ behavior:"smooth", block:"start" }));
     $("openAgentBtn").addEventListener("click", () => $("agentPanel").scrollIntoView({ behavior:"smooth", block:"start" }));
     $("backHomeBtn").addEventListener("click", () => {
       if (history.state?.workspaceView && location.hash.startsWith("#workspace-")) history.back();
@@ -4279,6 +4414,31 @@
           : (current + (e.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
       tabs[nextIndex].focus();
       switchView(tabs[nextIndex].dataset.view, true);
+    });
+    $("stockSectionNav").addEventListener("click", (e) => {
+      const link = e.target.closest("a[href^='#stock-']");
+      if (!link) return;
+      const target = document.querySelector(link.getAttribute("href"));
+      if (!target) return;
+      e.preventDefault();
+      target.scrollIntoView({ behavior:"smooth", block:"start" });
+    });
+    $("indicatorTabs").addEventListener("click", (e) => {
+      const button = e.target.closest("[data-indicator]");
+      if (button) activateIndicator(button.dataset.indicator);
+    });
+    $("indicatorTabs").addEventListener("keydown", (e) => {
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+      const tabs = [...$("indicatorTabs").querySelectorAll("[data-indicator]")];
+      const current = tabs.indexOf(document.activeElement);
+      if (current < 0) return;
+      e.preventDefault();
+      const nextIndex = e.key === "Home"
+        ? 0
+        : e.key === "End"
+          ? tabs.length - 1
+          : (current + (e.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+      activateIndicator(tabs[nextIndex].dataset.indicator, true);
     });
     $("agentForm").addEventListener("submit", (e) => { e.preventDefault(); askAgent($("agentInput").value); });
     $("agentPrompts").addEventListener("click", (e) => {
