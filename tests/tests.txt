@@ -168,3 +168,33 @@ Steps:
 4. Restore the API connection and retry.
 
 Expected: The status explains in Chinese that the analysis service cannot currently be reached and asks the user to check the network or retry later. It must not show only `Failed to fetch`, must not invent a quote, and must keep the full-analysis action disabled. After connectivity is restored, retrying 2330 completes normally.
+
+## Test 14 - Macro risk scan preserves the complete prompt contract
+Viewport: desktop and mobile
+Description: Verifies the separate macro-risk workspace keeps all 17 indicators, all six report parts, strict evidence rules, and resumable refresh behavior.
+
+Steps:
+1. Navigate to the app without selecting a stock, then open 宏觀風險掃描 from the homepage doorway or workspace tab.
+2. Confirm the page renders five short-term, seven medium-term, and five long-term indicators, grouped in that order.
+3. Confirm each row shows current value or `--`, data date or an explicit unavailable state, fixed threshold, signal, direction versus the prior snapshot, interpretation, limitation, and a traceable source link.
+4. Confirm the three horizon cards show 1-3 個月, 3-12 個月, and 1-3 年+, including the count of unalerted, red, yellow, and unknown indicators.
+5. Inspect the 17 short interpretation cards, the three horizon conclusions, the seven hard-trigger cards, the daily focus item, and the centralized stale/restricted/source-conflict list.
+6. Click 開始 / 續跑宏觀掃描 once, interrupt or reload after at least one persisted batch, then click the same button again.
+7. At 390 × 844 and 320 × 844, inspect the full page and horizontally scroll only the 17-indicator table region.
+8. Return to Dino K線選股 and inspect its macro context.
+
+Expected: The contract remains exactly 5 + 7 + 5 = 17 indicators and seven hard triggers. Missing, stale, restricted, or unverified values remain unknown and are never counted as safe, unalerted, or not triggered. Daily inputs enforce the T-1/most-recent-trading-day rule, while monthly and quarterly indicators retain their permitted cadence and explicit dates. The page states 今日共有 X / 7 項觸發 and treats three or more as the phased-selling action threshold; two or more raises the warning level. Refresh work advances in small persisted batches, resumes after reload, and only replaces the visible snapshot after all 17 sources have been attempted. Dino receives only the read-only snapshot summary and does not change the original Dino regime score. The mobile page has no page-level horizontal overflow, the table scrolls internally, and every main control remains at least 44 CSS pixels high. No PDF control or PDF-generation request is present.
+
+## Test 15 - Macro hard rules and confidence policy are deterministic
+Viewport: desktop and API contract inspection
+Description: Verifies the formerly ambiguous VIX, A/D, focus, BofA, and public-action rules cannot drift between scans.
+
+Steps:
+1. Inspect a VIX observation with two distinct consecutive source trading dates above 25, then repeat with only one date above 25 and with two same-day snapshots.
+2. Inspect an A/D sequence where S&P 500 makes a 60-session closing high while A/D is at least 1% below its 60-session high; test one, two, and three consecutive qualifying sessions.
+3. Inspect focus selection with at least 253 daily observations, 53 weekly observations, and 37 monthly observations. Then repeat with shorter histories.
+4. Inspect a BofA observation marked A, B, C, and D. For C, test one source, two independent current-week sources agreeing within 0.1, and two sources outside that tolerance.
+5. Inspect the macro-risk page table, trigger cards, focus section, and limitations section.
+6. Inspect `docs/macro-risk-data-sources-todo.md` without enabling credentials or purchasing any source.
+
+Expected: VIX hard-trigger status is true only after two different consecutive source trading-session closes above 25, never because a user reran the same-day scan. A/D hard-trigger status is true only after all of: 60-session S&P closing high, A/D at least 1% below its own 60-session closing high, and three consecutive qualifying sessions; one or two sessions are at most near. Focus uses absolute one-period historical Z-score and selects the largest score only when it is at least 2.0; otherwise it reports the nearest normalized fixed threshold and its fallback method. BofA accepts A/B, or only two qualifying C sources, and all other evidence remains unknown. The public page does not state a fixed sell percentage: three of seven triggers starts a staged risk-reduction review. The purchase TODO lists NAAIM, AAII, GuruFocus, and BofA with licensing, data-quality, and regression gates, while no paid credential is configured.

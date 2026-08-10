@@ -111,6 +111,11 @@ const RANKING_REFRESH_JOB_TABLE = "ranking_refresh_jobs_v1";
 const MARKET_FEATURE_BATCH_TABLE = "market_feature_batches_v2";
 const MARKET_THEME_SNAPSHOT_TABLE = "market_theme_snapshots_v2";
 const MARKET_THEME_REGISTRY_TABLE = "market_theme_registry_v2";
+const MACRO_RISK_SCAN_JOB_TABLE = "macro_risk_scan_jobs_v1";
+const MACRO_RISK_SCAN_SNAPSHOT_TABLE = "macro_risk_scan_snapshots_v1";
+const MACRO_RISK_SCAN_REGISTRY_TABLE = "macro_risk_scan_registry_v1";
+const MACRO_RISK_SCAN_VERSION = "macro-risk-scan-v2";
+const MACRO_RISK_SCAN_BATCH_SIZE = 4;
 const RANKING_MIN_SUCCESS_RATIO = 0.8;
 const RANKING_JOB_BATCH_SIZE = 4;
 const RANKING_JOB_TOP_PER_MODE = 40;
@@ -6099,6 +6104,734 @@ function buildFullMarketThemeTables(stockItems: any[], universeMeta: any = {}) {
   };
 }
 
+type MacroRiskGroup = "short" | "medium" | "long";
+type MacroRiskSourceStatus = "current" | "normal" | "stale" | "restricted" | "unavailable";
+type MacroRiskSignal = "green" | "yellow" | "red" | "unknown";
+type MacroRiskSourceConfidence = "A" | "B" | "C" | "D" | "unknown";
+
+type MacroRiskIndicatorDefinition = {
+  id: string;
+  group: MacroRiskGroup;
+  name: string;
+  frequency: "daily" | "weekly" | "monthly" | "quarterly";
+  threshold: string;
+  sourceLabel: string;
+  sourceUrl: string;
+  sourceConfidence?: MacroRiskSourceConfidence;
+};
+
+type MacroRiskObservation = {
+  id: string;
+  value: number | string | null;
+  numericValue: number | null;
+  dataDate: string | null;
+  sourceLabel: string;
+  sourceUrl: string;
+  sourceStatus: MacroRiskSourceStatus;
+  sourceConfidence: MacroRiskSourceConfidence;
+  limitation: string;
+  metadata: Record<string, any>;
+  fetchedAt: string;
+};
+
+const MACRO_RISK_INDICATORS: MacroRiskIndicatorDefinition[] = [
+  { id: "vix", group: "short", name: "VIX", frequency: "daily", threshold: "<13 complacency; >25 stress", sourceLabel: "Cboe VIX / market-data proxy", sourceUrl: "https://www.cboe.com/tradable-products/vix/", sourceConfidence: "B" },
+  { id: "fear-greed", group: "short", name: "CNN Fear & Greed Index", frequency: "daily", threshold: "<25 extreme fear; >75 extreme greed", sourceLabel: "CNN Fear & Greed", sourceUrl: "https://www.cnn.com/markets/fear-and-greed", sourceConfidence: "A" },
+  { id: "aaii-sentiment", group: "short", name: "AAII Investor Sentiment", frequency: "weekly", threshold: "Bull-bear spread outside +/-20", sourceLabel: "AAII Sentiment Survey", sourceUrl: "https://www.aaii.com/sentimentsurvey", sourceConfidence: "A" },
+  { id: "equity-put-call", group: "short", name: "CBOE Equity Put/Call Ratio", frequency: "daily", threshold: "<0.50 complacency; >1.00 stress", sourceLabel: "Cboe Daily Market Statistics", sourceUrl: "https://www.cboe.com/us/options/market_statistics/daily/", sourceConfidence: "A" },
+  { id: "naaim", group: "short", name: "NAAIM Exposure Index", frequency: "weekly", threshold: ">100 crowded long; <20 defensive", sourceLabel: "NAAIM Exposure Index", sourceUrl: "https://naaim.org/programs/naaim-exposure-index/", sourceConfidence: "A" },
+  { id: "margin-debt", group: "medium", name: "FINRA Margin Debt", frequency: "monthly", threshold: "3 consecutive monthly declines", sourceLabel: "FINRA Margin Statistics", sourceUrl: "https://www.finra.org/rules-guidance/key-topics/margin-accounts/margin-statistics", sourceConfidence: "A" },
+  { id: "margin-debt-gdp", group: "medium", name: "Margin Debt / GDP", frequency: "monthly", threshold: ">4.0% elevated; >4.5% high", sourceLabel: "FINRA / FRED GDP", sourceUrl: "https://www.finra.org/rules-guidance/key-topics/margin-accounts/margin-statistics", sourceConfidence: "B" },
+  { id: "ipo", group: "medium", name: "Renaissance IPO issuance", frequency: "quarterly", threshold: "Historical context required", sourceLabel: "Renaissance Capital IPO Stats", sourceUrl: "https://www.renaissancecapital.com/IPO-Center/Stats", sourceConfidence: "A" },
+  { id: "insider", group: "medium", name: "Insider Buy/Sell Ratio", frequency: "monthly", threshold: "<0.17 hard trigger; <0.25 warning", sourceLabel: "GuruFocus USA Overall Market", sourceUrl: "https://www.gurufocus.com/economic_indicators/4359/insider-buysell-ratio", sourceConfidence: "B" },
+  { id: "bofa", group: "medium", name: "BofA Bull & Bear Indicator", frequency: "weekly", threshold: ">8.0 hard trigger; >7.0 warning", sourceLabel: "BofA Flow Show", sourceUrl: "https://www.ml.com/", sourceConfidence: "unknown" },
+  { id: "hy-oas", group: "medium", name: "ICE BofA US High Yield OAS Spread", frequency: "daily", threshold: ">4.5% hard trigger; >3.5% warning", sourceLabel: "FRED BAMLH0A0HYM2", sourceUrl: "https://fred.stlouisfed.org/series/BAMLH0A0HYM2", sourceConfidence: "B" },
+  { id: "nyse-ad", group: "medium", name: "NYSE Advance/Decline Line", frequency: "daily", threshold: "S&P 500 new high without A/D new high", sourceLabel: "NYSE market breadth proxy", sourceUrl: "https://www.nyse.com/markets/nyse/trading-info", sourceConfidence: "B" },
+  { id: "buffett", group: "long", name: "Buffett Indicator", frequency: "quarterly", threshold: ">200% high; >170% elevated", sourceLabel: "Current Market Valuation", sourceUrl: "https://www.currentmarketvaluation.com/models/buffett-indicator.php", sourceConfidence: "B" },
+  { id: "cape", group: "long", name: "Shiller CAPE / PE10", frequency: "monthly", threshold: ">35 high; >30 elevated", sourceLabel: "Multpl Shiller PE", sourceUrl: "https://www.multpl.com/shiller-pe", sourceConfidence: "B" },
+  { id: "yield-curve", group: "long", name: "10Y-2Y Treasury Yield Curve", frequency: "daily", threshold: "<0 inversion; <0.25 warning", sourceLabel: "FRED T10Y2Y", sourceUrl: "https://fred.stlouisfed.org/series/T10Y2Y", sourceConfidence: "A" },
+  { id: "lei", group: "long", name: "Conference Board US LEI", frequency: "monthly", threshold: "6-month change <0 warning; <=-4% high", sourceLabel: "The Conference Board US LEI", sourceUrl: "https://www.conference-board.org/topics/us-leading-indicators/", sourceConfidence: "A" },
+  { id: "aaii-allocation", group: "long", name: "AAII household stock allocation", frequency: "monthly", threshold: ">70% high; >65% elevated", sourceLabel: "AAII Asset Allocation Survey", sourceUrl: "https://www.aaii.com/assetallocationsurvey", sourceConfidence: "A" },
+];
+
+const MACRO_RISK_RULES = {
+  vix: {
+    hardTrigger: "Two consecutive distinct trading-session closes above 25.",
+    requiredSessions: 2,
+    threshold: 25,
+  },
+  adDivergence: {
+    hardTrigger: "S&P 500 makes a 60-session closing high while NYSE A/D is at least 1% below its own 60-session closing high for three consecutive trading sessions.",
+    lookbackSessions: 60,
+    minimumAdGapPct: 1,
+    requiredSessions: 3,
+  },
+  focus: {
+    method: "Absolute one-period historical Z-score; if history is insufficient, use normalized distance to the nearest fixed threshold.",
+    alertZScore: 2,
+    windows: { daily: 252, weekly: 52, monthly: 36, quarterly: 12 },
+  },
+  bofaConfidence: {
+    A: "Official primary data.",
+    B: "Original licensed report with report date and current value.",
+    C: "Reputable secondary report that names the original report, date, and value.",
+    D: "Unverified, undated, or non-traceable mention.",
+    acceptance: "Accept A or B. Grade C requires two independent current-week reports agreeing within 0.1 points; grade D is unavailable.",
+  },
+  publicRiskLanguage: {
+    actionThreshold: 3,
+    policy: "Public pages use staged risk-reduction review language and never publish a fixed percentage without a configured portfolio/risk module.",
+  },
+} as const;
+
+const macroRiskDefinitionById = new Map(MACRO_RISK_INDICATORS.map(item => [item.id, item]));
+
+function macroRiskPlainText(value: string) {
+  return String(value || "")
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&quot;/gi, '"')
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function macroRiskIsoDate(value: unknown) {
+  const text = String(value || "").trim();
+  if (!text) return null;
+  const parsed = Date.parse(text);
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString().slice(0, 10) : null;
+}
+
+function macroRiskObservation(
+  id: string,
+  value: number | string | null,
+  dataDate: string | null,
+  sourceStatus: MacroRiskSourceStatus,
+  limitation = "",
+  metadata: Record<string, any> = {},
+  sourceOverride?: { label?: string; url?: string; confidence?: MacroRiskSourceConfidence },
+): MacroRiskObservation {
+  const definition = macroRiskDefinitionById.get(id)!;
+  const numeric = typeof value === "number" && Number.isFinite(value) ? value : null;
+  const freshnessDays: Record<MacroRiskIndicatorDefinition["frequency"], number> = { daily: 3, weekly: 12, monthly: 70, quarterly: 150 };
+  const ageDays = dataDate ? Math.max(0, (Date.now() - Date.parse(`${dataDate}T00:00:00Z`)) / 86400000) : null;
+  const normalizedStatus = ["current", "normal"].includes(sourceStatus) && (
+    (ageDays !== null && ageDays > freshnessDays[definition.frequency]) || (numeric !== null && !dataDate)
+  ) ? "stale" : sourceStatus;
+  return {
+    id,
+    value: numeric === null ? value : round(numeric, 3),
+    numericValue: numeric === null ? null : round(numeric, 4),
+    dataDate,
+    sourceLabel: sourceOverride?.label || definition.sourceLabel,
+    sourceUrl: sourceOverride?.url || definition.sourceUrl,
+    sourceStatus: normalizedStatus,
+    sourceConfidence: sourceOverride?.confidence || definition.sourceConfidence || "unknown",
+    limitation,
+    metadata,
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
+function macroRiskUnavailable(id: string, err: unknown, status: MacroRiskSourceStatus = "unavailable") {
+  return macroRiskObservation(id, null, null, status, err instanceof Error ? err.message : String(err || "Source unavailable"));
+}
+
+type MacroRiskHistoryPoint = { date: string; value: number };
+
+function macroRiskHistoryPoints(observation: any): MacroRiskHistoryPoint[] {
+  const raw = Array.isArray(observation?.metadata?.history) ? observation.metadata.history : [];
+  const byDate = new Map<string, number>();
+  raw.forEach((item: any) => {
+    const date = String(item?.date || "").slice(0, 10);
+    const value = toNumber(item?.value ?? item?.close);
+    if (date && Number.isFinite(value)) byDate.set(date, value);
+  });
+  return [...byDate.entries()]
+    .map(([date, value]) => ({ date, value }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function macroRiskChangeScore(observation: any, frequency: MacroRiskIndicatorDefinition["frequency"]) {
+  const points = macroRiskHistoryPoints(observation);
+  const requiredPeriods = MACRO_RISK_RULES.focus.windows[frequency];
+  if (points.length < requiredPeriods + 1) {
+    return { method: "threshold_distance", score: null, signedZScore: null, observations: points.length, requiredObservations: requiredPeriods + 1 };
+  }
+  const selected = points.slice(-(requiredPeriods + 1));
+  const changes = selected.slice(1).map((point, index) => point.value - selected[index].value);
+  const mean = changes.reduce((sum, value) => sum + value, 0) / changes.length;
+  const variance = changes.reduce((sum, value) => sum + ((value - mean) ** 2), 0) / changes.length;
+  const standardDeviation = Math.sqrt(variance);
+  const signedZScore = standardDeviation > 0 ? (changes[changes.length - 1] - mean) / standardDeviation : 0;
+  return {
+    method: "z_score",
+    score: round(Math.abs(signedZScore), 3),
+    signedZScore: round(signedZScore, 3),
+    observations: selected.length,
+    requiredObservations: requiredPeriods + 1,
+  };
+}
+
+function macroRiskThresholdDistance(id: string, observation: any) {
+  const value = toNumber(observation?.numericValue);
+  if (!Number.isFinite(value)) return null;
+  const closest = (thresholds: number[]) => Math.min(...thresholds.map(threshold => Math.abs(value - threshold) / Math.max(Math.abs(threshold), 0.01)));
+  if (id === "vix") return closest([13, 15, 20, 25]);
+  if (id === "fear-greed") return closest([25, 40, 60, 75]);
+  if (id === "aaii-sentiment") return Math.abs(Math.abs(value) - 20) / 20;
+  if (id === "equity-put-call") return closest([0.5, 0.6, 0.85, 1]);
+  if (id === "naaim") return closest([20, 40, 90, 100]);
+  if (id === "margin-debt-gdp") return closest([4, 4.5]);
+  if (id === "insider") return closest([0.17, 0.25]);
+  if (id === "bofa") return closest([7, 8]);
+  if (id === "hy-oas") return closest([3.5, 4.5]);
+  if (id === "buffett") return closest([170, 200]);
+  if (id === "cape") return closest([30, 35]);
+  if (id === "yield-curve") return closest([0, 0.25]);
+  if (id === "lei") {
+    const sixMonthChangePct = toNumber(observation?.metadata?.sixMonthChangePct);
+    return Number.isFinite(sixMonthChangePct) ? Math.min(Math.abs(sixMonthChangePct), Math.abs(sixMonthChangePct + 4) / 4) : null;
+  }
+  if (id === "aaii-allocation") return closest([65, 70]);
+  return null;
+}
+
+function macroRiskFocus(indicators: any[]) {
+  const scored = indicators.map(indicator => {
+    const change = macroRiskChangeScore(indicator, indicator.frequency);
+    const thresholdDistance = macroRiskThresholdDistance(indicator.id, indicator);
+    return { indicator, change, thresholdDistance };
+  }).filter(item => item.indicator.numericValue !== null && item.indicator.signal !== "unknown");
+  const zScoreCandidate = scored
+    .filter(item => Number.isFinite(item.change.score) && Number(item.change.score) >= MACRO_RISK_RULES.focus.alertZScore)
+    .sort((a, b) => Number(b.change.score) - Number(a.change.score))[0];
+  if (zScoreCandidate) {
+    return {
+      indicator: zScoreCandidate.indicator,
+      method: "z_score",
+      score: zScoreCandidate.change.score,
+      reason: `Largest one-period absolute historical Z-score (${zScoreCandidate.change.score}) over the configured ${zScoreCandidate.change.observations - 1}-period history.`,
+      change: zScoreCandidate.change,
+    };
+  }
+  const thresholdCandidate = scored
+    .filter(item => Number.isFinite(item.thresholdDistance))
+    .sort((a, b) => Number(a.thresholdDistance) - Number(b.thresholdDistance))[0];
+  if (thresholdCandidate) {
+    return {
+      indicator: thresholdCandidate.indicator,
+      method: "threshold_distance",
+      score: round(Number(thresholdCandidate.thresholdDistance), 4),
+      reason: "History is insufficient for a material Z-score or no Z-score exceeded 2.0; selected the smallest normalized distance to a fixed threshold.",
+      change: thresholdCandidate.change,
+    };
+  }
+  return { indicator: indicators.find(item => item.numericValue !== null) || indicators[0] || null, method: "unavailable", score: null, reason: "No current numeric indicator can be ranked." };
+}
+
+function macroRiskBofaConfidenceAccepted(observation: any) {
+  if (["A", "B"].includes(observation?.sourceConfidence)) return true;
+  if (observation?.sourceConfidence !== "C") return false;
+  return observation?.metadata?.confidenceAccepted === true
+    && Number(observation?.metadata?.independentCurrentWeekReports || 0) >= 2
+    && Number(observation?.metadata?.agreementRange ?? Infinity) <= 0.1;
+}
+
+async function fetchFredMacroRiskSeries(seriesId: string, count = 8) {
+  const url = `https://fred.stlouisfed.org/graph/fredgraph.csv?id=${encodeURIComponent(seriesId)}`;
+  const csv = await fetchText(url, 8500);
+  const rows = csv.split(/\r?\n/).slice(1).map(line => {
+    const comma = line.indexOf(",");
+    if (comma < 0) return null;
+    const date = line.slice(0, comma).trim();
+    const value = toNumber(line.slice(comma + 1));
+    return date && Number.isFinite(value) ? { date, value } : null;
+  }).filter(Boolean) as Array<{ date: string; value: number }>;
+  if (!rows.length) throw new Error(`FRED ${seriesId} returned no usable observations`);
+  return { url, rows: rows.slice(-count) };
+}
+
+async function fetchYahooMacroRiskBars(symbol: string) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=2y&interval=1d&includePrePost=false&events=history`;
+  const data = await fetchJson(url, 8500);
+  const result = data?.chart?.result?.[0];
+  const quote = result?.indicators?.quote?.[0];
+  const rows = (result?.timestamp || []).map((ts: number, index: number) => ({
+    date: new Date(ts * 1000).toISOString().slice(0, 10),
+    close: toNumber(quote?.close?.[index]),
+  })).filter((row: any) => Number.isFinite(row.close));
+  if (rows.length < 20) throw new Error(`${symbol} returned too few usable observations`);
+  return { url, rows };
+}
+
+async function fetchFinraMarginDebtObservation() {
+  const id = "margin-debt";
+  const definition = macroRiskDefinitionById.get(id)!;
+  const html = await fetchText(definition.sourceUrl, 9000);
+  const text = macroRiskPlainText(html);
+  const matches = [...text.matchAll(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{2})\s+([\d,]{4,})/g)].slice(0, 48);
+  const history = matches.map(match => {
+    const year = Number(match[2]) + 2000;
+    const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].indexOf(match[1]) + 1;
+    return { date: `${year}-${String(month).padStart(2, "0")}-01`, value: toNumber(match[3]) };
+  }).filter(row => Number.isFinite(row.value));
+  if (!history.length) throw new Error("FINRA margin table could not be parsed");
+  const latest = history[0];
+  const previous = history[1];
+  const priorYear = history.find(row => row.date.slice(5, 7) === latest.date.slice(5, 7) && Number(row.date.slice(0, 4)) === Number(latest.date.slice(0, 4)) - 1);
+  const consecutiveDeclines = history.length >= 4 && history.slice(0, 3).every((row, index) => row.value < history[index + 1].value);
+  return macroRiskObservation(id, latest.value, latest.date, "current", "", {
+    unit: "USD millions",
+    history,
+    monthChangePct: previous ? round(((latest.value / previous.value) - 1) * 100, 2) : null,
+    yearChangePct: priorYear ? round(((latest.value / priorYear.value) - 1) * 100, 2) : null,
+    consecutiveDeclines,
+  });
+}
+
+async function loadMacroRiskIndicator(id: string): Promise<MacroRiskObservation> {
+  try {
+    if (id === "vix") {
+      const proxy = await fetchYahooMacroRiskBars("^VIX");
+      const latest = proxy.rows[proxy.rows.length - 1];
+      return macroRiskObservation(id, latest.close, latest.date, "current", "Cboe reference with Yahoo chart as the retrieval proxy.", { history: proxy.rows.slice(-260) }, { label: "Cboe VIX / Yahoo chart proxy", url: macroRiskDefinitionById.get(id)!.sourceUrl, confidence: "B" });
+    }
+    if (id === "fear-greed") {
+      const url = "https://production.dataviz.cnn.io/index/fearandgreed/graphdata";
+      const data = await fetchJson(url, 8500);
+      const score = toNumber(data?.fear_and_greed?.score ?? data?.fear_and_greed?.value ?? data?.score);
+      const date = macroRiskIsoDate(data?.fear_and_greed?.timestamp ?? data?.lastUpdated ?? data?.timestamp);
+      if (!Number.isFinite(score)) throw new Error("CNN response did not expose a numeric index score");
+      return macroRiskObservation(id, score, date || new Date().toISOString().slice(0, 10), "current", "", {
+        rating: data?.fear_and_greed?.rating || null,
+        previousClose: toNumber(data?.fear_and_greed?.previous_close),
+        previousWeek: toNumber(data?.fear_and_greed?.previous_1_week),
+      }, { label: "CNN Fear & Greed API", url: macroRiskDefinitionById.get(id)!.sourceUrl });
+    }
+    if (id === "aaii-sentiment") {
+      const definition = macroRiskDefinitionById.get(id)!;
+      const text = macroRiskPlainText(await fetchText(definition.sourceUrl, 8500));
+      const bullish = toNumber(text.match(/Bullish[^0-9]{0,80}([\d.]+)%/i)?.[1]);
+      const bearish = toNumber(text.match(/Bearish[^0-9]{0,80}([\d.]+)%/i)?.[1]);
+      if (!Number.isFinite(bullish) || !Number.isFinite(bearish)) throw new Error("AAII current survey values require subscriber access or a readable release");
+      const date = macroRiskIsoDate(text.match(/(?:Updated|Week Ending)\s*:?\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})/i)?.[1]);
+      return macroRiskObservation(id, round(bullish - bearish, 2), date, "normal", "", { bullish, bearish, spread: round(bullish - bearish, 2) });
+    }
+    if (id === "equity-put-call") {
+      const definition = macroRiskDefinitionById.get(id)!;
+      const text = macroRiskPlainText(await fetchText(definition.sourceUrl, 8500));
+      const value = toNumber(text.match(/EQUITY PUT\/CALL RATIO[^0-9]{0,80}([\d.]+)/i)?.[1]);
+      if (!Number.isFinite(value)) throw new Error("Cboe daily equity put/call ratio was not readable from the public page");
+      const date = macroRiskIsoDate(text.match(/(?:Data for|Market Statistics for)\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})/i)?.[1]) || new Date().toISOString().slice(0, 10);
+      return macroRiskObservation(id, value, date, "current");
+    }
+    if (id === "naaim") {
+      const definition = macroRiskDefinitionById.get(id)!;
+      const text = macroRiskPlainText(await fetchText(definition.sourceUrl, 8500));
+      const value = toNumber(text.match(/week(?:'|\u2019)s NAAIM Exposure Index number is[^0-9-]{0,120}(-?[\d.]+)/i)?.[1]);
+      if (!Number.isFinite(value)) return macroRiskUnavailable(id, "NAAIM moved current non-member access behind a subscription on 2026-08-01.", "restricted");
+      const date = macroRiskIsoDate(text.match(/Posted on [A-Za-z]+,\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})/i)?.[1]);
+      return macroRiskObservation(id, value, date, "normal", "NAAIM states that redistribution may require permission.");
+    }
+    if (id === "margin-debt") return await fetchFinraMarginDebtObservation();
+    if (id === "margin-debt-gdp") {
+      const [margin, gdp] = await Promise.all([fetchFinraMarginDebtObservation(), fetchFredMacroRiskSeries("GDP", 2)]);
+      const latestGdp = gdp.rows[gdp.rows.length - 1];
+      if (!margin.numericValue || !latestGdp?.value) throw new Error("Margin debt or GDP unavailable");
+      const ratio = ((margin.numericValue / 1000) / latestGdp.value) * 100;
+      return macroRiskObservation(id, ratio, margin.dataDate, "normal", "Margin debt is monthly while GDP is quarterly.", { marginDebtUsdMillions: margin.numericValue, gdpUsdBillions: latestGdp.value, gdpDate: latestGdp.date });
+    }
+    if (id === "ipo") {
+      const definition = macroRiskDefinitionById.get(id)!;
+      const text = macroRiskPlainText(await fetchText(definition.sourceUrl, 9000));
+      const count = toNumber(text.match(/There have been\s+([\d,]+)\s+IPOs priced this year/i)?.[1] || text.match(/There have been\s+([\d,]+)\s+IPOs in\s+\d{4}/i)?.[1]);
+      const proceeds = toNumber(text.match(/Total proceeds raised were\s+\$([\d.]+)\s+bil/i)?.[1]);
+      if (!Number.isFinite(count)) throw new Error("Renaissance public IPO count was not readable");
+      return macroRiskObservation(id, count, new Date().toISOString().slice(0, 10), "normal", "Public page exposes YTD activity; quarterly detail may require the quarterly review.", { ytdCount: count, ytdProceedsUsdBillions: Number.isFinite(proceeds) ? proceeds : null });
+    }
+    if (id === "insider") {
+      const definition = macroRiskDefinitionById.get(id)!;
+      const text = macroRiskPlainText(await fetchText(definition.sourceUrl, 8500));
+      const value = toNumber(text.match(/(?:Current|Actual|USA Overall Market)[^0-9]{0,100}([\d.]+)/i)?.[1]);
+      if (!Number.isFinite(value)) return macroRiskUnavailable(id, "GuruFocus did not expose the current USA overall-market value without interactive or subscriber access.", "restricted");
+      return macroRiskObservation(id, value, null, "normal");
+    }
+    if (id === "bofa") return macroRiskUnavailable(id, "BofA Bull & Bear is published in Flow Show and has no stable public primary-data endpoint.", "restricted");
+    if (id === "hy-oas") {
+      const fred = await fetchFredMacroRiskSeries("BAMLH0A0HYM2", 260);
+      const latest = fred.rows[fred.rows.length - 1];
+      return macroRiskObservation(id, latest.value, latest.date, "current", "FRED notes that ICE redistribution rights may be restricted; verify licensing before public deployment.", { history: fred.rows }, { label: "FRED BAMLH0A0HYM2", url: macroRiskDefinitionById.get(id)!.sourceUrl });
+    }
+    if (id === "nyse-ad") {
+      const [ad, spx] = await Promise.all([fetchYahooMacroRiskBars("^NYAD"), fetchYahooMacroRiskBars("^GSPC")]);
+      const spxByDate = new Map(spx.rows.map(row => [row.date, row]));
+      const matchedRows = ad.rows
+        .filter(row => spxByDate.has(row.date))
+        .map(row => ({ ad: row, spx: spxByDate.get(row.date)! }));
+      const comparableLength = matchedRows.length;
+      const adRows = matchedRows.map(row => row.ad);
+      const spxRows = matchedRows.map(row => row.spx);
+      const sessionChecks = [] as Array<{ date: string; divergence: boolean; spxNewHigh: boolean; adNewHigh: boolean; adGapPct: number }>;
+      for (let index = MACRO_RISK_RULES.adDivergence.lookbackSessions; index < comparableLength; index += 1) {
+        const adPoint = adRows[index];
+        const spxPoint = spxRows[index];
+        const adPriorHigh = Math.max(...adRows.slice(index - MACRO_RISK_RULES.adDivergence.lookbackSessions, index).map(row => row.close));
+        const spxPriorHigh = Math.max(...spxRows.slice(index - MACRO_RISK_RULES.adDivergence.lookbackSessions, index).map(row => row.close));
+        const spxNewHigh = spxPoint.close > spxPriorHigh;
+        const adNewHigh = adPoint.close > adPriorHigh;
+        const adGapPct = ((adPoint.close / adPriorHigh) - 1) * 100;
+        sessionChecks.push({
+          date: spxPoint.date,
+          spxNewHigh,
+          adNewHigh,
+          adGapPct: round(adGapPct, 3),
+          divergence: spxNewHigh && !adNewHigh && adGapPct <= -MACRO_RISK_RULES.adDivergence.minimumAdGapPct,
+        });
+      }
+      const latestCheck = sessionChecks[sessionChecks.length - 1];
+      if (!latestCheck) throw new Error("NYSE A/D history is too short for the configured 60-session comparison");
+      let divergenceSessions = 0;
+      for (let index = sessionChecks.length - 1; index >= 0 && sessionChecks[index].divergence; index -= 1) divergenceSessions += 1;
+      return macroRiskObservation(id, adRows[adRows.length - 1].close, latestCheck.date, "current", "Yahoo NYSE breadth symbol is used as a retrieval proxy; the hard rule uses a 60-session closing high, a 1% A/D gap, and three consecutive sessions.", {
+        history: adRows.slice(-260).map(row => ({ date: row.date, value: row.close })),
+        divergence: latestCheck.divergence,
+        divergenceSessions,
+        spxNewHigh: latestCheck.spxNewHigh,
+        adNewHigh: latestCheck.adNewHigh,
+        adGapPct: latestCheck.adGapPct,
+        sessionChecks: sessionChecks.slice(-5),
+      }, { label: "NYSE breadth proxy / Yahoo chart", url: macroRiskDefinitionById.get(id)!.sourceUrl, confidence: "B" });
+    }
+    if (id === "buffett") {
+      const definition = macroRiskDefinitionById.get(id)!;
+      const text = macroRiskPlainText(await fetchText(definition.sourceUrl, 9000));
+      const value = toNumber(text.match(/Buffett Indicator\s*=\s*[^=]{0,120}=\s*([\d.]+)%/i)?.[1] || text.match(/current Buffett Indicator value of\s+([\d.]+)%/i)?.[1]);
+      const date = macroRiskIsoDate(text.match(/(?:As of|Updated on)\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})/i)?.[1]);
+      if (!Number.isFinite(value)) throw new Error("Buffett Indicator value was not readable");
+      return macroRiskObservation(id, value, date, "normal", "Public value is quarterly; weekly updates may require membership.");
+    }
+    if (id === "cape") {
+      const definition = macroRiskDefinitionById.get(id)!;
+      const text = macroRiskPlainText(await fetchText(definition.sourceUrl, 8500));
+      const value = toNumber(text.match(/Current Shiller PE Ratio:\s*([\d.]+)/i)?.[1]);
+      const date = macroRiskIsoDate(text.match(/(?:AM|PM)\s+(?:E[DS]T),?\s+([A-Za-z]{3}\s+\d{1,2}(?:,\s+\d{4})?)/i)?.[1]);
+      if (!Number.isFinite(value)) throw new Error("Shiller CAPE value was not readable");
+      return macroRiskObservation(id, value, date || new Date().toISOString().slice(0, 10), "normal", "Third-party display may be delayed; source cites Robert Shiller data.");
+    }
+    if (id === "yield-curve") {
+      const fred = await fetchFredMacroRiskSeries("T10Y2Y", 260);
+      const latest = fred.rows[fred.rows.length - 1];
+      return macroRiskObservation(id, latest.value, latest.date, "current", "", { history: fred.rows }, { label: "FRED T10Y2Y", url: macroRiskDefinitionById.get(id)!.sourceUrl });
+    }
+    if (id === "lei") {
+      const definition = macroRiskDefinitionById.get(id)!;
+      const text = macroRiskPlainText(await fetchText(definition.sourceUrl, 9000));
+      const value = toNumber(text.match(/LEI for the US[^.]{0,160}?(?:to|at)\s+([\d.]+)\s*\(\d{4}=100\)/i)?.[1]);
+      const monthChange = toNumber(text.match(/LEI for the US\s+(?:declined|increased)[^\d-]{0,40}(-?[\d.]+)%/i)?.[1]);
+      const sixMonth = toNumber(text.match(/(?:six-month|first half)[^.%]{0,160}?(-?[\d.]+)%/i)?.[1]);
+      const date = macroRiskIsoDate(text.match(/Updated:\s*[A-Za-z]+,\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})/i)?.[1]);
+      if (!Number.isFinite(value)) throw new Error("Conference Board LEI level was not readable");
+      return macroRiskObservation(id, value, date, "normal", "", { monthChangePct: Number.isFinite(monthChange) ? monthChange : null, sixMonthChangePct: Number.isFinite(sixMonth) ? sixMonth : null });
+    }
+    if (id === "aaii-allocation") {
+      const definition = macroRiskDefinitionById.get(id)!;
+      const text = macroRiskPlainText(await fetchText(definition.sourceUrl, 8500));
+      const value = toNumber(text.match(/(?:Stocks|Equities)[^0-9]{0,80}([\d.]+)%/i)?.[1]);
+      if (!Number.isFinite(value)) return macroRiskUnavailable(id, "AAII household allocation value requires a readable release or subscriber access.", "restricted");
+      const date = macroRiskIsoDate(text.match(/(?:Updated|Survey)\s*:?\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})/i)?.[1]);
+      return macroRiskObservation(id, value, date, "normal");
+    }
+    throw new Error(`Unknown macro risk indicator: ${id}`);
+  } catch (err) {
+    return macroRiskUnavailable(id, err);
+  }
+}
+
+function macroRiskSignal(id: string, observation: MacroRiskObservation): MacroRiskSignal {
+  const value = observation.numericValue;
+  if (value === null || ["unavailable", "restricted", "stale"].includes(observation.sourceStatus)) return "unknown";
+  if (id === "vix") return value < 13 || value > 25 ? "red" : value < 15 || value > 20 ? "yellow" : "green";
+  if (id === "fear-greed") return value < 25 || value > 75 ? "red" : value < 40 || value > 60 ? "yellow" : "green";
+  if (id === "aaii-sentiment") return Math.abs(value) >= 30 ? "red" : Math.abs(value) >= 20 ? "yellow" : "green";
+  if (id === "equity-put-call") return value < 0.5 || value > 1 ? "red" : value < 0.6 || value > 0.85 ? "yellow" : "green";
+  if (id === "naaim") return value > 100 || value < 20 ? "red" : value > 90 || value < 40 ? "yellow" : "green";
+  if (id === "margin-debt") return observation.metadata?.consecutiveDeclines ? "red" : (observation.metadata?.monthChangePct ?? 0) < 0 ? "yellow" : "green";
+  if (id === "margin-debt-gdp") return value > 4.5 ? "red" : value > 4 ? "yellow" : "green";
+  if (id === "ipo") return "unknown";
+  if (id === "insider") return value < 0.17 ? "red" : value < 0.25 ? "yellow" : "green";
+  if (id === "bofa") return macroRiskBofaConfidenceAccepted(observation) ? (value > 8 ? "red" : value > 7 ? "yellow" : "green") : "unknown";
+  if (id === "hy-oas") return value > 4.5 ? "red" : value > 3.5 ? "yellow" : "green";
+  if (id === "nyse-ad") return Number(observation.metadata?.divergenceSessions || 0) >= MACRO_RISK_RULES.adDivergence.requiredSessions
+    ? "red"
+    : observation.metadata?.divergence ? "yellow" : "green";
+  if (id === "buffett") return value > 200 ? "red" : value > 170 ? "yellow" : "green";
+  if (id === "cape") return value > 35 ? "red" : value > 30 ? "yellow" : "green";
+  if (id === "yield-curve") return value < 0 ? "red" : value < 0.25 ? "yellow" : "green";
+  if (id === "lei") {
+    const sixMonth = toNumber(observation.metadata?.sixMonthChangePct);
+    return Number.isFinite(sixMonth) ? (sixMonth <= -4 ? "red" : sixMonth < 0 ? "yellow" : "green") : "unknown";
+  }
+  if (id === "aaii-allocation") return value > 70 ? "red" : value > 65 ? "yellow" : "green";
+  return "unknown";
+}
+
+function macroRiskDirection(current: MacroRiskObservation, previous?: any) {
+  if (current.numericValue === null || !Number.isFinite(previous?.numericValue)) return "unknown";
+  const difference = current.numericValue - previous.numericValue;
+  const tolerance = Math.max(0.001, Math.abs(previous.numericValue) * 0.001);
+  return Math.abs(difference) <= tolerance ? "flat" : difference > 0 ? "up" : "down";
+}
+
+function buildMacroRiskTriggers(indicators: any[], previousSnapshot: any) {
+  const byId = new Map(indicators.map(item => [item.id, item]));
+  const previousById = new Map((previousSnapshot?.indicators || []).map((item: any) => [item.id, item]));
+  const state = (ready: boolean, triggered: boolean, near = false) => !ready ? "unknown" : triggered ? "triggered" : near ? "near" : "not_triggered";
+  const numeric = (id: string) => byId.get(id)?.numericValue;
+  const previousNumeric = (id: string) => (previousById.get(id) as any)?.numericValue;
+  const vix = numeric("vix");
+  const fear = numeric("fear-greed");
+  const previousFear = previousNumeric("fear-greed");
+  const hy = numeric("hy-oas");
+  const bofa = numeric("bofa");
+  const insider = numeric("insider");
+  const margin = byId.get("margin-debt");
+  const ad = byId.get("nyse-ad");
+  const vixHistory = macroRiskHistoryPoints(byId.get("vix"));
+  const vixSessions = vixHistory.slice(-MACRO_RISK_RULES.vix.requiredSessions);
+  const vixStanding = vixSessions.length === MACRO_RISK_RULES.vix.requiredSessions
+    && vixSessions.every(session => session.value > MACRO_RISK_RULES.vix.threshold)
+    && new Set(vixSessions.map(session => session.date)).size === MACRO_RISK_RULES.vix.requiredSessions;
+  return [
+    { id: "vix-standing", status: state(vixSessions.length === MACRO_RISK_RULES.vix.requiredSessions, vixStanding, vix > 22), current: vix ?? null, sessions: vixSessions.map(session => session.date) },
+    { id: "margin-three-down", status: state(Boolean(margin?.metadata?.history?.length >= 4), Boolean(margin?.metadata?.consecutiveDeclines), Boolean(margin?.metadata?.monthChangePct < 0)), current: margin?.metadata?.monthChangePct ?? null },
+    { id: "hy-spread", status: state(Number.isFinite(hy), hy > 4.5, hy > 4), current: hy ?? null },
+    { id: "fear-reversal", status: state(Number.isFinite(fear) && Number.isFinite(previousFear), previousFear > 75 && fear < 50, fear > 75), current: fear ?? null },
+    { id: "ad-divergence", status: state(typeof ad?.metadata?.divergence === "boolean", Number(ad?.metadata?.divergenceSessions || 0) >= MACRO_RISK_RULES.adDivergence.requiredSessions, Boolean(ad?.metadata?.divergence)), current: ad?.numericValue ?? null, divergenceSessions: ad?.metadata?.divergenceSessions || 0, adGapPct: ad?.metadata?.adGapPct ?? null },
+    { id: "bofa", status: state(macroRiskBofaConfidenceAccepted(byId.get("bofa")) && Number.isFinite(bofa), bofa > 8, bofa > 7), current: bofa ?? null, sourceConfidence: byId.get("bofa")?.sourceConfidence || "unknown" },
+    { id: "insider", status: state(Number.isFinite(insider), insider < 0.17, insider < 0.25), current: insider ?? null },
+  ];
+}
+
+async function activeMacroRiskRegistry() {
+  const rows = await listAllDbRecords(MACRO_RISK_SCAN_REGISTRY_TABLE, 2).catch(() => []);
+  return rows.filter(row => row?.kind === "active-macro-risk-snapshot")
+    .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))[0] || null;
+}
+
+async function readActiveMacroRiskSnapshot() {
+  const registry = await activeMacroRiskRegistry();
+  if (!registry?.activeSnapshotId) return null;
+  const [snapshot] = await db.get<any>(MACRO_RISK_SCAN_SNAPSHOT_TABLE, [registry.activeSnapshotId]);
+  return snapshot ? { ...snapshot, id: registry.activeSnapshotId } : null;
+}
+
+async function readMacroRiskJob(id: string) {
+  const [job] = await db.get<any>(MACRO_RISK_SCAN_JOB_TABLE, [id]);
+  return job ? { ...job, id } : null;
+}
+
+async function saveMacroRiskJob(id: string, job: any) {
+  const { id: _id, ...record } = job;
+  const [updated] = await db.update(MACRO_RISK_SCAN_JOB_TABLE, [{ id, record }]);
+  if (!updated) throw new Error("Unable to persist macro risk scan progress");
+}
+
+function publicMacroRiskJob(job: any) {
+  return {
+    ok: !["failed"].includes(job.status),
+    id: job.id,
+    version: job.version,
+    status: job.status,
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+    completedAt: job.completedAt || null,
+    attemptedCount: job.attemptedCount || 0,
+    availableCount: Object.values(job.observations || {}).filter((item: any) => item?.numericValue !== null).length,
+    totalCount: MACRO_RISK_INDICATORS.length,
+    pendingIds: job.pendingIds || [],
+    errors: job.errors || [],
+    snapshotId: job.snapshotId || null,
+    message: job.message || "",
+  };
+}
+
+async function createMacroRiskScanJob() {
+  const jobs = await listAllDbRecords(MACRO_RISK_SCAN_JOB_TABLE, 3).catch(() => []);
+  const reusable = jobs.filter(job => ["queued", "running"].includes(job?.status))
+    .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))[0];
+  if (reusable?.id) return reusable;
+  const now = new Date().toISOString();
+  const record = {
+    version: MACRO_RISK_SCAN_VERSION,
+    status: "queued",
+    createdAt: now,
+    updatedAt: now,
+    pendingIds: MACRO_RISK_INDICATORS.map(item => item.id),
+    observations: {},
+    attemptedCount: 0,
+    errors: [],
+    message: "Macro risk scan queued. Each source is attempted once and persisted before the next batch.",
+  };
+  const [id] = await db.add(MACRO_RISK_SCAN_JOB_TABLE, [record]);
+  if (!id) throw new Error("Unable to create macro risk scan job");
+  return { ...record, id };
+}
+
+async function publishMacroRiskSnapshot(job: any) {
+  const previous = await readActiveMacroRiskSnapshot();
+  const indicators = MACRO_RISK_INDICATORS.map(definition => {
+    const observation = job.observations?.[definition.id] || macroRiskUnavailable(definition.id, "Indicator was not attempted");
+    return {
+      ...definition,
+      ...observation,
+      direction: macroRiskDirection(observation, previous?.indicators?.find((item: any) => item.id === definition.id)),
+      signal: macroRiskSignal(definition.id, observation),
+    };
+  });
+  const triggers = buildMacroRiskTriggers(indicators, previous);
+  const availableCount = indicators.filter(item => item.numericValue !== null).length;
+  const currentCount = indicators.filter(item => ["current", "normal"].includes(item.sourceStatus)).length;
+  const unknownCount = indicators.filter(item => item.signal === "unknown").length;
+  const redCount = indicators.filter(item => item.signal === "red").length;
+  const yellowCount = indicators.filter(item => item.signal === "yellow").length;
+  const triggeredCount = triggers.filter(item => item.status === "triggered").length;
+  const groupSummary = (["short", "medium", "long"] as MacroRiskGroup[]).map(group => {
+    const rows = indicators.filter(item => item.group === group);
+    return {
+      group,
+      total: rows.length,
+      available: rows.filter(item => item.numericValue !== null).length,
+      green: rows.filter(item => item.signal === "green").length,
+      yellow: rows.filter(item => item.signal === "yellow").length,
+      red: rows.filter(item => item.signal === "red").length,
+      unknown: rows.filter(item => item.signal === "unknown").length,
+      signal: rows.some(item => item.signal === "red") ? "red" : rows.some(item => item.signal === "yellow") ? "yellow" : rows.every(item => item.signal === "green") ? "green" : "unknown",
+    };
+  });
+  const focus = macroRiskFocus(indicators);
+  const now = new Date().toISOString();
+  const snapshot = {
+    version: MACRO_RISK_SCAN_VERSION,
+    status: availableCount === 17 && currentCount === 17 ? "complete" : availableCount >= 8 ? "complete_with_limitations" : "evidence_only",
+    generatedAt: now,
+    reportTimezone: "Asia/Taipei",
+    previousSnapshotId: previous?.id || null,
+    indicators,
+    groupSummary,
+    triggers,
+    summary: {
+      availableCount,
+      currentCount,
+      totalCount: 17,
+      redCount,
+      yellowCount,
+      unknownCount,
+      triggeredCount,
+      triggerTotal: 7,
+      alertLevel: triggeredCount >= 3 ? "action_threshold" : triggeredCount >= 2 ? "elevated" : redCount > 0 ? "watch" : unknownCount > 0 ? "incomplete" : "normal",
+      focusIndicatorId: focus.indicator?.id || null,
+      focusMethod: focus.method,
+      focusScore: focus.score,
+      focusReason: focus.reason,
+    },
+    evidenceGate: {
+      passed: availableCount === 17 && currentCount === 17,
+      allAttempted: job.attemptedCount >= 17,
+      availableCount,
+      currentCount,
+      unknownCount,
+      policy: "Unavailable, restricted, stale, or insufficient-confidence inputs remain unknown and are never counted as safe or not triggered.",
+      deterministicRules: MACRO_RISK_RULES,
+    },
+  };
+  const [snapshotId] = await db.add(MACRO_RISK_SCAN_SNAPSHOT_TABLE, [snapshot]);
+  if (!snapshotId) throw new Error("Unable to persist macro risk snapshot");
+  const registry = await activeMacroRiskRegistry();
+  const registryRecord = { kind: "active-macro-risk-snapshot", version: MACRO_RISK_SCAN_VERSION, activeSnapshotId: snapshotId, updatedAt: now };
+  if (registry?.id) {
+    const [updated] = await db.update(MACRO_RISK_SCAN_REGISTRY_TABLE, [{ id: registry.id, record: registryRecord }]);
+    if (!updated) throw new Error("Unable to activate macro risk snapshot");
+  } else {
+    const [registryId] = await db.add(MACRO_RISK_SCAN_REGISTRY_TABLE, [registryRecord]);
+    if (!registryId) throw new Error("Unable to create macro risk snapshot registry");
+  }
+  return { ...snapshot, id: snapshotId };
+}
+
+async function advanceMacroRiskScanJob(id: string) {
+  const job = await readMacroRiskJob(id);
+  if (!job) return null;
+  if (["completed", "failed"].includes(job.status)) return job;
+  const batchIds = (job.pendingIds || []).slice(0, MACRO_RISK_SCAN_BATCH_SIZE);
+  if (!batchIds.length) {
+    const snapshot = await publishMacroRiskSnapshot(job);
+    job.status = "completed";
+    job.snapshotId = snapshot.id;
+    job.completedAt = new Date().toISOString();
+    job.updatedAt = job.completedAt;
+    job.message = `Macro risk scan completed after attempting ${job.attemptedCount}/17 indicators; ${snapshot.summary.availableCount}/17 are numerically available.`;
+    await saveMacroRiskJob(id, job);
+    return job;
+  }
+  job.status = "running";
+  job.updatedAt = new Date().toISOString();
+  await saveMacroRiskJob(id, job);
+  const observations = await Promise.all(batchIds.map(indicatorId => loadMacroRiskIndicator(indicatorId)));
+  observations.forEach(observation => {
+    job.observations[observation.id] = observation;
+    if (observation.numericValue === null) job.errors.push({ id: observation.id, message: observation.limitation, status: observation.sourceStatus });
+  });
+  job.pendingIds = (job.pendingIds || []).filter((indicatorId: string) => !batchIds.includes(indicatorId));
+  job.attemptedCount = Object.keys(job.observations || {}).length;
+  job.updatedAt = new Date().toISOString();
+  job.message = job.pendingIds.length
+    ? `Persisted ${job.attemptedCount}/17 indicator attempts; ${job.pendingIds.length} remain.`
+    : "All 17 indicators were attempted; the next advance publishes an atomic snapshot.";
+  await saveMacroRiskJob(id, job);
+  return job;
+}
+
+async function loadMacroRiskScanView() {
+  const [snapshot, jobs] = await Promise.all([
+    readActiveMacroRiskSnapshot().catch(() => null),
+    listAllDbRecords(MACRO_RISK_SCAN_JOB_TABLE, 2).catch(() => []),
+  ]);
+  const latestJob = jobs.sort((a: any, b: any) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))[0] || null;
+  return {
+    ok: true,
+    version: MACRO_RISK_SCAN_VERSION,
+    contract: MACRO_RISK_INDICATORS,
+    rules: MACRO_RISK_RULES,
+    snapshot,
+    job: latestJob ? publicMacroRiskJob(latestJob) : null,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+function macroRiskDinoSummary(snapshot: any) {
+  if (!snapshot?.summary) return null;
+  return {
+    snapshotId: snapshot.id || null,
+    generatedAt: snapshot.generatedAt,
+    status: snapshot.status,
+    alertLevel: snapshot.summary.alertLevel,
+    triggeredCount: snapshot.summary.triggeredCount,
+    triggerTotal: snapshot.summary.triggerTotal,
+    availableCount: snapshot.summary.availableCount,
+    totalCount: snapshot.summary.totalCount,
+    focusIndicatorId: snapshot.summary.focusIndicatorId,
+    focusMethod: snapshot.summary.focusMethod || null,
+    focusReason: snapshot.summary.focusReason || null,
+    groupSummary: snapshot.groupSummary,
+    policy: snapshot.evidenceGate?.policy,
+  };
+}
+
 async function loadSwingMacro() {
   const settled = await Promise.allSettled([
     loadQuote("0050"),
@@ -6111,6 +6844,7 @@ async function loadSwingMacro() {
     fetchYahooSymbolChart("GC=F", "Gold Futures", "6mo"),
     fetchYahooSymbolChart("QQQ", "Nasdaq 100 ETF", "6mo"),
     loadSwingMacroNews(),
+    readActiveMacroRiskSnapshot(),
   ]);
   const tw = settled[0].status === "fulfilled" ? settled[0].value : null;
   const spx = settled[1].status === "fulfilled" ? settled[1].value : null;
@@ -6122,6 +6856,7 @@ async function loadSwingMacro() {
   const gold = settled[7].status === "fulfilled" ? settled[7].value : null;
   const qqq = settled[8].status === "fulfilled" ? settled[8].value : null;
   const macroNews = settled[9].status === "fulfilled" ? settled[9].value : { ok: false, items: [], errors: [] };
+  const macroRiskSnapshot = settled[10].status === "fulfilled" ? settled[10].value : null;
   const riskScore = [
     tw ? (tw.analysis.latest.close > tw.analysis.latest.ma20 ? 25 : 8) : 0,
     spx ? (spx.trend === "risk-on" ? 25 : spx.trend === "range-bound" ? 14 : 4) : 0,
@@ -6166,6 +6901,7 @@ async function loadSwingMacro() {
           "\u98a8\u96aa\u504f\u7a7a\uff0c\u6ce2\u6bb5\u6e05\u55ae\u4ee5\u89c0\u5bdf\u8207\u7b49\u5f85\u78ba\u8a8d\u70ba\u4e3b\u3002",
       },
       news: macroNews.items || [],
+      riskScanSummary: macroRiskDinoSummary(macroRiskSnapshot),
       screeningImplications: [
         "\u512a\u5148\u770b 20MA \u4e0a\u65b9\u4e14 MA20 \u9ad8\u65bc MA60 \u7684 1-3 \u500b\u6708\u6ce2\u6bb5\u7d50\u69cb\u3002",
         "RSI \u904e\u71b1\u8207\u8ddd\u96e2\u77ed\u7dda\u652f\u6490\u904e\u9060\u6642\uff0c\u5148\u964d\u70ba\u89c0\u5bdf\uff0c\u4e0d\u628a\u7a81\u7834\u7576\u4f5c\u76f4\u63a5\u9032\u5834\u7406\u7531\u3002",
@@ -6195,6 +6931,7 @@ async function loadSwingMacro() {
       nasdaqProxy: qqq,
     },
     news: macroNews,
+    riskScanSummary: macroRiskDinoSummary(macroRiskSnapshot),
     screeningImplications: [
       "\u512a\u5148\u770b 20MA \u4e0a\u65b9\u4e14 MA20 \u9ad8\u65bc MA60 \u7684 1-3 \u500b\u6708\u6ce2\u6bb5\u7d50\u69cb\u3002",
       "RSI \u904e\u71b1\u8207\u8ddd\u96e2\u77ed\u7dda\u652f\u6490\u904e\u9060\u6642\uff0c\u5148\u964d\u70ba\u89c0\u5bdf\uff0c\u4e0d\u628a\u7a81\u7834\u7576\u4f5c\u76f4\u63a5\u9032\u5834\u7406\u7531\u3002",
@@ -9101,6 +9838,44 @@ export const handler = router({
         ok: false,
         message: `Unable to build swing macro view: ${err instanceof Error ? err.message : String(err)}`,
       }, 502);
+    }
+  }],
+
+  "GET /api/macro-risk-scan": [async () => {
+    try {
+      return json(await loadMacroRiskScanView(), 200);
+    } catch (err) {
+      return json({ ok: false, message: `Unable to load macro risk scan: ${err instanceof Error ? err.message : String(err)}` }, 502);
+    }
+  }],
+
+  "POST /api/macro-risk-scan/jobs": [async () => {
+    try {
+      return json(publicMacroRiskJob(await createMacroRiskScanJob()), 202);
+    } catch (err) {
+      return json({ ok: false, message: `Unable to create macro risk scan job: ${err instanceof Error ? err.message : String(err)}` }, 502);
+    }
+  }],
+
+  "GET /api/macro-risk-scan/jobs/:id": [async ({ params }: any) => {
+    const id = String(params?.id || "").trim();
+    if (!id) return error("Missing macro risk scan job id", 400);
+    try {
+      const job = await readMacroRiskJob(id);
+      return job ? json(publicMacroRiskJob(job), 200) : error("Macro risk scan job not found", 404);
+    } catch (err) {
+      return json({ ok: false, message: `Unable to read macro risk scan job: ${err instanceof Error ? err.message : String(err)}` }, 502);
+    }
+  }],
+
+  "POST /api/macro-risk-scan/jobs/:id/advance": [async ({ params }: any) => {
+    const id = String(params?.id || "").trim();
+    if (!id) return error("Missing macro risk scan job id", 400);
+    try {
+      const job = await advanceMacroRiskScanJob(id);
+      return job ? json(publicMacroRiskJob(job), 200) : error("Macro risk scan job not found", 404);
+    } catch (err) {
+      return json({ ok: false, message: `Unable to advance macro risk scan job: ${err instanceof Error ? err.message : String(err)}` }, 502);
     }
   }],
 

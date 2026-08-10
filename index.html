@@ -76,7 +76,7 @@
     .home-decision-card strong { display:block; font-size:1.08rem; line-height:1.25; overflow-wrap:anywhere; }
     .home-decision-card p { color:var(--muted); font-size:12px; line-height:1.55; }
     .home-doorway { border:.5px solid var(--line); border-radius:10px; background:#f8f7f4; padding:.9rem; }
-    .doorway-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.6rem; }
+    .doorway-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.6rem; }
     .doorway-card { border:.5px solid #e7e5e1; border-radius:8px; background:#fff; padding:.75rem; text-align:left; color:var(--ink); min-height:104px; }
     .doorway-card:hover:not(:disabled) { border-color:#168074; background:#f4fbf9; transform:translateY(-1px); }
     .doorway-card b { display:block; font-size:12px; margin-bottom:.24rem; }
@@ -264,11 +264,58 @@
     .swing-pick { display:inline-flex; gap:.35rem; align-items:center; border:1px solid var(--line); border-radius:999px; padding:.22rem .55rem; background:#fff; font-size:12px; }
     .swing-pick input { accent-color:#168074; }
     .swing-section { display:grid; gap:.7rem; margin-top:.75rem; }
+    .risk-page-head { display:flex; flex-wrap:wrap; justify-content:space-between; gap:.8rem; align-items:flex-start; padding:1rem; border-radius:12px; color:#fff; background:linear-gradient(135deg,#243c86 0%,#315cb5 52%,#168074 100%); box-shadow:0 12px 28px rgba(36,60,134,.18); }
+    .risk-page-head h2 { font-size:1.35rem; margin-bottom:.3rem; }
+    .risk-page-head p { max-width:720px; font-size:13px; opacity:.92; }
+    .risk-page-head .secondary { flex:0 0 auto; background:#fff; color:#172126; border:1px solid #ffffff80; }
+    .risk-progress { margin-top:.55rem; color:#e8f5f2; font-size:12px; line-height:1.55; }
+    .risk-summary-band { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.55rem; margin:.75rem 0; }
+    .risk-summary-item { border:1px solid #e4e1dc; border-radius:9px; background:#fff; padding:.7rem; min-width:0; }
+    .risk-summary-item b { display:block; color:var(--muted); font-size:12px; margin-bottom:.2rem; }
+    .risk-summary-item strong { display:block; font-size:1.04rem; overflow-wrap:anywhere; }
+    .risk-horizons { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.65rem; margin:.7rem 0; }
+    .risk-horizon { border:1px solid #e3e0da; border-top:4px solid var(--blue); border-radius:10px; background:#fff; padding:.75rem; min-width:0; }
+    .risk-horizon[data-signal="green"] { border-top-color:var(--green); }
+    .risk-horizon[data-signal="yellow"] { border-top-color:#c27b00; }
+    .risk-horizon[data-signal="red"] { border-top-color:var(--red); }
+    .risk-horizon[data-signal="unknown"] { border-top-color:#74716c; }
+    .risk-horizon header { display:flex; justify-content:space-between; gap:.5rem; align-items:center; }
+    .risk-horizon h3 { margin:0; font-size:.94rem; }
+    .risk-horizon p { color:var(--muted); font-size:12px; }
+    .risk-state { display:inline-flex; align-items:center; gap:.3rem; min-height:28px; border-radius:999px; padding:0 .58rem; font-size:12px; font-weight:780; white-space:nowrap; }
+    .risk-state::before { content:""; width:8px; height:8px; border-radius:50%; background:currentColor; }
+    .risk-state.green { color:#07613b; background:#e0f5eb; }
+    .risk-state.yellow,.risk-state.near { color:#704500; background:#fef3d8; }
+    .risk-state.red,.risk-state.triggered { color:#8c1818; background:#fde8e8; }
+    .risk-state.unknown { color:#55524e; background:#eeece8; }
+    .risk-state.not_triggered { color:#285a48; background:#e7f3ee; }
+    .risk-table table { min-width:980px; }
+    .risk-table tbody tr:hover td { background:#f5faf8; }
+    .risk-table .risk-group-row td { position:static !important; background:#eef2fb !important; color:#263b75; font-weight:800; box-shadow:none !important; }
+    .risk-source-link { color:var(--blue); text-decoration:none; border-bottom:1px solid #c6cee8; }
+    .risk-trigger-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.6rem; }
+    .risk-trigger { display:grid; grid-template-columns:1fr auto; gap:.55rem; border:1px solid #e4e1dc; border-radius:9px; background:#fff; padding:.7rem; min-width:0; }
+    .risk-trigger h3 { margin:0; font-size:.9rem; }
+    .risk-trigger p { grid-column:1 / -1; color:var(--muted); font-size:12px; }
+    .risk-details { margin-top:.65rem; border:1px solid #e3e0da; border-radius:9px; background:#fff; overflow:hidden; }
+    .risk-details > summary { display:flex; align-items:center; min-height:48px; padding:.7rem .8rem; cursor:pointer; font-size:13px; font-weight:780; }
+    .risk-details[open] > summary { border-bottom:1px solid #e7e5e1; }
+    .risk-details-body { padding:.75rem .85rem; font-size:13px; line-height:1.7; }
+    .risk-details-body ul { margin:.35rem 0; padding-left:1.2rem; }
+    .risk-limit { border-left:4px solid #c27b00; background:#fff9ed; }
+    .risk-note-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem; margin-top:.65rem; }
+    .risk-note { border:1px solid #e4e1dc; border-radius:9px; background:#fbfaf8; padding:.7rem; min-width:0; }
+    .risk-note header { display:flex; justify-content:space-between; align-items:flex-start; gap:.5rem; }
+    .risk-note h3 { margin:0; font-size:.88rem; }
+    .risk-note p { color:#55524e; font-size:12px; line-height:1.65; }
     .sr-only { position:absolute !important; width:1px !important; height:1px !important; padding:0 !important; margin:-1px !important; overflow:hidden !important; clip:rect(0,0,0,0) !important; white-space:nowrap !important; border:0 !important; }
     @media (max-width:820px) {
       .hero-top,.two { grid-template-columns:1fr; }
       .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .decision-grid,.horizon-grid,.dow-grid,.strategy-grid,.wave-legend,.value-grid,.client-grid,.client-grid.two-col { grid-template-columns:1fr; }
+      .risk-summary-band { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .risk-horizons,.risk-trigger-grid { grid-template-columns:1fr; }
+      .risk-note-grid { grid-template-columns:1fr; }
       .hero-status-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .home-decision-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .home-decision-grid .home-decision-card:first-child { grid-column:1 / -1; }
@@ -356,6 +403,15 @@
       .flow-steps { display:flex; gap:.5rem; overflow-x:auto; padding:.1rem .1rem .5rem; scroll-snap-type:x proximity; }
       .flow-step { flex:0 0 190px; min-height:108px; scroll-snap-align:start; }
       .swing-actions input { min-width:0; width:100%; }
+      .risk-page-head { padding:.85rem; }
+      .risk-page-head .secondary { width:100%; }
+      .risk-summary-band { grid-template-columns:1fr 1fr; gap:.45rem; }
+      .risk-summary-item:first-child { grid-column:1 / -1; }
+      .risk-table { max-width:100%; overflow-x:auto; overscroll-behavior-inline:contain; }
+      .risk-table table { min-width:940px; }
+      .risk-trigger { grid-template-columns:1fr; }
+      .risk-trigger .risk-state { width:max-content; }
+      .risk-trigger p { grid-column:1; }
       button,input,select,.view-tab,.stock-suggestion-list button,.control-row input,.workbench-item button,.swing-actions input,button.chip { min-height:44px; }
       .note,.status { font-size:13px; }
     }
@@ -435,6 +491,7 @@
       <div class="doorway-grid">
         <button class="doorway-card" type="button" data-doorway-view="client"><b>&#x958b;&#x555f;&#x81ea;&#x9078;&#x80a1;&#x8207;&#x6301;&#x80a1;</b><span>&#x67e5;&#x770b;&#x89c0;&#x5bdf;&#x6c60;&#x3001;&#x6301;&#x80a1;&#x98a8;&#x96aa;&#x8207;&#x6392;&#x884c;&#x699c;&#x3002;</span></button>
         <button class="doorway-card" type="button" data-doorway-view="swing"><b>&#x958b;&#x555f; Dino K&#x7dda;&#x9078;&#x80a1;</b><span>&#x5148;&#x770b;&#x5e02;&#x5834;&#x4e3b;&#x984c;&#xff0c;&#x518d;&#x9078;&#x80a1;&#x4e26;&#x9032;&#x5165;&#x5c08;&#x5bb6;&#x5206;&#x6790;&#x3002;</span></button>
+        <button class="doorway-card" type="button" data-doorway-view="risk"><b>&#x958b;&#x555f;&#x5b8f;&#x89c0;&#x98a8;&#x96aa;&#x6383;&#x63cf;</b><span>&#x7368;&#x7acb;&#x67e5;&#x770b; 17 &#x9805;&#x77ed;&#x4e2d;&#x9577;&#x671f;&#x6307;&#x6a19;&#x8207; 7 &#x9805;&#x786c;&#x89f8;&#x767c;&#x689d;&#x4ef6;&#x3002;</span></button>
       </div>
     </section>
 
@@ -443,7 +500,7 @@
         <div class="workspace-head">
           <div>
             <h2>&#x6df1;&#x5ea6;&#x529f;&#x80fd;&#x5de5;&#x4f5c;&#x5340;</h2>
-            <p>&#x5728;&#x9019;&#x88e1;&#x5207;&#x63db;&#x80a1;&#x7968;&#x5b8c;&#x6574;&#x5206;&#x6790;&#x3001;&#x81ea;&#x9078;&#x80a1;&#x8207;&#x6301;&#x80a1;&#xff0c;&#x6216; Dino K&#x7dda;&#x9078;&#x80a1;&#x3002;</p>
+            <p>&#x5728;&#x9019;&#x88e1;&#x5207;&#x63db;&#x80a1;&#x7968;&#x5b8c;&#x6574;&#x5206;&#x6790;&#x3001;&#x81ea;&#x9078;&#x80a1;&#x8207;&#x6301;&#x80a1;&#x3001;Dino K&#x7dda;&#x9078;&#x80a1;&#xff0c;&#x6216;&#x7368;&#x7acb;&#x7684;&#x5b8f;&#x89c0;&#x98a8;&#x96aa;&#x6383;&#x63cf;&#x3002;</p>
             <div class="workspace-context" id="workspaceContext" role="status" aria-live="polite">&#x76ee;&#x524d;&#x5c1a;&#x672a;&#x9078;&#x64c7;&#x80a1;&#x7968;</div>
           </div>
           <button type="button" class="secondary" id="backHomeBtn">&#x8fd4;&#x56de;&#x9996;&#x9801;</button>
@@ -452,6 +509,7 @@
           <button class="view-tab active" type="button" role="tab" id="workspaceTabStock" aria-selected="true" aria-controls="stockPage" tabindex="0" data-view="stock">&#x80a1;&#x7968;&#x5b8c;&#x6574;&#x5206;&#x6790;</button>
           <button class="view-tab" type="button" role="tab" id="workspaceTabClient" aria-selected="false" aria-controls="clientPage" tabindex="-1" data-view="client">&#x81ea;&#x9078;&#x80a1;&#x8207;&#x6301;&#x80a1;</button>
           <button class="view-tab" type="button" role="tab" id="workspaceTabSwing" aria-selected="false" aria-controls="swingPage" tabindex="-1" data-view="swing">Dino K&#x7dda;&#x9078;&#x80a1;</button>
+          <button class="view-tab" type="button" role="tab" id="workspaceTabRisk" aria-selected="false" aria-controls="riskPage" tabindex="-1" data-view="risk">&#x5b8f;&#x89c0;&#x98a8;&#x96aa;&#x6383;&#x63cf;</button>
           <button class="view-tab" type="button" role="tab" id="adminTab" aria-selected="false" aria-controls="adminPage" tabindex="-1" data-view="admin" hidden>&#x5f8c;&#x81fa;&#x8cc7;&#x6599;&#x6aa2;&#x67e5;</button>
         </div>
         <nav class="stock-section-nav" id="stockSectionNav" aria-label="&#x500b;&#x80a1;&#x5206;&#x6790;&#x6bb5;&#x843d;">
@@ -819,6 +877,47 @@
       </section>
     </div>
 
+    <div id="riskPage" class="page-view" role="tabpanel" aria-labelledby="workspaceTabRisk" hidden>
+      <section class="risk-page-head" aria-labelledby="macroRiskTitle">
+        <div>
+          <h2 id="macroRiskTitle">&#x5b8f;&#x89c0;&#x98a8;&#x96aa;&#x6383;&#x63cf;</h2>
+          <p>&#x5b8c;&#x6574;&#x4fdd;&#x7559; 5 &#x9805;&#x77ed;&#x671f;&#x3001;7 &#x9805;&#x4e2d;&#x671f;&#x3001;5 &#x9805;&#x9577;&#x671f;&#x6307;&#x6a19;&#x8207; 7 &#x9805;&#x786c;&#x89f8;&#x767c;&#x689d;&#x4ef6;&#x3002;&#x8cc7;&#x6599;&#x4e0d;&#x8db3;&#x6642;&#x53ea;&#x6a19;&#x793a;&#x672a;&#x77e5;&#xff0c;&#x4e0d;&#x6703;&#x628a;&#x7f3a;&#x503c;&#x7576;&#x4f5c;&#x5b89;&#x5168;&#x3002;</p>
+          <div class="risk-progress" id="macroRiskProgress" role="status" aria-live="polite">&#x6b63;&#x5728;&#x8b80;&#x53d6;&#x6700;&#x5f8c;&#x4e00;&#x4efd;&#x5b8c;&#x6210;&#x5feb;&#x7167;&#x3002;</div>
+        </div>
+        <button type="button" class="secondary" id="refreshMacroRiskBtn">&#x958b;&#x59cb; / &#x7e8c;&#x8dd1;&#x5b8f;&#x89c0;&#x6383;&#x63cf;</button>
+      </section>
+
+      <div class="risk-summary-band" id="macroRiskSummary"></div>
+      <section class="risk-horizons" id="macroRiskHorizons" aria-label="&#x77ed;&#x4e2d;&#x9577;&#x671f;&#x98a8;&#x96aa;&#x6458;&#x8981;"></section>
+
+      <section class="panel">
+        <h2>&#x5b8c;&#x6574; 17 &#x9805;&#x6307;&#x6a19;</h2>
+        <p class="note">&#x6578;&#x503c;&#x3001;&#x8cc7;&#x6599;&#x65e5;&#x671f;&#x3001;&#x8cc7;&#x6599;&#x72c0;&#x614b;&#x3001;&#x76f8;&#x5c0d;&#x4e0a;&#x671f;&#x65b9;&#x5411;&#x3001;&#x71c8;&#x865f;&#x8207;&#x8cc7;&#x6599;&#x6e90;&#x90fd;&#x4fdd;&#x7559;&#x3002;&#x624b;&#x6a5f;&#x4e0a;&#x6b64;&#x8868;&#x53ef;&#x5728;&#x5340;&#x584a;&#x5167;&#x5de6;&#x53f3;&#x6efe;&#x52d5;&#x3002;</p>
+        <div class="table-wrap risk-table">
+          <table>
+            <thead><tr><th>&#x671f;&#x9593;</th><th>&#x6307;&#x6a19;</th><th>&#x6700;&#x65b0;&#x503c;</th><th>&#x8cc7;&#x6599;&#x65e5;</th><th>&#x72c0;&#x614b;</th><th>&#x65b9;&#x5411;</th><th>&#x5224;&#x5b9a;</th><th>&#x89e3;&#x8b80;&#x8207;&#x9650;&#x5236;</th><th>&#x8cc7;&#x6599;&#x6e90;</th></tr></thead>
+            <tbody id="macroRiskRows"><tr><td colspan="9">&#x6b63;&#x5728;&#x8f09;&#x5165; 17 &#x9805;&#x6307;&#x6a19;&#x5951;&#x7d04;...</td></tr></tbody>
+          </table>
+        </div>
+        <h3 class="evidence-heading">&#x9010;&#x689d;&#x7c21;&#x77ed;&#x89e3;&#x8b80;</h3>
+        <div class="risk-note-grid" id="macroRiskIndicatorNotes"></div>
+      </section>
+
+      <section class="panel">
+        <h2>7 &#x9805;&#x786c;&#x89f8;&#x767c;&#x689d;&#x4ef6;</h2>
+        <p class="note">&#x9054;&#x5230; 3 &#x9805;&#x624d;&#x9032;&#x5165;&#x884c;&#x52d5;&#x9580;&#x6abb;&#xff1b;&#x300c;&#x672a;&#x77e5;&#x300d;&#x4e0d;&#x8a08;&#x70ba;&#x672a;&#x89f8;&#x767c;&#x3002;</p>
+        <div class="risk-trigger-grid" id="macroRiskTriggers"></div>
+      </section>
+
+      <section class="panel">
+        <h2>&#x7d9c;&#x5408;&#x89e3;&#x8b80;&#x8207;&#x6c7a;&#x7b56;&#x805a;&#x7126;</h2>
+        <details class="risk-details" open><summary>&#x77ed;&#x3001;&#x4e2d;&#x3001;&#x9577;&#x671f;&#x7d9c;&#x5408;&#x89e3;&#x8b80;</summary><div class="risk-details-body" id="macroRiskInterpretation"></div></details>
+        <details class="risk-details"><summary>&#x7d50;&#x8ad6;&#x8207;&#x61c9;&#x7528;&#x65b9;&#x5f0f;</summary><div class="risk-details-body" id="macroRiskConclusion"></div></details>
+        <details class="risk-details"><summary>&#x672c;&#x671f;&#x6700;&#x9700;&#x8ffd;&#x8e64;&#x7684;&#x6307;&#x6a19;</summary><div class="risk-details-body" id="macroRiskFocus"></div></details>
+        <details class="risk-details risk-limit"><summary>&#x8cc7;&#x6599;&#x9650;&#x5236;&#x3001;&#x6388;&#x6b0a;&#x8207;&#x5224;&#x5b9a;&#x539f;&#x5247;</summary><div class="risk-details-body" id="macroRiskLimitations"></div></details>
+      </section>
+    </div>
+
     <div id="adminPage" class="page-view" role="tabpanel" aria-labelledby="adminTab" hidden>
       <section class="panel">
         <div class="control-row">
@@ -863,6 +962,8 @@
     let clientRankingMode = "undervalued";
     let clientRankingScope = "all";
     let swingWorkflow = null;
+    let macroRiskView = null;
+    let macroRiskRunner = null;
     let swingSelectedCodes = [];
     let swingDeepPayload = null;
     let stockSuggestionTimer = null;
@@ -1277,6 +1378,34 @@
       return data;
     }
 
+    async function getMacroRiskScan() {
+      const api = await waitForAppApi();
+      const { data } = await api.get("/api/macro-risk-scan");
+      if (!data || !data.ok) throw new Error(data?.message || "\u5b8f\u89c0\u98a8\u96aa\u5feb\u7167\u8f09\u5165\u5931\u6557");
+      return data;
+    }
+
+    async function createMacroRiskJob() {
+      const api = await waitForAppApi();
+      const { data } = await api.post("/api/macro-risk-scan/jobs", {});
+      if (!data?.id) throw new Error(data?.message || "\u7121\u6cd5\u5efa\u7acb\u5b8f\u89c0\u6383\u63cf\u5de5\u4f5c");
+      return data;
+    }
+
+    async function getMacroRiskJob(id) {
+      const api = await waitForAppApi();
+      const { data } = await api.get(`/api/macro-risk-scan/jobs/${encodeURIComponent(id)}`);
+      if (!data?.id) throw new Error(data?.message || "\u7121\u6cd5\u8b80\u53d6\u5b8f\u89c0\u6383\u63cf\u9032\u5ea6");
+      return data;
+    }
+
+    async function advanceMacroRiskJob(id) {
+      const api = await waitForAppApi();
+      const { data } = await api.post(`/api/macro-risk-scan/jobs/${encodeURIComponent(id)}/advance`, {});
+      if (!data?.id) throw new Error(data?.message || "\u7121\u6cd5\u7e8c\u8dd1\u5b8f\u89c0\u6383\u63cf\u5de5\u4f5c");
+      return data;
+    }
+
     async function getSwingScreener() {
       const api = await waitForAppApi();
       const { data } = await api.get("/api/swing/screener");
@@ -1331,6 +1460,7 @@
             screeningUse: promptClip(item.screeningUse, 180),
             source: promptClip(item.source, 80),
           })),
+          riskScanSummary: macroText.riskScanSummary || macro.riskScanSummary || null,
         },
         screener: {
           generatedAt: screener.generatedAt || null,
@@ -3642,8 +3772,189 @@
       }
     }
 
+    const macroRiskGroupMeta = {
+      short:{ label:"\u77ed\u671f", horizon:"1-3 \u500b\u6708", purpose:"\u60c5\u7dd2\u3001\u6ce2\u52d5\u8207\u5009\u4f4d\u64c1\u64e0\u5ea6" },
+      medium:{ label:"\u4e2d\u671f", horizon:"3-12 \u500b\u6708", purpose:"\u69d3\u687f\u3001\u4fe1\u7528\u3001\u5e02\u5834\u5ee3\u5ea6\u8207\u4f9b\u7d66" },
+      long:{ label:"\u9577\u671f", horizon:"1-3 \u5e74+", purpose:"\u4f30\u503c\u3001\u666f\u6c23\u9818\u5148\u8207\u8cc7\u7522\u914d\u7f6e" },
+    };
+    const macroRiskSignalMeta = {
+      green:{ label:"\u6b63\u5e38", cls:"green" }, yellow:{ label:"\u8b66\u6212", cls:"yellow" },
+      red:{ label:"\u98a8\u96aa", cls:"red" }, unknown:{ label:"\u672a\u77e5", cls:"unknown" },
+    };
+    const macroRiskTriggerMeta = {
+      "vix-standing":{ label:"VIX \u9023\u7e8c\u9ad8\u6a94", detail:"\u4f86\u6e90\u6b77\u53f2\u4e2d\u9023\u7e8c 2 \u500b\u4e0d\u540c\u4ea4\u6613\u65e5\u6536\u76e4\u503c\u90fd\u9ad8\u65bc 25\u3002" },
+      "margin-three-down":{ label:"\u4fdd\u8b49\u91d1\u8ca0\u50b5\u9023\u4e09\u6708\u4e0b\u964d", detail:"FINRA margin debt \u9023\u7e8c\u4e09\u500b\u6708\u4f4e\u65bc\u524d\u6708\u3002" },
+      "hy-spread":{ label:"\u9ad8\u6536\u76ca\u50b5\u5229\u5dee > 4.5%", detail:"ICE BofA US High Yield OAS \u8d85\u904e 4.5%\u3002" },
+      "fear-reversal":{ label:"\u6975\u5ea6\u8caa\u5a6a\u5f8c\u6025\u8f49", detail:"Fear & Greed \u7531 75 \u4ee5\u4e0a\u56de\u843d\u81f3 50 \u4ee5\u4e0b\u3002" },
+      "ad-divergence":{ label:"S&P 500 \u8207 A/D Line \u80cc\u96e2", detail:"S&P 500 \u5275 60 \u65e5\u6536\u76e4\u65b0\u9ad8\uff0cA/D \u8ddd\u81ea\u8eab 60 \u65e5\u9ad8\u9ede\u81f3\u5c11 1%\uff0c\u4e14\u9023\u7e8c 3 \u500b\u4ea4\u6613\u65e5\u3002" },
+      bofa:{ label:"BofA Bull & Bear > 8", detail:"\u53ea\u63a5\u53d7 A/B \u7d1a\u8cc7\u6599\uff0c\u6216\u5169\u5bb6\u4e00\u81f4\u7684 C \u7d1a\u7576\u9031\u8f49\u8f09\uff1b\u5176\u4ed6\u60c5\u6cc1\u4fdd\u7559\u70ba\u672a\u77e5\u3002" },
+      insider:{ label:"\u5167\u90e8\u4eba\u8cb7\u8ce3\u6bd4 < 0.17", detail:"\u5167\u90e8\u4eba\u8cb7\u5165\u76f8\u5c0d\u8ce3\u51fa\u964d\u81f3\u786c\u89f8\u767c\u6c34\u6e96\u3002" },
+    };
+
+    function macroRiskState(signal) {
+      const meta = macroRiskSignalMeta[signal] || macroRiskSignalMeta.unknown;
+      return `<span class="risk-state ${meta.cls}">${meta.label}</span>`;
+    }
+
+    function macroRiskSourceStatus(status) {
+      return ({ current:"\u7576\u671f", normal:"\u53ef\u7528", stale:"\u904e\u671f", restricted:"\u53d7\u6388\u6b0a\u9650\u5236", unavailable:"\u53d6\u5f97\u5931\u6557" })[status] || "\u672a\u77e5";
+    }
+
+    function macroRiskSourceConfidence(confidence) {
+      return ({ A:"A \u7d1a\uff1a\u5b98\u65b9\u539f\u59cb\u8cc7\u6599", B:"B \u7d1a\uff1a\u6388\u6b0a\u539f\u59cb\u5831\u544a", C:"C \u7d1a\uff1a\u53ef\u8ffd\u6eaf\u8f49\u8f09", D:"D \u7d1a\uff1a\u4e0d\u53ef\u7528", unknown:"\u672a\u7d93\u4fe1\u5fc3\u9a57\u8b49" })[confidence] || "\u672a\u7d93\u4fe1\u5fc3\u9a57\u8b49";
+    }
+
+    function macroRiskDirection(direction) {
+      return ({ up:"\u2191 \u4e0a\u5347", down:"\u2193 \u4e0b\u964d", flat:"\u2192 \u6301\u5e73", unknown:"--" })[direction] || "--";
+    }
+
+    function macroRiskValue(item) {
+      if (item?.numericValue === null || item?.numericValue === undefined) return "--";
+      if (item.id === "aaii-sentiment" && Number.isFinite(Number(item.metadata?.bullish)) && Number.isFinite(Number(item.metadata?.bearish))) return `\u591a ${fmt(item.metadata.bullish, 1)}% / \u7a7a ${fmt(item.metadata.bearish, 1)}% / \u5dee ${fmt(item.numericValue, 1)}`;
+      if (item.id === "margin-debt") return `${Number(item.numericValue).toLocaleString("zh-TW")} USD mn\uff5cMoM ${pct(item.metadata?.monthChangePct)}\uff5cYoY ${pct(item.metadata?.yearChangePct)}`;
+      if (item.id === "ipo") return `${fmt(item.numericValue, 0)} \u5bb6\uff5c${Number.isFinite(Number(item.metadata?.ytdProceedsUsdBillions)) ? `$${fmt(item.metadata.ytdProceedsUsdBillions, 1)}bn` : "\u52df\u8cc7\u984d\u672a\u53d6\u5f97"}`;
+      if (item.id === "lei") return `${fmt(item.numericValue, 2)}\uff5c6M ${pct(item.metadata?.sixMonthChangePct)}`;
+      const unit = item.id === "margin-debt" ? " USD mn" : ["margin-debt-gdp","hy-oas","buffett","aaii-allocation"].includes(item.id) ? "%" : "";
+      return `${Number(item.numericValue).toLocaleString("zh-TW", { maximumFractionDigits:3 })}${unit}`;
+    }
+
+    function macroRiskDecisionText(item) {
+      if (item.signal === "unknown") return "\u9019\u9805\u76ee\u524d\u4e0d\u80fd\u652f\u6301\u52a0\u78bc\u3001\u6e1b\u5009\u6216\u907f\u96aa\u7d50\u8ad6\uff0c\u61c9\u5148\u88dc\u9f4a\u53ef\u9a57\u8b49\u7684\u7576\u671f\u8cc7\u6599\u3002";
+      if (item.signal === "red") return item.group === "short" ? "\u4e0d\u8ffd\u50f9\uff0c\u6aa2\u67e5\u9ad8\u6ce2\u52d5\u90e8\u4f4d\u8207\u4fdd\u8b77\u6027\u7b56\u7565\u3002" : item.group === "medium" ? "\u6aa2\u67e5\u9ad8\u69d3\u687f\u3001\u4fe1\u7528\u654f\u611f\u8207\u5e02\u5834\u5ee3\u5ea6\u8f03\u5f31\u7684\u90e8\u4f4d\u3002" : "\u6aa2\u67e5\u9577\u671f\u80a1\u50b5\u6bd4\u3001\u4f30\u503c\u66b4\u96aa\u8207\u518d\u5e73\u8861\u689d\u4ef6\u3002";
+      if (item.signal === "yellow") return item.group === "short" ? "\u6682\u505c\u8ffd\u50f9\uff0c\u7b49\u5f85\u4e0b\u4e00\u671f\u6578\u64da\u78ba\u8a8d\u3002" : item.group === "medium" ? "\u65b0\u5009\u964d\u4f4e\u5c3a\u5bf8\uff0c\u63d0\u9ad8\u4fe1\u7528\u8207\u5ee3\u5ea6\u76e3\u6e2c\u983b\u7387\u3002" : "\u5148\u5b9a\u597d\u518d\u5e73\u8861\u89f8\u767c\u7dda\uff0c\u4e0d\u7528\u55ae\u65e5\u6ce2\u52d5\u53d6\u4ee3\u9577\u671f\u5224\u65b7\u3002";
+      return "\u672a\u9054\u9019\u4e00\u9805\u56fa\u5b9a\u8b66\u6212\u7dda\uff0c\u4f46\u4e0d\u4ee3\u8868\u6574\u9ad4\u5e02\u5834\u5b89\u5168\u3002";
+    }
+
+    function macroRiskSummaryCard(label, value, detail) {
+      return `<div class="risk-summary-item"><b>${escapeHtml(label)}</b><strong>${escapeHtml(value)}</strong><span class="note">${escapeHtml(detail)}</span></div>`;
+    }
+
+    function renderMacroRiskScan(view) {
+      macroRiskView = view;
+      const contract = Array.isArray(view?.contract) ? view.contract : [];
+      const snapshot = view?.snapshot || null;
+      const observed = new Map((snapshot?.indicators || []).map(item => [item.id, item]));
+      const items = contract.map(definition => ({
+        ...definition,
+        ...(observed.get(definition.id) || { value:null, numericValue:null, dataDate:null, sourceStatus:"unavailable", direction:"unknown", signal:"unknown", limitation:"\u5c1a\u7121\u5b8c\u6210\u5feb\u7167\uff0c\u8acb\u958b\u59cb\u6216\u7e8c\u8dd1\u6383\u63cf\u3002" }),
+      }));
+      const summary = snapshot?.summary || { availableCount:0, totalCount:17, unknownCount:17, triggeredCount:0, triggerTotal:7, alertLevel:"incomplete" };
+      const alertLabel = ({ action_threshold:"\u5df2\u9054\u884c\u52d5\u9580\u6abb", elevated:"\u98a8\u96aa\u5347\u9ad8", watch:"\u6301\u7e8c\u89c0\u5bdf", incomplete:"\u8b49\u64da\u4e0d\u5b8c\u6574", normal:"\u672a\u898b\u96c6\u4e2d\u8b66\u8a0a" })[summary.alertLevel] || "\u5f85\u5224\u5b9a";
+      const snapshotStatusLabel = ({ complete:"\u5b8c\u6574", complete_with_limitations:"\u5b8c\u6210\uff08\u542b\u8cc7\u6599\u9650\u5236\uff09", evidence_only:"\u50c5\u8b49\u64da\u6458\u8981" })[snapshot?.status] || "\u5c1a\u7121\u5b8c\u6210\u5feb\u7167";
+      const generatedAt = snapshot?.generatedAt ? new Date(snapshot.generatedAt).toLocaleString("zh-TW", { timeZone:"Asia/Taipei", hour12:false }) : "\u5c1a\u7121\u5b8c\u6210\u5feb\u7167";
+      $("macroRiskSummary").innerHTML = [
+        macroRiskSummaryCard("\u7d9c\u5408\u72c0\u614b", alertLabel, snapshotStatusLabel),
+        macroRiskSummaryCard("\u6307\u6a19\u8986\u84cb", `${summary.availableCount || 0} / 17`, `${summary.unknownCount ?? 17} \u9805\u672a\u77e5`),
+        macroRiskSummaryCard("\u786c\u89f8\u767c", `${summary.triggeredCount || 0} / 7`, "3 \u9805\u70ba\u884c\u52d5\u9580\u6abb"),
+        macroRiskSummaryCard("\u8b66\u793a\u71c8\u865f", `${summary.redCount || 0} \u7d05 / ${summary.yellowCount || 0} \u9ec3`, "\u672a\u77e5\u4e0d\u8a08\u70ba\u7da0\u71c8"),
+        macroRiskSummaryCard("\u5feb\u7167\u6642\u9593", generatedAt, "Asia/Taipei"),
+      ].join("");
+
+      const groupSummaries = new Map((snapshot?.groupSummary || []).map(item => [item.group, item]));
+      $("macroRiskHorizons").innerHTML = ["short","medium","long"].map(group => {
+        const meta = macroRiskGroupMeta[group];
+        const rows = items.filter(item => item.group === group);
+        const data = groupSummaries.get(group) || { signal:"unknown", available:0, total:rows.length, green:0, red:0, yellow:0, unknown:rows.length };
+        return `<article class="risk-horizon" data-signal="${escapeHtml(data.signal || "unknown")}"><header><h3>${meta.label}\uff5c${meta.horizon}</h3>${macroRiskState(data.signal)}</header><p>${meta.purpose}</p><p><b>${data.green || 0} / ${data.total || rows.length} \u672a\u8b66\u5831</b>\uff1b${data.red || 0} \u7d05\u3001${data.yellow || 0} \u9ec3\u3001${data.unknown ?? rows.length} \u672a\u77e5\u3002</p></article>`;
+      }).join("");
+
+      const tableRows = [];
+      ["short","medium","long"].forEach(group => {
+        const meta = macroRiskGroupMeta[group];
+        tableRows.push(`<tr class="risk-group-row"><td colspan="9">${meta.label} ${items.filter(item => item.group === group).length} \u9805\uff5c${meta.purpose}</td></tr>`);
+        items.filter(item => item.group === group).forEach(item => {
+          const sourceUrl = /^https:\/\//.test(item.sourceUrl || "") ? item.sourceUrl : "";
+          const limitation = item.limitation || `\u9580\u6abb\uff1a${item.threshold || "--"}`;
+          tableRows.push(`<tr><td>${meta.label}</td><td><b>${escapeHtml(item.name)}</b><br><span class="note">${escapeHtml(item.frequency || "")}</span></td><td><b>${escapeHtml(macroRiskValue(item))}</b></td><td>${escapeHtml(item.dataDate || "--")}</td><td>${escapeHtml(macroRiskSourceStatus(item.sourceStatus))}</td><td>${escapeHtml(macroRiskDirection(item.direction))}</td><td>${macroRiskState(item.signal)}</td><td>${escapeHtml(limitation)}<br><span class="note">${escapeHtml(item.threshold || "")}</span></td><td>${sourceUrl ? `<a class="risk-source-link" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.sourceLabel || "\u67e5\u770b\u4f86\u6e90")}</a>` : escapeHtml(item.sourceLabel || "--")}<br><span class="note">${escapeHtml(macroRiskSourceConfidence(item.sourceConfidence))}</span></td></tr>`);
+        });
+      });
+      $("macroRiskRows").innerHTML = tableRows.join("") || `<tr><td colspan="9">\u6307\u6a19\u5951\u7d04\u66ab\u6642\u4e0d\u53ef\u7528\u3002</td></tr>`;
+      $("macroRiskIndicatorNotes").innerHTML = items.map(item => {
+        const historical = item.signal === "red" ? "\u5df2\u9032\u5165\u56fa\u5b9a\u98a8\u96aa\u5340" : item.signal === "yellow" ? "\u5df2\u63a5\u8fd1\u56fa\u5b9a\u8b66\u6212\u5340" : item.signal === "green" ? "\u672a\u9054\u56fa\u5b9a\u8b66\u6212\u7dda" : "\u7121\u6cd5\u5224\u5b9a\u6b77\u53f2\u4f4d\u7f6e";
+        return `<article class="risk-note"><header><h3>${escapeHtml(item.name)}</h3>${macroRiskState(item.signal)}</header><p>\u7576\u524d\u8b80\u6578 ${escapeHtml(macroRiskValue(item))}\uff0c\u8cc7\u6599\u65e5 ${escapeHtml(item.dataDate || "\u672a\u53d6\u5f97")}\uff1b${historical}\u3002\u76f8\u5c0d\u4e0a\u6b21\u5feb\u7167\u70ba ${escapeHtml(macroRiskDirection(item.direction))}\u3002</p><p>${escapeHtml(macroRiskDecisionText(item))}</p></article>`;
+      }).join("");
+
+      const triggers = snapshot?.triggers || Object.keys(macroRiskTriggerMeta).map(id => ({ id, status:"unknown", current:null }));
+      $("macroRiskTriggers").innerHTML = triggers.map(trigger => {
+        const meta = macroRiskTriggerMeta[trigger.id] || { label:trigger.id, detail:"" };
+        const statusMeta = ({ triggered:["\u5df2\u89f8\u767c","triggered"], near:["\u63a5\u8fd1","near"], not_triggered:["\u672a\u89f8\u767c","not_triggered"], unknown:["\u672a\u77e5","unknown"] })[trigger.status] || ["\u672a\u77e5","unknown"];
+        const proof = trigger.id === "vix-standing" && (trigger.sessions || []).length
+          ? ` \u6838\u5be6\u4ea4\u6613\u65e5\uff1a${trigger.sessions.join(", ")}\u3002`
+          : trigger.id === "ad-divergence" && Number.isFinite(Number(trigger.divergenceSessions))
+            ? ` \u76ee\u524d\u9023\u7e8c ${trigger.divergenceSessions} \u65e5\uff1bA/D \u843d\u5dee ${fmt(trigger.adGapPct, 2)}%\u3002`
+            : trigger.id === "bofa" ? ` \u8cc7\u6599\u4fe1\u5fc3\uff1a${macroRiskSourceConfidence(trigger.sourceConfidence)}\u3002` : "";
+        return `<article class="risk-trigger"><h3>${escapeHtml(meta.label)}</h3><span class="risk-state ${statusMeta[1]}">${statusMeta[0]}</span><p>${escapeHtml(meta.detail)}${Number.isFinite(Number(trigger.current)) ? ` \u7576\u671f\u503c\uff1a${fmt(trigger.current, 3)}\u3002` : ""}${escapeHtml(proof)}</p></article>`;
+      }).join("");
+
+      const groupText = ["short","medium","long"].map(group => {
+        const meta = macroRiskGroupMeta[group];
+        const data = groupSummaries.get(group) || { available:0, total:items.filter(item => item.group === group).length, red:0, yellow:0, unknown:items.filter(item => item.group === group).length };
+        return `<li><b>${meta.label}</b>\uff1a${data.available || 0}/${data.total || 0} \u9805\u53ef\u7528\uff0c${data.red || 0} \u9805\u98a8\u96aa\u3001${data.yellow || 0} \u9805\u8b66\u6212\u3001${data.unknown || 0} \u9805\u672a\u77e5\u3002</li>`;
+      }).join("");
+      $("macroRiskInterpretation").innerHTML = `<ul>${groupText}</ul><p>\u77ed\u671f\u7528\u4f86\u5224\u65b7\u5e02\u5834\u6eab\u5ea6\uff0c\u4e2d\u671f\u67e5\u770b\u98a8\u96aa\u662f\u5426\u6b63\u5728\u64f4\u6563\uff0c\u9577\u671f\u5247\u8aaa\u660e\u4f30\u503c\u8207\u666f\u6c23\u8106\u5f31\u5ea6\u3002\u4e09\u8005\u4e0d\u53ef\u4e92\u76f8\u53d6\u4ee3\u3002</p>`;
+      const horizonAction = (group) => {
+        const data = groupSummaries.get(group);
+        if (!data || data.unknown === data.total) return "\u8b49\u64da\u4e0d\u8db3\uff0c\u4e0d\u505a\u6e1b\u5009\u3001\u907f\u96aa\u6216\u518d\u5e73\u8861\u7d50\u8ad6\u3002";
+        if (group === "short") return data.red > 0 ? "\u4e0d\u8ffd\u50f9\uff0c\u6aa2\u67e5\u9ad8\u6ce2\u52d5\u90e8\u4f4d\uff0c\u4e26\u8a55\u4f30\u4fdd\u8b77\u6027\u7b56\u7565\u3002" : data.yellow > 0 ? "\u6682\u505c\u8ffd\u50f9\uff0c\u672a\u5230\u5168\u9762\u6e1b\u5009\u6216\u8cb7\u4fdd\u96aa\u7684\u9580\u6abb\u3002" : "\u672a\u898b\u77ed\u671f\u56fa\u5b9a\u8b66\u5831\uff0c\u4fdd\u6301\u539f\u6709\u98a8\u96aa\u63a7\u5236\u3002";
+        if (group === "medium") return data.red > 0 ? "\u8da8\u52e2\u8b49\u64da\u5df2\u8f49\u5dee\uff0c\u512a\u5148\u8abf\u6574\u9ad8\u69d3\u687f\u3001\u4fe1\u7528\u654f\u611f\u8207\u5ee3\u5ea6\u8f49\u5f31\u7684\u677f\u584a\u3002" : data.yellow > 0 ? "\u8da8\u52e2\u8f49\u6298\u5c1a\u672a\u78ba\u8a8d\uff0c\u964d\u4f4e\u65b0\u5009\u5c3a\u5bf8\uff0c\u6682\u4e0d\u5927\u5e45\u8abf\u5009\u3002" : "\u672a\u898b\u660e\u78ba\u4e2d\u671f\u8f49\u5f31\u8b49\u64da\uff0c\u7e7c\u7e8c\u76e3\u6e2c\u69d3\u687f\u3001\u4fe1\u7528\u8207\u5ee3\u5ea6\u3002";
+        return data.red > 0 ? "\u7d50\u69cb\u6027\u98a8\u96aa\u504f\u9ad8\uff0c\u6aa2\u67e5\u80a1\u50b5\u6bd4\u8207\u4f30\u503c\u66b4\u96aa\uff0c\u5efa\u7acb\u5206\u6279\u518d\u5e73\u8861\u689d\u4ef6\u3002" : data.yellow > 0 ? "\u9577\u671f\u98a8\u96aa\u5728\u5347\u9ad8\uff0c\u91cd\u65b0\u78ba\u8a8d\u518d\u5e73\u8861\u898f\u5247\uff0c\u4e0d\u56e0\u55ae\u65e5\u6ce2\u52d5\u5927\u5e45\u6539\u5009\u3002" : "\u672a\u898b\u660e\u78ba\u7d50\u69cb\u6027\u8b66\u5831\uff0c\u4f9d\u539f\u5b9a\u9031\u671f\u518d\u5e73\u8861\u3002";
+      };
+      $("macroRiskInterpretation").innerHTML = `<ul>${groupText}</ul>${["short","medium","long"].map(group => `<p><b>${macroRiskGroupMeta[group].label}\uff08${macroRiskGroupMeta[group].horizon}\uff09</b>\uff1a${horizonAction(group)}</p>`).join("")}<p class="note">\u4e09\u7a2e\u671f\u9593\u7684\u6307\u6a19\u7528\u9014\u4e0d\u540c\uff0c\u4e0d\u53ef\u4e92\u76f8\u53d6\u4ee3\u3002</p>`;
+      $("macroRiskConclusion").innerHTML = `<p><b>${escapeHtml(alertLabel)}</b>\u3002\u4eca\u65e5\u5171\u6709 ${summary.triggeredCount || 0} / 7 \u9805\u89f8\u767c\uff1b${(summary.triggeredCount || 0) >= 3 ? "\u5df2\u9054\u958b\u59cb\u5206\u6279\u8ce3\u51fa\u9580\u6abb\uff0c\u61c9\u964d\u4f4e\u98a8\u96aa\u66b4\u96aa\u4e26\u9010\u9805\u5fa9\u6838\u8b49\u64da\u3002" : "\u5c1a\u672a\u9054\u958b\u59cb\u5206\u6279\u8ce3\u51fa\u7684 3 \u9805\u9580\u6abb\uff0c\u4ecd\u61c9\u4f9d\u7d05\u9ec3\u71c8\u8207\u672a\u77e5\u9805\u76ee\u9032\u884c\u98a8\u96aa\u7ba1\u7406\u3002"}</p><p class="note">\u9019\u662f\u5e02\u5834\u98a8\u96aa\u76e3\u6e2c\uff0c\u4e0d\u662f\u500b\u80a1\u8cb7\u8ce3\u6307\u4ee4\u3002</p>`;
+      const focus = items.find(item => item.id === summary.focusIndicatorId) || items.find(item => item.signal === "red") || items.find(item => item.signal === "yellow") || items.find(item => item.signal === "unknown");
+      const focusReason = summary.focusReason || "\u4e0b\u671f\u61c9\u6bd4\u8f03\u503c\u3001\u65b9\u5411\u8207\u8cc7\u6599\u65e5\u671f\u3002";
+      $("macroRiskFocus").innerHTML = focus ? `<p><b>${escapeHtml(focus.name)}</b>\uff5c${macroRiskState(focus.signal)}</p><p>\u7576\u671f\u503c\uff1a${escapeHtml(macroRiskValue(focus))}\uff1b\u5224\u5b9a\u9580\u6abb\uff1a${escapeHtml(focus.threshold || "--")}\u3002</p><p class="note">\u805a\u7126\u65b9\u6cd5\uff1a${escapeHtml(summary.focusMethod || "unavailable")}\uff1b${escapeHtml(focusReason)}</p><p class="note">${escapeHtml(focus.limitation || "")}</p>` : `<p>\u5c1a\u7121\u53ef\u7528\u6307\u6a19\u3002</p>`;
+      const limitations = items.filter(item => item.limitation).map(item => `<li><b>${escapeHtml(item.name)}</b>\uff1a${escapeHtml(item.limitation)}</li>`).join("");
+      const rules = view?.rules || snapshot?.evidenceGate?.deterministicRules || {};
+      const ruleNote = rules?.bofaConfidence?.acceptance ? `<p><b>\u56fa\u5b9a\u898f\u5247\uff1a</b>VIX \u4ee5 ${rules.vix?.requiredSessions || 2} \u500b\u4e0d\u540c\u4ea4\u6613\u65e5\u3001A/D \u4ee5 ${rules.adDivergence?.lookbackSessions || 60} \u65e5\u9ad8\u9ede\u8207 ${rules.adDivergence?.requiredSessions || 3} \u65e5\u6301\u7e8c\u6027\u3002BofA\uff1a${escapeHtml(rules.bofaConfidence.acceptance)}</p>` : "";
+      $("macroRiskLimitations").innerHTML = `<p><b>\u8b49\u64da\u9580\u6abb\uff1a</b>${escapeHtml(snapshot?.evidenceGate?.policy || "\u53d6\u5f97\u5931\u6557\u3001\u8cc7\u6599\u904e\u671f\u6216\u53d7\u6388\u6b0a\u9650\u5236\u7684\u8f38\u5165\uff0c\u4e00\u5f8b\u4fdd\u7559\u70ba\u672a\u77e5\uff0c\u4e0d\u8a08\u70ba\u5b89\u5168\u3002")}</p>${ruleNote}${limitations ? `<ul>${limitations}</ul>` : `<p>\u76ee\u524d\u5feb\u7167\u672a\u8a18\u9304\u984d\u5916\u9650\u5236\u3002</p>`}`;
+
+      const job = view?.job;
+      if (job && ["queued","running"].includes(job.status)) $("macroRiskProgress").textContent = `\u5df2\u6301\u4e45\u5316 ${job.attemptedCount || 0}/17 \u9805\uff1b\u5c1a\u9918 ${(job.pendingIds || []).length} \u9805\u3002\u53ef\u95dc\u9589\u9801\u9762\u5f8c\u518d\u7e8c\u8dd1\u3002`;
+      else $("macroRiskProgress").textContent = snapshot ? `\u986f\u793a\u6700\u5f8c\u4e00\u4efd\u5b8c\u6210\u5feb\u7167\uff1a${generatedAt}\u3002` : "\u5c1a\u7121\u5b8c\u6210\u5feb\u7167\uff1b\u958b\u59cb\u5f8c\u6703\u6bcf\u6279\u5132\u5b58\u9032\u5ea6\u3002";
+    }
+
+    async function loadMacroRiskScan(force = false) {
+      if (macroRiskView && !force) return renderMacroRiskScan(macroRiskView);
+      $("macroRiskProgress").textContent = "\u6b63\u5728\u8b80\u53d6\u6700\u5f8c\u4e00\u4efd\u5b8c\u6210\u5feb\u7167\u3002";
+      try {
+        renderMacroRiskScan(await getMacroRiskScan());
+      } catch (err) {
+        $("macroRiskProgress").textContent = err.message || "\u5b8f\u89c0\u98a8\u96aa\u5feb\u7167\u8f09\u5165\u5931\u6557\u3002";
+      }
+    }
+
+    async function runMacroRiskRefresh() {
+      if (macroRiskRunner) return macroRiskRunner;
+      const button = $("refreshMacroRiskBtn");
+      button.disabled = true;
+      macroRiskRunner = (async () => {
+        let job = await createMacroRiskJob();
+        for (let guard = 0; guard < 8 && !["completed","failed"].includes(job.status); guard += 1) {
+          $("macroRiskProgress").textContent = `\u6b63\u5728\u8655\u7406\u7b2c ${Math.min(17, (job.attemptedCount || 0) + 1)} \u81f3 ${Math.min(17, (job.attemptedCount || 0) + 4)} \u9805\uff1b\u5df2\u5132\u5b58 ${job.attemptedCount || 0}/17\u3002`;
+          try {
+            job = await apiRetry(() => advanceMacroRiskJob(job.id), 2);
+          } catch (err) {
+            await wait(900);
+            job = await getMacroRiskJob(job.id);
+            if (!["queued","running","completed"].includes(job.status)) throw err;
+          }
+          await wait(260);
+        }
+        macroRiskView = await getMacroRiskScan();
+        renderMacroRiskScan(macroRiskView);
+        if (job.status !== "completed") throw new Error(job.message || "\u6383\u63cf\u5c1a\u672a\u5b8c\u6210\uff0c\u9032\u5ea6\u5df2\u4fdd\u7559\uff0c\u53ef\u7a0d\u5f8c\u7e8c\u8dd1\u3002");
+      })().catch(err => {
+        $("macroRiskProgress").textContent = `${err.message || "\u6383\u63cf\u4e2d\u65b7"}\uff08\u5df2\u5b8c\u6210\u7684\u6279\u6b21\u4e0d\u6703\u907a\u5931\uff09`;
+      }).finally(() => {
+        macroRiskRunner = null;
+        button.disabled = false;
+      });
+      return macroRiskRunner;
+    }
+
     function switchView(view, updateHistory = false) {
-      const validViews = new Set(["stock", "client", "swing", "admin"]);
+      const validViews = new Set(["stock", "client", "swing", "risk", "admin"]);
       if (!validViews.has(view)) view = "stock";
       const shell = $("workspaceShell");
       if (shell) {
@@ -3652,10 +3963,12 @@
       }
       const client = view === "client";
       const swing = view === "swing";
+      const risk = view === "risk";
       const admin = view === "admin";
-      $("stockPage").hidden = client || swing || admin;
+      $("stockPage").hidden = client || swing || risk || admin;
       $("clientPage").hidden = !client;
       $("swingPage").hidden = !swing;
+      $("riskPage").hidden = !risk;
       $("adminPage").hidden = !admin;
       $("stockSectionNav").hidden = view !== "stock";
       $("viewTabs").querySelectorAll("[data-view]").forEach((btn) => {
@@ -3669,6 +3982,7 @@
       }
       if (client) loadClientWorkbench();
       if (swing) loadSwingWorkflow();
+      if (risk) loadMacroRiskScan();
       if (admin) {
         loadAdminUniverse();
         loadAdminScoreV2();
@@ -3680,7 +3994,7 @@
     }
 
     function syncWorkspaceFromLocation() {
-      const match = location.hash.match(/^#workspace-(stock|client|swing|admin)$/);
+      const match = location.hash.match(/^#workspace-(stock|client|swing|risk|admin)$/);
       if (match) openWorkspace(match[1], "none");
       else closeWorkspace(false);
     }
@@ -4466,6 +4780,7 @@
     });
     $("refreshWorkbenchBtn").addEventListener("click", () => loadClientWorkbench(true));
     if ($("refreshSwingBtn")) $("refreshSwingBtn").addEventListener("click", () => loadSwingWorkflow(true));
+    $("refreshMacroRiskBtn").addEventListener("click", runMacroRiskRefresh);
     if ($("refreshSwingThemesBtn")) $("refreshSwingThemesBtn").addEventListener("click", async () => {
       const button = $("refreshSwingThemesBtn");
       button.disabled = true;
