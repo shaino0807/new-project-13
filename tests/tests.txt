@@ -198,3 +198,17 @@ Steps:
 6. Inspect `docs/macro-risk-data-sources-todo.md` without enabling credentials or purchasing any source.
 
 Expected: VIX hard-trigger status is true only after two different consecutive source trading-session closes above 25, never because a user reran the same-day scan. A/D hard-trigger status is true only after all of: 60-session S&P closing high, A/D at least 1% below its own 60-session closing high, and three consecutive qualifying sessions; one or two sessions are at most near. Focus uses absolute one-period historical Z-score and selects the largest score only when it is at least 2.0; otherwise it reports the nearest normalized fixed threshold and its fallback method. BofA accepts A/B, or only two qualifying C sources, and all other evidence remains unknown. The public page does not state a fixed sell percentage: three of seven triggers starts a staged risk-reduction review. The purchase TODO lists NAAIM, AAII, GuruFocus, and BofA with licensing, data-quality, and regression gates, while no paid credential is configured.
+
+## Test 16 - Ranking trust contract, sorting, and responsive presentation
+Viewport: desktop, 390 x 844, and 320 x 844
+Description: Verifies the customer ranking is explicit about its controlled batch, freshness, eligibility, deterministic ordering, and compact mobile reading path.
+
+Steps:
+1. Navigate to 自選股與持股 and click 更新工作台 once. Wait for the ranking status cards or the explicit unavailable state.
+2. Inspect 本次評分, 可列入排名, 高信賴度, and 更新時間. Confirm the note also states the quote-date window and controlled-batch scope.
+3. Keep 資料品質 on 可列入排名. Switch between 低估, 高估, 現金流, 成長, and 小資; for an equal primary score, confirm the tie order is data coverage, then quote date, then stock code.
+4. Change 資料品質 to 高信賴度 and then 包含資料受限列. Confirm limited rows display a data-limited state and receive no fabricated rank.
+5. Change 顯示排序 to 資料覆蓋率, 報價日期, and 股票代碼. Confirm the table order changes without requesting a new stock-analysis batch.
+6. At desktop width, vertically scroll the dense ranking panel and horizontally scroll it if needed. At 390 x 844 and 320 x 844, confirm it changes to labeled cards.
+
+Expected: The ranking states that it is not a real-time full-market leaderboard. A row is rankable only with a score, quote date, at least 60% coverage, and no stale dataset; high trust additionally requires 85% coverage. The primary-score order is deterministic and does not depend on upstream return order. Rank, stock, and the table header stay readable on desktop; the two fixed identity columns do not obscure the remaining fields. Mobile has no page-level horizontal overflow, exposes status, score, coverage, and quote date in each card, and keeps every control at least 44 CSS pixels high.

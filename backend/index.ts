@@ -1540,6 +1540,14 @@ type ValueScore = {
     stopTrackingAssumption: string;
     notes: string[];
   };
+  rankingTrust?: {
+    status: "rankable" | "limited" | "unavailable";
+    quality: "high" | "standard" | "limited" | "unavailable";
+    coveragePercent: number;
+    hasQuoteDate: boolean;
+    staleDatasetCount: number;
+    reasons: string[];
+  };
   scoreV2: any;
   warnings: string[];
   fundamentals: Awaited<ReturnType<typeof loadFundamentals>>;
@@ -3503,6 +3511,58 @@ function screenerSortValue(mode: string, item: ValueScore) {
   return item.scores.undervalued ?? -1;
 }
 
+function buildRankingTrust(item: ValueScore) {
+  const coveragePercent = Number(item.dataStatus?.coverage?.percent || 0);
+  const hasQuoteDate = Boolean(item.quoteDate || item.dataStatus?.quoteDate);
+  const staleDatasetCount = Array.isArray(item.dataStatus?.staleDatasets) ? item.dataStatus.staleDatasets.length : 0;
+  const hasTotalScore = Number.isFinite(item.professionalRating?.total);
+  const reasons: string[] = [];
+  if (!hasTotalScore) reasons.push("total score unavailable");
+  if (!hasQuoteDate) reasons.push("quote date unavailable");
+  if (coveragePercent < 60) reasons.push(`coverage ${coveragePercent}% is below the 60% ranking minimum`);
+  if (staleDatasetCount) reasons.push(`${staleDatasetCount} stale dataset${staleDatasetCount > 1 ? "s" : ""}`);
+  const rankable = hasTotalScore && hasQuoteDate && coveragePercent >= 60 && staleDatasetCount === 0;
+  return {
+    status: !hasTotalScore ? "unavailable" as const : rankable ? "rankable" as const : "limited" as const,
+    quality: !hasTotalScore ? "unavailable" as const : rankable && coveragePercent >= 85 ? "high" as const : rankable ? "standard" as const : "limited" as const,
+    coveragePercent,
+    hasQuoteDate,
+    staleDatasetCount,
+    reasons,
+  };
+}
+
+function compareRankingItems(a: ValueScore, b: ValueScore, valueFor: (item: ValueScore) => number | null) {
+  const aValue = valueFor(a);
+  const bValue = valueFor(b);
+  const scoreDiff = (Number.isFinite(bValue) ? bValue as number : -1) - (Number.isFinite(aValue) ? aValue as number : -1);
+  if (scoreDiff) return scoreDiff;
+  const coverageDiff = Number(b.dataStatus?.coverage?.percent || 0) - Number(a.dataStatus?.coverage?.percent || 0);
+  if (coverageDiff) return coverageDiff;
+  const dateDiff = String(b.quoteDate || b.dataStatus?.quoteDate || "").localeCompare(String(a.quoteDate || a.dataStatus?.quoteDate || ""));
+  if (dateDiff) return dateDiff;
+  return String(a.code).localeCompare(String(b.code));
+}
+
+function buildRankingSnapshot(mode: string, items: ValueScore[], requestedCount: number, generatedAt: string) {
+  const rankable = items.filter(item => item.rankingTrust?.status === "rankable");
+  const highTrust = rankable.filter(item => item.rankingTrust?.quality === "high");
+  const quoteDates = items.map(item => item.quoteDate || item.dataStatus?.quoteDate).filter((value): value is string => Boolean(value)).sort();
+  return {
+    mode,
+    generatedAt,
+    requestedCount,
+    scoredCount: items.length,
+    rankableCount: rankable.length,
+    highTrustCount: highTrust.length,
+    limitedCount: items.filter(item => item.rankingTrust?.status === "limited").length,
+    unavailableCount: items.filter(item => item.rankingTrust?.status === "unavailable").length,
+    oldestQuoteDate: quoteDates[0] || null,
+    newestQuoteDate: quoteDates[quoteDates.length - 1] || null,
+    rankingRule: "Primary score descending, then data coverage, quote date, and stock code. Only rows with a score, quote date, 60%+ coverage, and no stale datasets are rankable.",
+  };
+}
+
 function parseScreenerUniverse(value: unknown) {
   const raw = String(value || "").trim();
   if (!raw) return [];
@@ -3580,7 +3640,12 @@ async function loadScreener(mode: string, universeValue: unknown, options: { fas
     if (result.status === "fulfilled") items.push(result.value);
     else errors.push({ code: universe[index], message: result.reason instanceof Error ? result.reason.message : String(result.reason) });
   });
-  const sorted = items.sort((a, b) => screenerSortValue(mode, b) - screenerSortValue(mode, a));
+  items.forEach(item => {
+    item.rankingTrust = buildRankingTrust(item);
+  });
+  const sorted = [...items].sort((a, b) => compareRankingItems(a, b, item => screenerSortValue(mode, item)));
+  const generatedAt = new Date().toISOString();
+  const rankingSnapshot = buildRankingSnapshot(mode, sorted, universe.length, generatedAt);
   return {
     ok: sorted.length > 0,
     mode,
@@ -3596,6 +3661,8 @@ async function loadScreener(mode: string, universeValue: unknown, options: { fas
       defaultCount: DEFAULT_SCREENER_UNIVERSE.length,
       requestedCount: universe.length,
       scoredCount: sorted.length,
+      rankableCount: rankingSnapshot.rankableCount,
+      highTrustCount: rankingSnapshot.highTrustCount,
       customLimit: CUSTOM_SCREENER_LIMIT,
       defaultSeedLimit: DEFAULT_FULL_MARKET_SEED_LIMIT,
       defaultSeedSource: isDefaultUniverse ? "full-market company universe plus cross-industry swing seed" : "custom input",
@@ -3605,7 +3672,8 @@ async function loadScreener(mode: string, universeValue: unknown, options: { fas
         : "Custom input mode scores only the submitted stock list.",
     },
     source: SCORE_SOURCE_NOTE,
-    generatedAt: new Date().toISOString(),
+    generatedAt,
+    rankingSnapshot,
     items: sorted,
     errors,
   };
@@ -3614,7 +3682,7 @@ async function loadScreener(mode: string, universeValue: unknown, options: { fas
 function topItems(items: ValueScore[], predicate: (item: ValueScore) => boolean, sortValue: (item: ValueScore) => number | null, limit = 8) {
   return items
     .filter(predicate)
-    .sort((a, b) => (sortValue(b) ?? -1) - (sortValue(a) ?? -1))
+    .sort((a, b) => compareRankingItems(a, b, sortValue))
     .slice(0, limit);
 }
 
@@ -3987,7 +4055,9 @@ async function loadWorkbench() {
   const items = screener.items;
   const peerValuationSummary = applyPeerValuationPercentiles(items);
   const ranked = {
-    observationPool: topItems(items, item => item.professionalRating.total !== null, item => item.professionalRating.total, 16),
+    observationPool: [...items]
+      .filter(item => item.professionalRating.total !== null)
+      .sort((a, b) => compareRankingItems(a, b, item => item.professionalRating.total)),
     todayWatch: topItems(items, item =>
       (item.professionalRating.total || 0) >= 65 &&
       (item.scores.chaseRisk.score || 100) < 72 &&
@@ -4081,6 +4151,7 @@ async function loadWorkbench() {
     generatedAt: new Date().toISOString(),
     source: SCORE_SOURCE_NOTE,
     universeMeta: screener.universeMeta,
+    rankingSnapshot: screener.rankingSnapshot,
     finmind: {
       status: "checked",
       note: "FinMind TaiwanStockPrice live probe succeeded for 2330 on 2026-06-26 during local verification.",

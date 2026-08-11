@@ -216,6 +216,22 @@
     .rank-tabs { display:flex; flex-wrap:wrap; gap:.45rem; margin:.65rem 0; }
     .rank-tabs button { background:#fff; color:var(--ink); border:1px solid var(--line); min-height:32px; border-radius:999px; font-size:12px; padding:0 .72rem; }
     .rank-tabs button.active { background:var(--ink); color:#fff; }
+    .ranking-intro { display:flex; flex-wrap:wrap; justify-content:space-between; gap:.7rem; align-items:flex-start; }
+    .ranking-intro p { max-width:710px; color:var(--muted); font-size:12px; }
+    .ranking-status-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.5rem; margin:.75rem 0; }
+    .ranking-status-item { border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.58rem .65rem; min-width:0; }
+    .ranking-status-item b { display:block; color:var(--muted); font-size:12px; margin-bottom:.2rem; }
+    .ranking-status-item strong { display:block; font-size:.95rem; overflow-wrap:anywhere; }
+    .ranking-toolbar { display:flex; flex-wrap:wrap; gap:.55rem; align-items:end; padding:.65rem; border:1px solid #e7e5e1; border-radius:9px; background:#f8f7f4; }
+    .ranking-toolbar label { display:grid; gap:.25rem; color:var(--muted); font-size:12px; min-width:154px; }
+    .ranking-toolbar select { min-height:40px; }
+    .ranking-table { min-width:900px !important; }
+    .ranking-table tbody tr:hover td { background:#f4fbf9; }
+    .ranking-table .rank-cell { color:var(--muted); font-variant-numeric:tabular-nums; font-weight:760; }
+    .ranking-table .ranking-stock { min-width:152px; }
+    .ranking-table .ranking-stock button { min-height:36px; }
+    .ranking-table .ranking-date { min-width:96px; font-variant-numeric:tabular-nums; }
+    .ranking-cards { display:none; }
     .table-wrap { width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
     .table-wrap table { min-width:640px; }
     .table-wrap.compact-table table { min-width:520px; }
@@ -309,6 +325,13 @@
     .risk-note h3 { margin:0; font-size:.88rem; }
     .risk-note p { color:#55524e; font-size:12px; line-height:1.65; }
     .sr-only { position:absolute !important; width:1px !important; height:1px !important; padding:0 !important; margin:-1px !important; overflow:hidden !important; clip:rect(0,0,0,0) !important; white-space:nowrap !important; border:0 !important; }
+    @media (min-width:521px) {
+      .client-ranking-table { max-height:620px; overflow:auto; border:1px solid #e7e5e1; border-radius:9px; }
+      .ranking-table thead th { position:sticky; top:0; z-index:4; background:#f8f7f4; box-shadow:0 1px 0 #e1ded8; }
+      .ranking-table :is(th,td):nth-child(1) { position:sticky; left:0; z-index:3; min-width:54px; background:var(--card); }
+      .ranking-table :is(th,td):nth-child(2) { position:sticky; left:54px; z-index:3; background:var(--card); box-shadow:8px 0 10px -12px rgba(0,0,0,.48); }
+      .ranking-table thead :is(th):nth-child(1),.ranking-table thead :is(th):nth-child(2) { z-index:5; background:#f8f7f4; }
+    }
     @media (max-width:820px) {
       .hero-top,.two { grid-template-columns:1fr; }
       .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -322,6 +345,7 @@
       .doorway-grid { grid-template-columns:1fr; }
       .score-row,.workbench-item { grid-template-columns:1fr; }
       .client-form,.holding-grid,.holding-row,.scope-grid { grid-template-columns:1fr; }
+      .ranking-status-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .flow-steps { grid-template-columns:1fr 1fr; }
       .form { align-items:stretch; flex-wrap:wrap; }
       .form input { flex:1 1 100%; width:auto; }
@@ -381,6 +405,17 @@
       .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem; }
       .value-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .rank-tabs button { flex:1 1 calc(50% - .45rem); padding:0 .55rem; }
+      .ranking-toolbar { display:grid; grid-template-columns:1fr; }
+      .ranking-toolbar label { min-width:0; }
+      .client-ranking-table { display:none; }
+      .ranking-cards { display:grid; gap:.55rem; margin-top:.65rem; }
+      .ranking-card { border:1px solid #e1ded8; border-radius:10px; background:#fbfaf8; padding:.7rem; }
+      .ranking-card header { display:flex; justify-content:space-between; gap:.55rem; align-items:flex-start; }
+      .ranking-card header button { min-height:40px; text-align:left; }
+      .ranking-card-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.42rem .65rem; margin-top:.6rem; }
+      .ranking-card-grid div { border-top:1px solid #e7e5e1; padding-top:.38rem; }
+      .ranking-card-grid span { display:block; color:var(--muted); font-size:12px; }
+      .ranking-card-grid strong { display:block; margin-top:.12rem; font-size:13px; }
       .table-wrap { margin-inline:-.1rem; padding-bottom:.2rem; }
       .table-wrap table { min-width:700px; }
       .table-wrap.compact-table table { min-width:540px; }
@@ -805,7 +840,14 @@
         <section class="panel"><h2>&#x8ffd;&#x9ad8;&#x98a8;&#x96aa;&#x6e05;&#x55ae;</h2><div class="workbench-list" id="clientChaseList"></div></section>
       </section>
       <section class="panel">
-        <h2>&#x50f9;&#x503c;&#x8a55;&#x4f30;&#x6e05;&#x55ae;</h2>
+        <div class="ranking-intro">
+          <div>
+            <h2>&#x53ef;&#x8ffd;&#x6eaf;&#x6392;&#x884c;&#x699c;</h2>
+            <p>&#x6392;&#x540d;&#x53ea;&#x5c0d;&#x901a;&#x904e;&#x8cc7;&#x6599;&#x9580;&#x6abb;&#x7684;&#x89c0;&#x5bdf;&#x6c60;&#x751f;&#x6548;&#xff1b;&#x5176;&#x4ed6;&#x5217;&#x4fdd;&#x7559;&#x70ba;&#x8cc7;&#x6599;&#x53d7;&#x9650;&#x7684;&#x89c0;&#x5bdf;&#x9805;&#xff0c;&#x4e0d;&#x4ee5;&#x865b;&#x69cb;&#x540d;&#x6b21;&#x88dc;&#x8db3;&#x3002;</p>
+          </div>
+          <span class="badge tone-neut" id="clientRankingRule">&#x8cc7;&#x6599;&#x4f86;&#x6e90;&#x6aa2;&#x67e5;&#x4e2d;</span>
+        </div>
+        <div class="ranking-status-grid" id="clientRankingStatus" aria-live="polite"></div>
         <div class="rank-tabs" id="clientScopeTabs" aria-label="&#x6392;&#x884c;&#x699c;&#x7bc4;&#x570d;&#x7be9;&#x9078;">
           <button type="button" class="active" data-client-scope="all">&#x89c0;&#x5bdf;&#x6c60;</button>
           <button type="button" data-client-scope="stock">&#x500b;&#x80a1;</button>
@@ -819,7 +861,25 @@
           <button type="button" data-client-mode="smallInvestor">&#x5c0f;&#x8cc7;</button>
           <button type="button" data-client-mode="etf">ETF</button>
         </div>
-        <div class="table-wrap"><table><thead><tr><th>&#x80a1;&#x7968;</th><th>&#x7b49;&#x7d1a;</th><th>&#x7e3d;&#x5206;</th><th>&#x4f4e;&#x4f30;</th><th>&#x9ad8;&#x4f30;</th><th>&#x8ffd;&#x9ad8;</th><th>&#x8cc7;&#x6599;&#x8986;&#x84cb;</th></tr></thead><tbody id="clientRankingRows"><tr><td colspan="7">&#x8f09;&#x5165;&#x5de5;&#x4f5c;&#x53f0;...</td></tr></tbody></table></div>
+        <div class="ranking-toolbar" aria-label="&#x6392;&#x884c;&#x699c;&#x7be9;&#x9078;&#x8207;&#x6392;&#x5e8f;">
+          <label>&#x8cc7;&#x6599;&#x54c1;&#x8cea;
+            <select id="clientRankingQuality">
+              <option value="rankable">&#x53ef;&#x5217;&#x5165;&#x6392;&#x540d;</option>
+              <option value="high">&#x9ad8;&#x4fe1;&#x8cf4;&#x5ea6;</option>
+              <option value="all">&#x5305;&#x542b;&#x8cc7;&#x6599;&#x53d7;&#x9650;&#x5217;</option>
+            </select>
+          </label>
+          <label>&#x986f;&#x793a;&#x6392;&#x5e8f;
+            <select id="clientRankingSort">
+              <option value="score">&#x76ee;&#x524d;&#x6392;&#x884c;&#x6307;&#x6a19;</option>
+              <option value="coverage">&#x8cc7;&#x6599;&#x8986;&#x84cb;&#x7387;</option>
+              <option value="quoteDate">&#x5831;&#x50f9;&#x65e5;&#x671f;</option>
+              <option value="code">&#x80a1;&#x7968;&#x4ee3;&#x78bc;</option>
+            </select>
+          </label>
+        </div>
+        <div class="table-wrap client-ranking-table"><table class="ranking-table"><thead><tr><th>&#x540d;&#x6b21;</th><th>&#x80a1;&#x7968;</th><th>&#x72c0;&#x614b;</th><th>&#x7b49;&#x7d1a;</th><th>&#x7e3d;&#x5206;</th><th>&#x4f4e;&#x4f30;</th><th>&#x9ad8;&#x4f30;</th><th>&#x8ffd;&#x9ad8;</th><th>&#x8986;&#x84cb;</th><th>&#x5831;&#x50f9;&#x65e5;</th></tr></thead><tbody id="clientRankingRows"><tr><td colspan="10">&#x8f09;&#x5165;&#x5de5;&#x4f5c;&#x53f0;...</td></tr></tbody></table></div>
+        <div class="ranking-cards" id="clientRankingCards" aria-live="polite"></div>
         <p class="note" id="clientRankingNote"></p>
       </section>
       <section class="grid two">
@@ -961,6 +1021,8 @@
     let clientWorkbench = null;
     let clientRankingMode = "undervalued";
     let clientRankingScope = "all";
+    let clientRankingQuality = "rankable";
+    let clientRankingSort = "score";
     let swingWorkflow = null;
     let macroRiskView = null;
     let macroRiskRunner = null;
@@ -2889,30 +2951,137 @@
       $("clientPortfolioNote").textContent = `\u6301\u80a1\u98a8\u96aa\u4f9d\u76ee\u524d\u5de5\u4f5c\u5340\u89c0\u5bdf\u7bc4\u570d\u8a08\u7b97\uff1b${missing.length ? `${missing.length} \u6a94\u6c92\u6709\u53ef\u7528\u8a55\u5206\uff0c\u5df2\u6a19\u793a\u8cc7\u6599\u4e0d\u8db3\u3002` : "\u5df2\u8f09\u5165\u7684\u6301\u80a1\u90fd\u6709\u53ef\u7528\u8a55\u5206\u3002"}`;
     }
 
+    function clientRankingValue(item, mode) {
+      if (mode === "overvalued") return Number(item.scores?.overvalued);
+      if (mode === "cashflow") return Number(item.scores?.cashFlow?.score);
+      if (mode === "growth") return Number(item.scores?.growth?.score);
+      if (mode === "smallInvestor") return Number(item.scores?.smallInvestor);
+      if (mode === "etf") return Number(item.professionalRating?.assetModel === "etf" ? item.professionalRating?.total : NaN);
+      return Number(item.scores?.undervalued);
+    }
+
+    function clientRankingTrust(item) {
+      if (item?.rankingTrust) return item.rankingTrust;
+      const coveragePercent = Number(item?.dataStatus?.coverage?.percent || 0);
+      const hasQuoteDate = Boolean(item?.quoteDate || item?.dataStatus?.quoteDate);
+      const staleDatasetCount = Array.isArray(item?.dataStatus?.staleDatasets) ? item.dataStatus.staleDatasets.length : 0;
+      const hasTotalScore = Number.isFinite(Number(item?.professionalRating?.total));
+      const rankable = hasTotalScore && hasQuoteDate && coveragePercent >= 60 && staleDatasetCount === 0;
+      return {
+        status: !hasTotalScore ? "unavailable" : rankable ? "rankable" : "limited",
+        quality: !hasTotalScore ? "unavailable" : rankable && coveragePercent >= 85 ? "high" : rankable ? "standard" : "limited",
+        coveragePercent,
+        hasQuoteDate,
+        staleDatasetCount,
+        reasons: [],
+      };
+    }
+
+    function clientRankingTrustBadge(trust) {
+      if (trust?.status === "rankable") return badge(trust.quality === "high" ? "\u9ad8\u4fe1\u8cf4" : "\u53ef\u6392\u540d", "bull");
+      if (trust?.status === "limited") return badge("\u8cc7\u6599\u53d7\u9650", "warn");
+      return badge("\u7121\u6cd5\u8a55\u5206", "neut");
+    }
+
+    function compareClientRankingRows(a, b, mode, sort) {
+      if (sort === "coverage") {
+        const diff = Number(b.dataStatus?.coverage?.percent || 0) - Number(a.dataStatus?.coverage?.percent || 0);
+        if (diff) return diff;
+      } else if (sort === "quoteDate") {
+        const diff = String(b.quoteDate || b.dataStatus?.quoteDate || "").localeCompare(String(a.quoteDate || a.dataStatus?.quoteDate || ""));
+        if (diff) return diff;
+      } else if (sort === "code") {
+        return String(a.code).localeCompare(String(b.code));
+      } else {
+        const aValue = clientRankingValue(a, mode);
+        const bValue = clientRankingValue(b, mode);
+        const diff = (Number.isFinite(bValue) ? bValue : -1) - (Number.isFinite(aValue) ? aValue : -1);
+        if (diff) return diff;
+      }
+      const coverageDiff = Number(b.dataStatus?.coverage?.percent || 0) - Number(a.dataStatus?.coverage?.percent || 0);
+      if (coverageDiff) return coverageDiff;
+      const quoteDiff = String(b.quoteDate || b.dataStatus?.quoteDate || "").localeCompare(String(a.quoteDate || a.dataStatus?.quoteDate || ""));
+      if (quoteDiff) return quoteDiff;
+      return String(a.code).localeCompare(String(b.code));
+    }
+
+    function renderClientRankingStatus(snapshot, meta, visibleCount) {
+      const generatedAt = snapshot?.generatedAt || clientWorkbench?.generatedAt || null;
+      const fallbackRows = allWorkbenchItems();
+      const fallbackRankableCount = fallbackRows.filter((item) => clientRankingTrust(item).status === "rankable").length;
+      const fallbackHighTrustCount = fallbackRows.filter((item) => clientRankingTrust(item).quality === "high").length;
+      const rankableCount = snapshot?.rankableCount ?? meta?.rankableCount ?? fallbackRankableCount;
+      const highTrustCount = snapshot?.highTrustCount ?? meta?.highTrustCount ?? fallbackHighTrustCount;
+      $("clientRankingStatus").innerHTML = [
+        ["\u672c\u6b21\u8a55\u5206", `${snapshot?.scoredCount ?? meta?.scoredCount ?? 0}/${snapshot?.requestedCount ?? meta?.requestedCount ?? 0} \u6a94`],
+        ["\u53ef\u5217\u5165\u6392\u540d", `${rankableCount} \u6a94`],
+        ["\u9ad8\u4fe1\u8cf4\u5ea6", `${highTrustCount} \u6a94`],
+        ["\u66f4\u65b0\u6642\u9593", statusDate(generatedAt)],
+      ].map(([label, value]) => `<div class="ranking-status-item"><b>${escapeHtml(label)}</b><strong>${escapeHtml(value)}</strong></div>`).join("");
+      const rule = $("clientRankingRule");
+      rule.className = `badge tone-${rankableCount ? "bull" : "warn"}`;
+      rule.textContent = snapshot?.rankingRule ? "\u6392\u540d\u898f\u5247\u5df2\u63ed\u9732" : "\u6392\u540d\u898f\u5247\u8cc7\u8a0a\u4e0d\u8db3";
+      return generatedAt ? `\u672c\u6b21\u66f4\u65b0 ${statusDate(generatedAt)}` : "\u672c\u6b21\u66f4\u65b0\u6642\u9593\u4e0d\u8db3";
+    }
+
     function renderClientRanking(mode = clientRankingMode) {
       clientRankingMode = mode;
-      const baseRows = mode === "all" ? allWorkbenchItems() : (clientWorkbench?.ranked?.[mode] || []);
-      const rows = baseRows.filter((item) => {
+      const baseRows = allWorkbenchItems();
+      const scopedRows = baseRows.filter((item) => {
         if (clientRankingScope === "stock") return item.professionalRating?.assetModel === "stock";
         if (clientRankingScope === "etf") return item.professionalRating?.assetModel === "etf";
         return true;
       });
-      $("clientRankingRows").innerHTML = rows.length ? rows.map((item) => `
-        <tr>
-          <td><button class="chip" type="button" data-rank-code="${escapeHtml(item.code)}">${escapeHtml(item.code)} ${escapeHtml(item.name || "")}</button></td>
-          <td>${badge(item.professionalRating?.grade || "X", ["A","B"].includes(item.professionalRating?.grade) ? "bull" : item.professionalRating?.grade === "C" ? "warn" : "bear")}</td>
-          <td>${scoreText(item.professionalRating?.total)}</td>
-          <td>${scoreText(item.scores?.undervalued)}</td>
-          <td>${scoreText(item.scores?.overvalued)}</td>
-          <td>${scoreText(item.scores?.chaseRisk?.score)}</td>
-          <td>${item.dataStatus?.coverage?.percent || 0}%</td>
-        </tr>`).join("") : `<tr><td colspan="7">\u76ee\u524d\u6c92\u6709\u7b26\u5408\u689d\u4ef6\u7684\u6e05\u55ae\u3002</td></tr>`;
+      const rows = scopedRows
+        .filter((item) => {
+          const trust = clientRankingTrust(item);
+          if (clientRankingQuality === "high") return trust.quality === "high";
+          if (clientRankingQuality === "rankable") return trust.status === "rankable" && Number.isFinite(clientRankingValue(item, mode));
+          return true;
+        })
+        .sort((a, b) => compareClientRankingRows(a, b, mode, clientRankingSort));
       const meta = clientWorkbench?.universeMeta || {};
+      const snapshot = clientWorkbench?.rankingSnapshot || {};
+      const updateText = renderClientRankingStatus(snapshot, meta, rows.length);
+      const rankLabel = clientRankingSort === "score" ? "#" : "--";
+      $("clientRankingRows").innerHTML = rows.length ? rows.map((item, index) => {
+        const trust = clientRankingTrust(item);
+        const gradeTone = ["A","B"].includes(item.professionalRating?.grade) ? "bull" : item.professionalRating?.grade === "C" ? "warn" : "bear";
+        return `
+          <tr>
+            <td class="rank-cell">${rankLabel === "#" ? `#${index + 1}` : rankLabel}</td>
+            <td class="ranking-stock"><button class="chip" type="button" data-rank-code="${escapeHtml(item.code)}">${escapeHtml(item.code)} ${escapeHtml(item.name || "")}</button></td>
+            <td>${clientRankingTrustBadge(trust)}</td>
+            <td>${badge(item.professionalRating?.grade || "X", gradeTone)}</td>
+            <td>${scoreText(item.professionalRating?.total)}</td>
+            <td>${scoreText(item.scores?.undervalued)}</td>
+            <td>${scoreText(item.scores?.overvalued)}</td>
+            <td>${scoreText(item.scores?.chaseRisk?.score)}</td>
+            <td>${trust.coveragePercent || 0}%</td>
+            <td class="ranking-date">${escapeHtml(statusDate(item.quoteDate || item.dataStatus?.quoteDate))}</td>
+          </tr>`;
+      }).join("") : `<tr><td colspan="10">\u76ee\u524d\u6c92\u6709\u7b26\u5408\u7be9\u9078\u689d\u4ef6\u7684\u6e05\u55ae\u3002</td></tr>`;
+      $("clientRankingCards").innerHTML = rows.length ? rows.map((item, index) => {
+        const trust = clientRankingTrust(item);
+        return `
+          <article class="ranking-card">
+            <header><button class="chip" type="button" data-rank-code="${escapeHtml(item.code)}">${rankLabel === "#" ? `#${index + 1} ` : ""}${escapeHtml(item.code)} ${escapeHtml(item.name || "")}</button>${clientRankingTrustBadge(trust)}</header>
+            <div class="ranking-card-grid">
+              <div><span>\u7e3d\u5206</span><strong>${scoreText(item.professionalRating?.total)}</strong></div>
+              <div><span>\u4f4e\u4f30</span><strong>${scoreText(item.scores?.undervalued)}</strong></div>
+              <div><span>\u8cc7\u6599\u8986\u84cb</span><strong>${trust.coveragePercent || 0}%</strong></div>
+              <div><span>\u5831\u50f9\u65e5</span><strong>${escapeHtml(statusDate(item.quoteDate || item.dataStatus?.quoteDate))}</strong></div>
+            </div>
+          </article>`;
+      }).join("") : `<p class="note">\u76ee\u524d\u6c92\u6709\u7b26\u5408\u7be9\u9078\u689d\u4ef6\u7684\u6e05\u55ae\u3002</p>`;
       const scopeLabel = clientRankingScope === "stock" ? "\u500b\u80a1" : clientRankingScope === "etf" ? "ETF" : "\u89c0\u5bdf\u6c60";
       const marketText = meta.fullMarketCompanyCount
         ? `\u5f8c\u81fa\u5168\u81fa\u80a1\u516c\u53f8\u89c0\u5bdf\u7bc4\u570d ${meta.fullMarketCompanyCount} \u6a94\u5df2\u9023\u7dda`
         : "\u5f8c\u81fa\u5168\u81fa\u80a1\u516c\u53f8\u89c0\u5bdf\u7bc4\u570d\u5f85\u6aa2\u67e5";
-      $("clientRankingNote").textContent = `${scopeLabel}\uff1a${meta.name || "\u53f0\u80a1\u6279\u6b21\u8a55\u5206"} ${meta.version || ""}\uff0c\u672c\u6b21\u8a55\u5206 ${meta.scoredCount || 0} / ${meta.requestedCount || 0} \u6a94\uff0c\u76ee\u524d\u986f\u793a ${rows.length} \u6a94\u3002${marketText}\uff1b\u76ee\u524d\u6392\u884c\u4ecd\u662f\u53ef\u63a7\u6279\u6b21\uff0c\u4e0d\u5047\u88dd\u70ba\u5168\u5e02\u5834\u5373\u6642\u6392\u540d\u3002`;
+      const quoteWindow = snapshot?.oldestQuoteDate && snapshot?.newestQuoteDate
+        ? `\u5831\u50f9\u65e5\u671f ${statusDate(snapshot.oldestQuoteDate)}\u2013${statusDate(snapshot.newestQuoteDate)}`
+        : "\u5831\u50f9\u65e5\u671f\u4e0d\u8db3";
+      $("clientRankingNote").textContent = `${scopeLabel}\uff1a${meta.name || "\u53f0\u80a1\u6279\u6b21\u8a55\u5206"} ${meta.version || ""}\uff0c${updateText}\uff0c${quoteWindow}\uff0c\u76ee\u524d\u986f\u793a ${rows.length} \u6a94\u3002${marketText}\uff1b\u6392\u540d\u4ecd\u662f\u53ef\u63a7\u6279\u6b21\uff0c\u4e0d\u5047\u88dd\u70ba\u5168\u5e02\u5834\u5373\u6642\u6392\u540d\u3002`;
     }
 
     function renderBacktestLab(results) {
@@ -4843,6 +5012,14 @@
       if (!btn) return;
       $("clientRankingTabs").querySelectorAll("button").forEach((item) => item.classList.toggle("active", item === btn));
       renderClientRanking(btn.dataset.clientMode);
+    });
+    $("clientRankingQuality").addEventListener("change", (e) => {
+      clientRankingQuality = e.target.value;
+      renderClientRanking(clientRankingMode);
+    });
+    $("clientRankingSort").addEventListener("change", (e) => {
+      clientRankingSort = e.target.value;
+      renderClientRanking(clientRankingMode);
     });
     $("clientPage").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-rank-code]");
