@@ -355,7 +355,7 @@
     .market-section-head { display:flex; flex-wrap:wrap; justify-content:space-between; gap:.7rem; align-items:flex-start; padding:.78rem .88rem .6rem; }
     .market-section-head h2 { margin:0; color:#1c3834; font-size:.98rem; }
     .market-section-head p { color:#71807d; font-size:11px; line-height:1.45; }
-    .industry-heatmap { display:grid; grid-template-columns:repeat(8,minmax(112px,1fr)); gap:.4rem; padding:0 .82rem .82rem; overflow-x:auto; }
+    .industry-heatmap { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(112px,1fr); gap:.4rem; padding:0 .82rem .82rem; overflow-x:auto; }
     .industry-tile { min-height:72px; border:1px solid transparent; border-radius:8px; padding:.58rem .62rem; color:#24423d; background:#edf6f2; text-align:left; }
     .industry-tile:hover,.industry-tile.active { border-color:#0d786c; box-shadow:0 0 0 1px #0d786c inset; }
     .industry-tile b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
@@ -370,7 +370,7 @@
     .industry-tile.heat-down-3 { color:#155b49; background:#c5e7dc; }
     .market-filter-details { border-top:1px solid #edf0ef; }
     .market-filter-details > summary { display:none; }
-    .market-filter-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)) auto; gap:.55rem; align-items:end; padding:.72rem .82rem; }
+    .market-filter-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)) auto; gap:.55rem; align-items:end; padding:.72rem .82rem; }
     .market-filter-grid label { display:grid; gap:.24rem; color:#71807d; font-size:11px; }
     .market-filter-grid select { width:100%; min-height:38px; border-color:#dce3e1; font-size:12px; }
     .market-filter-grid button { min-height:38px; background:#edf5f2; color:#28534b; }
@@ -408,7 +408,9 @@
     }
     @media (max-width:820px) {
       .market-topbar { grid-template-columns:1fr auto; }
-      .market-search { grid-column:1 / -1; grid-row:2; max-width:none; }
+      .market-search-wrap { grid-column:1 / -1; grid-row:2; min-width:0; }
+      .market-search { max-width:none; }
+      .market-search input,.market-search button,.market-filter-grid select,.market-filter-grid button { min-height:44px; }
       .market-summary-strip { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .market-summary-item { border-bottom:1px solid #e7ecea; }
       .market-summary-item:first-child { grid-column:1 / -1; }
@@ -465,6 +467,7 @@
       .market-ranking-cards { display:grid; gap:.55rem; padding:.65rem .72rem; border-top:1px solid #edf0ef; }
       .market-ranking-card { border:1px solid #dde5e2; border-radius:9px; background:#fbfdfc; padding:.68rem; }
       .market-ranking-card header { display:flex; justify-content:space-between; gap:.5rem; align-items:flex-start; }
+      .market-ranking-card .market-stock-button { min-height:44px; }
       .market-ranking-card-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.42rem .65rem; margin-top:.55rem; }
       .market-ranking-card-grid div { border-top:1px solid #e7ecea; padding-top:.34rem; }
       .market-ranking-card-grid span { display:block; color:#778580; font-size:10px; }
@@ -577,7 +580,7 @@
           <span class="market-brand-mark" aria-hidden="true">TW</span>
           <span><strong id="headline">&#x53f0;&#x80a1;&#x6ce2;&#x6bb5;&#x89c0;&#x5bdf;&#x5206;&#x6790;&#x5eab;</strong><small>MARKET RADAR</small></span>
         </div>
-        <div>
+        <div class="market-search-wrap">
           <form class="market-search" id="stockForm">
             <input id="stockInput" list="stockSuggestions" autocomplete="off" placeholder="&#x641c;&#x5c0b;&#x80a1;&#x7968;&#x4ee3;&#x78bc;&#x6216;&#x540d;&#x7a31;" aria-label="&#x80a1;&#x7968;&#x4ee3;&#x78bc;&#x6216;&#x540d;&#x7a31;">
             <datalist id="stockSuggestions"></datalist>
