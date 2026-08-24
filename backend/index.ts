@@ -1455,6 +1455,7 @@ type ValueScore = {
   code: string;
   name: string;
   market: string;
+  industryGroup: string;
   close: number;
   quoteDate: string | null;
   change: number | null;
@@ -3416,6 +3417,7 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
     code: quote.code,
     name: quote.name,
     market: quote.market,
+    industryGroup,
     close,
     change: quote.change,
     volume: quote.volume,

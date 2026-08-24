@@ -324,6 +324,79 @@
     .risk-note header { display:flex; justify-content:space-between; align-items:flex-start; gap:.5rem; }
     .risk-note h3 { margin:0; font-size:.88rem; }
     .risk-note p { color:#55524e; font-size:12px; line-height:1.65; }
+    .page { max-width:1240px; padding:0 1rem 1.4rem; }
+    .page.workspace-active > .market-radar-home { display:none; }
+    .market-app-header { position:sticky; top:0; z-index:40; margin:0 -1rem; padding:.68rem 1rem; border-bottom:1px solid #dfe5e3; background:rgba(255,255,255,.96); backdrop-filter:blur(14px); box-shadow:0 5px 18px rgba(21,51,47,.06); }
+    .market-topbar { max-width:1208px; margin:0 auto; display:grid; grid-template-columns:auto minmax(280px,1fr) auto; gap:1rem; align-items:center; }
+    .market-brand { display:flex; align-items:center; gap:.6rem; min-width:max-content; }
+    .market-brand-mark { display:grid; place-items:center; width:34px; height:34px; border-radius:9px; color:#fff; background:#0d786c; font-weight:850; letter-spacing:-.03em; }
+    .market-brand strong { display:block; color:#16312e; font-size:.93rem; line-height:1.2; }
+    .market-brand small { display:block; margin-top:.08rem; color:#6d7d79; font-size:10px; letter-spacing:.08em; }
+    .market-search { display:grid; grid-template-columns:minmax(150px,1fr) auto; gap:.45rem; align-items:center; max-width:520px; justify-self:center; width:100%; }
+    .market-search input { width:100%; min-height:40px; border-color:#d7e0dd; background:#f8faf9; }
+    .market-search button { min-height:40px; background:#0d786c; }
+    .market-header-actions { display:flex; align-items:center; gap:.4rem; }
+    .market-header-actions button { min-height:38px; border:1px solid #dce3e1; background:#fff; color:#29413e; font-size:12px; }
+    .market-header-actions button:hover { border-color:#0d786c; color:#0d786c; }
+    .market-radar-home { padding-top:1rem; }
+    .market-radar-title { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:.8rem; margin:.3rem 0 .8rem; }
+    .market-radar-title h1 { color:#17322f; font-size:1.45rem; }
+    .market-radar-title p { max-width:720px; color:#667772; font-size:12px; }
+    .market-data-state { display:inline-flex; align-items:center; gap:.38rem; min-height:32px; border-radius:999px; padding:0 .72rem; color:#18614f; background:#e7f5ef; font-size:12px; font-weight:760; }
+    .market-data-state::before { content:""; width:7px; height:7px; border-radius:50%; background:#28a57f; }
+    .market-summary-strip { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); border:1px solid #dfe5e3; border-radius:10px; background:#fff; overflow:hidden; }
+    .market-summary-item { min-width:0; padding:.72rem .82rem; border-right:1px solid #e7ecea; }
+    .market-summary-item:last-child { border-right:0; }
+    .market-summary-item b { display:block; color:#74827f; font-size:11px; font-weight:700; }
+    .market-summary-item strong { display:block; margin-top:.18rem; color:#1b3935; font-size:1.02rem; line-height:1.25; overflow-wrap:anywhere; }
+    .market-summary-item span { display:block; margin-top:.14rem; color:#71807d; font-size:10px; line-height:1.35; }
+    .market-radar-section { margin-top:.85rem; border:1px solid #dfe5e3; border-radius:10px; background:#fff; }
+    .market-section-head { display:flex; flex-wrap:wrap; justify-content:space-between; gap:.7rem; align-items:flex-start; padding:.78rem .88rem .6rem; }
+    .market-section-head h2 { margin:0; color:#1c3834; font-size:.98rem; }
+    .market-section-head p { color:#71807d; font-size:11px; line-height:1.45; }
+    .industry-heatmap { display:grid; grid-template-columns:repeat(8,minmax(112px,1fr)); gap:.4rem; padding:0 .82rem .82rem; overflow-x:auto; }
+    .industry-tile { min-height:72px; border:1px solid transparent; border-radius:8px; padding:.58rem .62rem; color:#24423d; background:#edf6f2; text-align:left; }
+    .industry-tile:hover,.industry-tile.active { border-color:#0d786c; box-shadow:0 0 0 1px #0d786c inset; }
+    .industry-tile b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
+    .industry-tile strong { display:block; margin-top:.14rem; font-size:1rem; }
+    .industry-tile span { display:block; margin-top:.1rem; color:currentColor; opacity:.72; font-size:10px; }
+    .industry-tile.heat-up-3 { color:#7d1f26; background:#f7d9dc; }
+    .industry-tile.heat-up-2 { color:#8d3135; background:#f8e3e3; }
+    .industry-tile.heat-up-1 { color:#7c4948; background:#faeeee; }
+    .industry-tile.heat-flat { color:#4e6460; background:#edf2f0; }
+    .industry-tile.heat-down-1 { color:#2f6557; background:#e6f3ee; }
+    .industry-tile.heat-down-2 { color:#1f6654; background:#d6eee5; }
+    .industry-tile.heat-down-3 { color:#155b49; background:#c5e7dc; }
+    .market-filter-details { border-top:1px solid #edf0ef; }
+    .market-filter-details > summary { display:none; }
+    .market-filter-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)) auto; gap:.55rem; align-items:end; padding:.72rem .82rem; }
+    .market-filter-grid label { display:grid; gap:.24rem; color:#71807d; font-size:11px; }
+    .market-filter-grid select { width:100%; min-height:38px; border-color:#dce3e1; font-size:12px; }
+    .market-filter-grid button { min-height:38px; background:#edf5f2; color:#28534b; }
+    .market-ranking-wrap { max-height:610px; overflow:auto; border-top:1px solid #edf0ef; }
+    .market-ranking-table { min-width:1040px; font-size:12px; }
+    .market-ranking-table thead th { position:sticky; top:0; z-index:4; background:#f7f9f8; box-shadow:0 1px 0 #dfe5e3; }
+    .market-ranking-table th,.market-ranking-table td { padding:.5rem .62rem; white-space:nowrap; }
+    .market-ranking-table :is(th,td):nth-child(1) { position:sticky; left:0; z-index:3; min-width:52px; background:#fff; }
+    .market-ranking-table :is(th,td):nth-child(2) { position:sticky; left:52px; z-index:3; min-width:164px; background:#fff; box-shadow:8px 0 10px -12px rgba(0,0,0,.45); }
+    .market-ranking-table thead :is(th):nth-child(1),.market-ranking-table thead :is(th):nth-child(2) { z-index:5; background:#f7f9f8; }
+    .market-ranking-table tbody tr:hover td { background:#f2f8f6; }
+    .market-stock-button { min-height:34px; padding:0; color:#183a35; background:transparent; text-align:left; }
+    .market-stock-button small { display:block; color:#74827f; font-weight:600; }
+    .market-score { color:#173f38; font-variant-numeric:tabular-nums; font-weight:800; }
+    .market-change-up { color:#a22a31; font-weight:760; }
+    .market-change-down { color:#08705a; font-weight:760; }
+    .market-ranking-cards { display:none; }
+    .market-ranking-note { padding:.62rem .82rem; border-top:1px solid #edf0ef; color:#71807d; font-size:11px; line-height:1.5; }
+    .customer-task-tray { position:fixed; right:18px; bottom:18px; z-index:60; width:min(340px,calc(100vw - 28px)); border:1px solid #cfd9d6; border-radius:11px; background:#fff; padding:.75rem .82rem; box-shadow:0 16px 38px rgba(24,57,51,.16); }
+    .customer-task-tray[hidden] { display:none; }
+    .customer-task-head { display:flex; justify-content:space-between; gap:.7rem; align-items:center; }
+    .customer-task-head strong { color:#1a3a35; font-size:13px; }
+    .customer-task-head span { color:#0d786c; font-size:12px; font-weight:800; }
+    .customer-task-bar { height:8px; margin:.55rem 0 .38rem; border-radius:999px; background:#e8eeec; overflow:hidden; }
+    .customer-task-bar i { display:block; height:100%; width:0; border-radius:999px; background:#0d8a79; transition:width .28s ease; }
+    .customer-task-tray p { margin:0; color:#687a76; font-size:11px; line-height:1.45; }
+    .legacy-home { display:none !important; }
     .sr-only { position:absolute !important; width:1px !important; height:1px !important; padding:0 !important; margin:-1px !important; overflow:hidden !important; clip:rect(0,0,0,0) !important; white-space:nowrap !important; border:0 !important; }
     @media (min-width:521px) {
       .client-ranking-table { max-height:620px; overflow:auto; border:1px solid #e7e5e1; border-radius:9px; }
@@ -333,6 +406,12 @@
       .ranking-table thead :is(th):nth-child(1),.ranking-table thead :is(th):nth-child(2) { z-index:5; background:#f8f7f4; }
     }
     @media (max-width:820px) {
+      .market-topbar { grid-template-columns:1fr auto; }
+      .market-search { grid-column:1 / -1; grid-row:2; max-width:none; }
+      .market-summary-strip { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .market-summary-item { border-bottom:1px solid #e7ecea; }
+      .market-summary-item:first-child { grid-column:1 / -1; }
+      .market-filter-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .hero-top,.two { grid-template-columns:1fr; }
       .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .decision-grid,.horizon-grid,.dow-grid,.strategy-grid,.wave-legend,.value-grid,.client-grid,.client-grid.two-col { grid-template-columns:1fr; }
@@ -365,7 +444,31 @@
       .agent-msg.user,.agent-msg.agent { margin-left:0; margin-right:0; }
     }
     @media (max-width:520px) {
-      .page { padding:.72rem; }
+      .page { padding:0 .72rem .9rem; }
+      .market-app-header { position:relative; margin:0 -.72rem; padding:.65rem .72rem; }
+      .market-brand small,.market-header-actions button:not(:last-child) { display:none; }
+      .market-brand strong { font-size:.85rem; }
+      .market-radar-home { padding-top:.72rem; }
+      .market-radar-title { align-items:flex-start; }
+      .market-radar-title h1 { font-size:1.2rem; }
+      .market-data-state { width:100%; justify-content:center; }
+      .market-summary-strip { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .market-summary-item { padding:.62rem; }
+      .industry-heatmap { display:flex; overflow-x:auto; scroll-snap-type:x proximity; padding:0 .72rem .72rem; }
+      .industry-tile { flex:0 0 132px; scroll-snap-align:start; }
+      .market-filter-details > summary { display:flex; min-height:46px; align-items:center; justify-content:space-between; padding:.65rem .72rem; cursor:pointer; color:#23423d; font-size:12px; font-weight:780; }
+      .market-filter-details > summary::after { content:"+"; color:#0d786c; font-size:18px; }
+      .market-filter-details[open] > summary::after { content:"-"; }
+      .market-filter-grid { grid-template-columns:1fr; padding-top:0; }
+      .market-ranking-wrap { display:none; }
+      .market-ranking-cards { display:grid; gap:.55rem; padding:.65rem .72rem; border-top:1px solid #edf0ef; }
+      .market-ranking-card { border:1px solid #dde5e2; border-radius:9px; background:#fbfdfc; padding:.68rem; }
+      .market-ranking-card header { display:flex; justify-content:space-between; gap:.5rem; align-items:flex-start; }
+      .market-ranking-card-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.42rem .65rem; margin-top:.55rem; }
+      .market-ranking-card-grid div { border-top:1px solid #e7ecea; padding-top:.34rem; }
+      .market-ranking-card-grid span { display:block; color:#778580; font-size:10px; }
+      .market-ranking-card-grid strong { display:block; margin-top:.1rem; color:#27433f; font-size:12px; }
+      .customer-task-tray { right:14px; bottom:14px; }
       .hero { border-radius:12px; padding:.85rem; min-height:0; }
       .hero-flow { display:none; }
       .hero p { font-size:.86rem; line-height:1.55; }
@@ -467,50 +570,79 @@
 </head>
 <body>
   <main class="page" id="appPage">
-    <section class="hero reveal">
-      <div class="hero-top">
-        <div>
-          <span class="hero-kicker">1-3 &#x500b;&#x6708;&#x53f0;&#x80a1;&#x6ce2;&#x6bb5;</span>
-          <h1 id="headline">&#x53f0;&#x80a1;&#x6ce2;&#x6bb5;&#x89c0;&#x5bdf;&#x5206;&#x6790;&#x5eab;</h1>
-          <p id="subtitle">&#x8f38;&#x5165;&#x4f60;&#x60f3;&#x89c0;&#x5bdf;&#x7684;&#x80a1;&#x7968;&#xff0c;&#x5148;&#x770b;&#x8ffd;&#x9ad8;&#x98a8;&#x96aa;&#x3001;&#x652f;&#x6490;&#x58d3;&#x529b;&#x8207;&#x5931;&#x6548;&#x689d;&#x4ef6;&#x3002;<br>&#x518d;&#x5ef6;&#x4f38;&#x6210; 1-3 &#x500b;&#x6708;&#x6ce2;&#x6bb5;&#x89c0;&#x5bdf;&#x65b9;&#x6cd5;&#x3002;</p>
-          <div class="hero-flow" aria-label="&#x4f7f;&#x7528;&#x6d41;&#x7a0b;">
-            <span>1. &#x9078;&#x64c7;&#x80a1;&#x7968;</span>
-            <span>2. &#x67e5;&#x770b;&#x521d;&#x5224;</span>
-            <span>3. &#x78ba;&#x8a8d;&#x50f9;&#x683c;&#x8a08;&#x756b;</span>
-            <span>4. &#x9032;&#x5165;&#x6df1;&#x5ea6;&#x5206;&#x6790;</span>
-          </div>
-          <div class="hero-facts" id="heroFacts"></div>
-          <div class="hero-facts" id="valueRadarHeroBadge"></div>
+    <header class="market-app-header hero reveal">
+      <div class="market-topbar">
+        <div class="market-brand" aria-label="&#x53f0;&#x80a1;&#x6ce2;&#x6bb5;&#x89c0;&#x5bdf;&#x5206;&#x6790;&#x5eab;">
+          <span class="market-brand-mark" aria-hidden="true">TW</span>
+          <span><strong id="headline">&#x53f0;&#x80a1;&#x6ce2;&#x6bb5;&#x89c0;&#x5bdf;&#x5206;&#x6790;&#x5eab;</strong><small>MARKET RADAR</small></span>
         </div>
-        <div class="hero-form-card">
-          <form class="form" id="stockForm">
-            <input id="stockInput" list="stockSuggestions" autocomplete="off" placeholder="&#x4f8b;&#x5982; 2330&#x3001;&#x53f0;&#x7a4d;&#x96fb;&#x3001;&#x83ef;&#x90a6;&#x96fb;" aria-label="&#x80a1;&#x7968;&#x4ee3;&#x78bc;&#x6216;&#x540d;&#x7a31;">
+        <div>
+          <form class="market-search" id="stockForm">
+            <input id="stockInput" list="stockSuggestions" autocomplete="off" placeholder="&#x641c;&#x5c0b;&#x80a1;&#x7968;&#x4ee3;&#x78bc;&#x6216;&#x540d;&#x7a31;" aria-label="&#x80a1;&#x7968;&#x4ee3;&#x78bc;&#x6216;&#x540d;&#x7a31;">
             <datalist id="stockSuggestions"></datalist>
-            <button type="submit" id="analyzeBtn">&#x958b;&#x59cb;&#x5206;&#x6790;</button>
-            <button class="secondary" type="button" id="resetBtn" disabled>&#x91cd;&#x65b0;&#x5206;&#x6790;</button>
+            <button type="submit" id="analyzeBtn">&#x5206;&#x6790;</button>
           </form>
           <div class="stock-suggestion-list" id="stockSuggestionList" role="listbox" aria-label="&#x80a1;&#x7968;&#x540d;&#x7a31;&#x5019;&#x9078;" hidden></div>
-          <div class="chips" id="quickCodes">
-            <button class="chip" data-code="2330" type="button">2330 &#x53f0;&#x7a4d;&#x96fb;</button>
-            <button class="chip" data-code="2344" type="button">2344 &#x83ef;&#x90a6;&#x96fb;</button>
-            <button class="chip" data-code="2454" type="button">2454 &#x806f;&#x767c;&#x79d1;</button>
-            <button class="chip" data-code="0050" type="button">0050 &#x53f0;&#x7063;50</button>
-          </div>
         </div>
+        <nav class="market-header-actions" aria-label="&#x4e3b;&#x8981;&#x529f;&#x80fd;">
+          <button type="button" data-market-view="client">&#x81ea;&#x9078;&#x80a1;</button>
+          <button type="button" data-market-view="swing">&#x7b56;&#x7565;&#x9078;&#x80a1;</button>
+          <button type="button" data-market-view="risk">&#x98a8;&#x96aa;&#x6383;&#x63cf;</button>
+        </nav>
       </div>
-      <details class="home-status-details" id="homeStatusDetails" open>
-        <summary><span>&#x8cc7;&#x6599;&#x8207;&#x66f4;&#x65b0;&#x6642;&#x9593;</span><strong class="home-status-summary" id="homeStatusSummary">&#x7b49;&#x5f85;&#x9078;&#x80a1;</strong></summary>
-        <div class="hero-status-grid" aria-label="&#x5206;&#x6790;&#x72c0;&#x614b;">
-          <div class="hero-status-tile" id="homeStockStatus"><span class="tile-label">&#x80a1;&#x7968;</span><strong class="tile-value">&#x5f85;&#x8f38;&#x5165;</strong><span class="tile-detail">&#x7b49;&#x5f85;&#x4ee3;&#x78bc;&#x6216;&#x540d;&#x7a31;</span></div>
-          <div class="hero-status-tile" id="homeQuoteStatus"><span class="tile-label">&#x5831;&#x50f9;</span><strong class="tile-value">&#x5f85;&#x8f09;&#x5165;</strong><span class="tile-detail">&#x5c1a;&#x672a;&#x5411;&#x5f8c;&#x7aef;&#x53d6;&#x5f97;&#x6578;&#x64da;</span></div>
-          <div class="hero-status-tile" id="homeAnalysisStatus"><span class="tile-label">&#x5206;&#x6790;</span><strong class="tile-value">&#x5f85;&#x555f;&#x52d5;</strong><span class="tile-detail">&#x5c1a;&#x672a;&#x8a08;&#x7b97;&#x652f;&#x6490;&#x58d3;&#x529b;</span></div>
-          <div class="hero-status-tile" id="homeValueStatus"><span class="tile-label">&#x50f9;&#x503c;&#x96f7;&#x9054;</span><strong class="tile-value">&#x5f85;&#x8f38;&#x5165;</strong><span class="tile-detail">&#x7b49;&#x5f85;&#x516c;&#x958b;&#x8cc7;&#x6599;&#x8a55;&#x5206;</span></div>
-        </div>
-        <div class="status" id="status" role="status" aria-live="polite" aria-atomic="true">&#x6e96;&#x5099;&#x8f09;&#x5165;&#x6700;&#x65b0;&#x8cc7;&#x6599;&#x3002;</div>
-      </details>
+      <div hidden>
+        <p id="subtitle"></p><div id="heroFacts"></div><div id="valueRadarHeroBadge"></div>
+        <button type="button" id="resetBtn" disabled>&#x91cd;&#x65b0;&#x5206;&#x6790;</button>
+        <div id="quickCodes"><button data-code="2330" type="button">2330</button></div>
+        <details id="homeStatusDetails" open><summary><span></span><strong id="homeStatusSummary"></strong></summary>
+          <div id="homeStockStatus"><span class="tile-label"></span><strong class="tile-value"></strong><span class="tile-detail"></span></div>
+          <div id="homeQuoteStatus"><span class="tile-label"></span><strong class="tile-value"></strong><span class="tile-detail"></span></div>
+          <div id="homeAnalysisStatus"><span class="tile-label"></span><strong class="tile-value"></strong><span class="tile-detail"></span></div>
+          <div id="homeValueStatus"><span class="tile-label"></span><strong class="tile-value"></strong><span class="tile-detail"></span></div>
+          <div id="status" role="status" aria-live="polite" aria-atomic="true"></div>
+        </details>
+      </div>
+    </header>
+
+    <section class="market-radar-home reveal" id="marketRadarHome">
+      <div class="market-radar-title">
+        <div><h1>&#x4eca;&#x5929;&#x5e02;&#x5834;&#x54ea;&#x88e1;&#x503c;&#x5f97;&#x9032;&#x4e00;&#x6b65;&#x7814;&#x7a76;&#xff1f;</h1><p>&#x5148;&#x770b;&#x7522;&#x696d;&#x8207;&#x8cc7;&#x6599;&#x54c1;&#x8cea;&#xff0c;&#x518d;&#x7528;&#x5de6;&#x5074;&#x6216;&#x53f3;&#x5074;&#x504f;&#x597d;&#x7e2e;&#x5c0f;&#x7814;&#x7a76;&#x7bc4;&#x570d;&#x3002;&#x7d50;&#x679c;&#x662f;&#x7814;&#x7a76;&#x9806;&#x5e8f;&#xff0c;&#x4e0d;&#x662f;&#x8cb7;&#x8ce3;&#x6307;&#x4ee4;&#x3002;</p></div>
+        <span class="market-data-state" id="marketRadarState">&#x8b80;&#x53d6;&#x6700;&#x8fd1;&#x5b8c;&#x6574;&#x5feb;&#x7167;</span>
+      </div>
+      <div class="market-summary-strip" id="marketRadarSummary" aria-live="polite">
+        <div class="market-summary-item"><b>&#x89c0;&#x5bdf;&#x6279;&#x6b21;</b><strong>--</strong><span>&#x6b63;&#x5728;&#x8b80;&#x53d6;</span></div>
+        <div class="market-summary-item"><b>&#x53ef;&#x5217;&#x5165;&#x6392;&#x540d;</b><strong>--</strong><span>&#x8cc7;&#x6599;&#x9580;&#x6abb;&#x6aa2;&#x67e5;</span></div>
+        <div class="market-summary-item"><b>&#x9ad8;&#x4fe1;&#x8cf4;</b><strong>--</strong><span>&#x8986;&#x84cb;&#x7387; 85% &#x4ee5;&#x4e0a;</span></div>
+        <div class="market-summary-item"><b>&#x5831;&#x50f9;&#x65e5;</b><strong>--</strong><span>&#x6700;&#x65b0;&#x6279;&#x6b21;&#x65e5;&#x671f;</span></div>
+        <div class="market-summary-item"><b>&#x66f4;&#x65b0;&#x6642;&#x9593;</b><strong>--</strong><span>&#x6700;&#x8fd1;&#x5b8c;&#x6574;&#x5feb;&#x7167;</span></div>
+      </div>
+
+      <section class="market-radar-section" aria-labelledby="industryHeatmapTitle">
+        <div class="market-section-head"><div><h2 id="industryHeatmapTitle">&#x7522;&#x696d;&#x6f32;&#x8dcc;&#x71b1;&#x529b;&#x5716;</h2><p>&#x4f9d;&#x76ee;&#x524d;&#x53ef;&#x63a7;&#x8a55;&#x5206;&#x6279;&#x6b21;&#x7684;&#x5e73;&#x5747;&#x55ae;&#x65e5;&#x6f32;&#x8dcc;&#x5f59;&#x7e3d;&#xff0c;&#x4e0d;&#x4ee3;&#x8868;&#x5168;&#x5e02;&#x5834;&#x5373;&#x6642;&#x5ee3;&#x5ea6;&#x3002;</p></div><span class="badge tone-neut" id="industryCoverageBadge">&#x6279;&#x6b21;&#x8cc7;&#x6599;</span></div>
+        <div class="industry-heatmap" id="industryHeatmap"><button type="button" class="industry-tile heat-flat" disabled><b>&#x8f09;&#x5165;&#x4e2d;</b><strong>--</strong><span>&#x8acb;&#x7a0d;&#x5019;</span></button></div>
+      </section>
+
+      <section class="market-radar-section" aria-labelledby="marketRankingTitle">
+        <div class="market-section-head"><div><h2 id="marketRankingTitle">&#x900f;&#x660e;&#x53ef;&#x8ffd;&#x6eaf;&#x6392;&#x884c;&#x699c;</h2><p>&#x53ea;&#x6709;&#x7b26;&#x5408;&#x8cc7;&#x6599;&#x9580;&#x6abb;&#x7684;&#x80a1;&#x7968;&#x6703;&#x51fa;&#x73fe;&#x6b63;&#x5f0f;&#x540d;&#x6b21;&#xff1b;&#x53ef;&#x6539;&#x7522;&#x696d;&#x3001;&#x7b56;&#x7565;&#x3001;&#x4e8b;&#x4ef6;&#x8207;&#x8cc7;&#x6599;&#x54c1;&#x8cea;&#x3002;</p></div><span class="badge tone-neut" id="marketRankingRule">&#x4e3b;&#x5206;&#x6578; &#x2192; &#x8986;&#x84cb;&#x7387; &#x2192; &#x5831;&#x50f9;&#x65e5; &#x2192; &#x4ee3;&#x78bc;</span></div>
+        <details class="market-filter-details" id="marketFilterDetails" open>
+          <summary>&#x7be9;&#x9078;&#x8207;&#x6392;&#x5e8f;</summary>
+          <div class="market-filter-grid">
+            <label>&#x5e02;&#x5834;<select id="marketFilterMarket"><option value="all">&#x5168;&#x90e8;&#x5e02;&#x5834;</option><option value="TWSE">&#x4e0a;&#x5e02;</option><option value="OTC">&#x4e0a;&#x6ac3;</option></select></label>
+            <label>&#x7522;&#x696d;<select id="marketFilterIndustry"><option value="all">&#x5168;&#x90e8;&#x7522;&#x696d;</option></select></label>
+            <label>&#x7b56;&#x7565;<select id="marketFilterStrategy"><option value="balanced">&#x7d9c;&#x5408;&#x7814;&#x7a76;</option><option value="left">&#x5de6;&#x5074;&#x4ea4;&#x6613;</option><option value="right">&#x53f3;&#x5074;&#x4ea4;&#x6613;</option></select></label>
+            <label>&#x4e8b;&#x4ef6;<select id="marketFilterEvent"><option value="all">&#x5168;&#x90e8;&#x4e8b;&#x4ef6;</option><option value="value">&#x4f4e;&#x4f30;&#x503c;&#x5f97;&#x7814;&#x7a76;</option><option value="growth">&#x6210;&#x9577;&#x8f49;&#x5f37;</option><option value="cashflow">&#x73fe;&#x91d1;&#x6d41;&#x8f03;&#x5b8c;&#x6574;</option><option value="trend">&#x8da8;&#x52e2;&#x78ba;&#x8a8d;</option><option value="wait">&#x8ffd;&#x9ad8;&#x98a8;&#x96aa;</option></select></label>
+            <label>&#x8cc7;&#x6599;&#x54c1;&#x8cea;<select id="marketFilterQuality"><option value="rankable">&#x53ef;&#x5217;&#x5165;&#x6392;&#x540d;</option><option value="high">&#x9ad8;&#x4fe1;&#x8cf4;</option><option value="all">&#x542b;&#x53d7;&#x9650;&#x5217;</option></select></label>
+            <label>&#x6392;&#x5e8f;<select id="marketFilterSort"><option value="score">&#x7b56;&#x7565;&#x5339;&#x914d;&#x5206;&#x6578;</option><option value="coverage">&#x8cc7;&#x6599;&#x8986;&#x84cb;&#x7387;</option><option value="quoteDate">&#x5831;&#x50f9;&#x65e5;&#x671f;</option><option value="code">&#x80a1;&#x7968;&#x4ee3;&#x78bc;</option></select></label>
+            <button type="button" id="marketFilterReset">&#x6e05;&#x9664;&#x7be9;&#x9078;</button>
+          </div>
+        </details>
+        <div class="market-ranking-wrap"><table class="market-ranking-table"><thead><tr><th>&#x540d;&#x6b21;</th><th>&#x80a1;&#x7968;</th><th>&#x7522;&#x696d;</th><th>&#x6f32;&#x8dcc;</th><th>&#x7b56;&#x7565;&#x5339;&#x914d;</th><th>&#x7e3d;&#x5206;</th><th>&#x8cc7;&#x6599;&#x72c0;&#x614b;</th><th>&#x8986;&#x84cb;&#x7387;</th><th>&#x5831;&#x50f9;&#x65e5;</th></tr></thead><tbody id="marketRankingRows"><tr><td colspan="9">&#x6b63;&#x5728;&#x8b80;&#x53d6;&#x6700;&#x8fd1;&#x5feb;&#x7167;...</td></tr></tbody></table></div>
+        <div class="market-ranking-cards" id="marketRankingCards" aria-live="polite"></div>
+        <p class="market-ranking-note" id="marketRankingNote">&#x9019;&#x662f;&#x53ef;&#x63a7;&#x6279;&#x6b21;&#x7814;&#x7a76;&#x6e05;&#x55ae;&#xff0c;&#x4e0d;&#x662f;&#x5168;&#x5e02;&#x5834;&#x5373;&#x6642;&#x6392;&#x540d;&#x3002;</p>
+      </section>
     </section>
 
-    <section class="home-decision reveal" id="homeDecisionPanel">
+    <section class="home-decision reveal legacy-home" id="homeDecisionPanel">
       <div class="home-decision-head">
         <div>
           <h2>&#x4eca;&#x65e5;&#x64cd;&#x4f5c;&#x5224;&#x65b7;</h2>
@@ -522,7 +654,7 @@
       <div class="home-decision-grid" id="homeDecisionCards"></div>
     </section>
 
-    <section class="home-doorway reveal" id="homeDoorway">
+    <section class="home-doorway reveal legacy-home" id="homeDoorway">
       <div class="doorway-grid">
         <button class="doorway-card" type="button" data-doorway-view="client"><b>&#x958b;&#x555f;&#x81ea;&#x9078;&#x80a1;&#x8207;&#x6301;&#x80a1;</b><span>&#x67e5;&#x770b;&#x89c0;&#x5bdf;&#x6c60;&#x3001;&#x6301;&#x80a1;&#x98a8;&#x96aa;&#x8207;&#x6392;&#x884c;&#x699c;&#x3002;</span></button>
         <button class="doorway-card" type="button" data-doorway-view="swing"><b>&#x958b;&#x555f; Dino K&#x7dda;&#x9078;&#x80a1;</b><span>&#x5148;&#x770b;&#x5e02;&#x5834;&#x4e3b;&#x984c;&#xff0c;&#x518d;&#x9078;&#x80a1;&#x4e26;&#x9032;&#x5165;&#x5c08;&#x5bb6;&#x5206;&#x6790;&#x3002;</span></button>
@@ -1002,6 +1134,11 @@
       </div>
     </section>
   </main>
+  <aside class="customer-task-tray" id="customerTaskTray" role="status" aria-live="polite" hidden>
+    <div class="customer-task-head"><strong id="customerTaskTitle">&#x8acb;&#x7a0d;&#x5019;</strong><span id="customerTaskPercent">0%</span></div>
+    <div class="customer-task-bar" aria-hidden="true"><i id="customerTaskFill"></i></div>
+    <p id="customerTaskMessage">&#x6b63;&#x5728;&#x6e96;&#x5099;&#x8cc7;&#x6599;&#x3002;</p>
+  </aside>
 
   <script type="module" src="./src/main.ts"></script>
   <script>
@@ -1023,6 +1160,12 @@
     let clientRankingScope = "all";
     let clientRankingQuality = "rankable";
     let clientRankingSort = "score";
+    let marketRadarIndustry = "all";
+    let marketRadarMarket = "all";
+    let marketRadarStrategy = "balanced";
+    let marketRadarEvent = "all";
+    let marketRadarQuality = "rankable";
+    let marketRadarSort = "score";
     let swingWorkflow = null;
     let macroRiskView = null;
     let macroRiskRunner = null;
@@ -1247,7 +1390,7 @@
         shell.hidden = true;
         shell.classList.remove("is-visible");
       }
-      if (restoreScroll) $("homeDecisionPanel").scrollIntoView({ behavior:"smooth", block:"start" });
+      if (restoreScroll) $("marketRadarHome").scrollIntoView({ behavior:"smooth", block:"start" });
     }
 
     function setupReveal() {
@@ -1594,37 +1737,42 @@
       throw lastError || new Error("Network request failed.");
     }
 
+    function setCustomerTaskProgress(percent, message, options = {}) {
+      const tray = $("customerTaskTray");
+      if (!tray) return;
+      const safePercent = clamp(Math.round(Number(percent) || 0), 0, 100);
+      tray.hidden = options.hidden === true;
+      $("customerTaskTitle").textContent = options.title || "\u8acb\u7a0d\u5019";
+      $("customerTaskPercent").textContent = `${safePercent}%`;
+      $("customerTaskFill").style.width = `${safePercent}%`;
+      $("customerTaskMessage").textContent = message || "\u6b63\u5728\u6e96\u5099\u8cc7\u6599\u3002";
+      if (options.complete) {
+        clearTimeout(setCustomerTaskProgress.hideTimer);
+        setCustomerTaskProgress.hideTimer = setTimeout(() => { tray.hidden = true; }, 1400);
+      }
+    }
+
+    function hideCustomerTaskProgress() {
+      const tray = $("customerTaskTray");
+      if (tray) tray.hidden = true;
+    }
+
     function renderSwingJobProgress(job) {
-      const steps = job?.steps || [];
-      const stageLabel = (value) => ({
-        macro:"總經與市場", screener:"台股篩選", "user-selection-gate":"有效標的驗證",
-        valuation:"可比估值", "deep-analysis":"基本面深度", technical:"日線技術",
-        signal:"K 線訊號", summary:"最終整合"
-      })[value] || value || "--";
-      const statusLabel = (value) => ({
-        queued:"等待中", pending:"等待中", running:"處理中", passed:"已通過", generated:"已完成",
-        evidence_unavailable:"證據未達門檻", completed_with_limitations:"部分完成",
-        exception:"資料取得失敗", timeout:"逾時", api_error:"外部服務失敗"
-      })[value] || value || "未知";
-      const rows = steps.map(step => `
-        <tr>
-          <td>${escapeHtml(stageLabel(step.stage))}</td>
-          <td>${escapeHtml(step.skill || "")}</td>
-          <td>${escapeHtml(statusLabel(step.status))}</td>
-          <td>${escapeHtml(step.message || "")}</td>
-        </tr>`).join("");
       const progress = job?.progress || {};
+      const percent = Number.isFinite(Number(progress.percent)) ? Number(progress.percent) : 0;
+      const publicMessage = percent < 25
+        ? "\u6b63\u5728\u6574\u7406\u5e02\u5834\u8207\u500b\u80a1\u8cc7\u6599\u3002"
+        : percent < 55
+          ? "\u6b63\u5728\u6aa2\u67e5\u8cc7\u6599\u5b8c\u6574\u6027\u8207\u53ef\u6bd4\u6027\u3002"
+          : percent < 85
+            ? "\u6b63\u5728\u5efa\u7acb\u50f9\u683c\u3001\u98a8\u96aa\u8207 K \u7dda\u89c0\u5bdf\u3002"
+            : "\u6b63\u5728\u6574\u7406\u6700\u7d42\u7814\u7a76\u6458\u8981\u3002";
+      setCustomerTaskProgress(percent, `${publicMessage}\u53ef\u5148\u96e2\u958b\u9019\u500b\u9801\u9762\uff0c\u56de\u4f86\u5f8c\u6703\u7e7c\u7e8c\u986f\u793a\u3002`, { title:"\u6b63\u5728\u7522\u751f\u6df1\u5ea6\u5206\u6790" });
       $("swingDeepResults").innerHTML = `
         <section class="data-status">
-          <h3>Dino \u9032\u968e\u5206\u6790\u9032\u5ea6</h3>
-          <div class="data-status-grid">
-            <div class="data-status-card"><b>\u5de5\u4f5c\u7de8\u865f</b><strong>${escapeHtml(job?.jobId || "--")}</strong></div>
-            <div class="data-status-card"><b>\u72c0\u614b</b><strong>${escapeHtml(statusLabel(job?.status || "queued"))}</strong></div>
-            <div class="data-status-card"><b>\u76ee\u524d\u968e\u6bb5</b><strong>${escapeHtml(stageLabel(job?.currentStage || "--"))}</strong></div>
-            <div class="data-status-card"><b>\u9032\u5ea6</b><strong>${Number.isFinite(Number(progress.percent)) ? progress.percent : 0}%</strong></div>
-          </div>
-          <p class="note">\u5f8c\u7aef\u6703\u4f9d\u5e8f\u5b8c\u6210\u7e3d\u7d93\u3001\u7be9\u9078\u3001\u6709\u6548\u6a19\u7684\u9a57\u8b49\u3001\u4f30\u503c\u3001\u57fa\u672c\u9762\u3001\u6280\u8853\u3001K \u7dda\u8207\u6700\u7d42\u6574\u5408\uff0c\u672a\u9054\u8b49\u64da\u9580\u6abb\u7684\u968e\u6bb5\u4e0d\u6703\u7528 AI \u63a8\u6e2c\u88dc\u9f4a\u3002</p>
-          ${tableFromRows(["\u968e\u6bb5", "\u5206\u6790\u6a21\u7d44", "\u72c0\u614b", "\u8aaa\u660e"], [rows || `<tr><td colspan="4">\u6b63\u5728\u5efa\u7acb\u5de5\u4f5c\u3002</td></tr>`])}
+          <h3>\u8acb\u7a0d\u5019\uff0c\u5206\u6790\u9032\u5ea6 ${percent}%</h3>
+          <div class="customer-task-bar" aria-hidden="true"><i style="width:${percent}%"></i></div>
+          <p class="note">${publicMessage}\u7cfb\u7d71\u6703\u81ea\u52d5\u7565\u904e\u8cc7\u6599\u4e0d\u8db3\u7684\u5224\u65b7\uff0c\u4e0d\u6703\u7528\u63a8\u6e2c\u88dc\u9f4a\u3002</p>
         </section>`;
     }
 
@@ -2561,8 +2709,10 @@
               current = advanced.data;
               if (!current) throw new Error("排行榜背景工作沒有回傳狀態。");
               const progress = current.progress || {};
-              const universeText = current.universeStatus === "loading" || !progress.total ? "正在載入完整上市／上櫃名單" : `已持久化 ${progress.processed || 0} / ${progress.total || 0} 檔`;
-              setMarketRefreshStatus(`${universeText}\uff0c\u968e\u6bb5 ${current.phase || "features"}\uff0c\u6210\u529f ${progress.scored || 0} \u6a94\uff0c\u672a\u88dc\u9f4a ${progress.failed || 0} \u6a94\u3002\u53ef\u96e2\u958b\u9801\u9762\uff0c\u4e4b\u5f8c\u7528\u540c\u4e00\u500b\u5de5\u4f5c\u7e8c\u63a5\u3002`);
+              const percent = progress.total ? Math.round(((progress.processed || 0) / progress.total) * 100) : 6;
+              const publicMessage = progress.total ? `\u6b63\u5728\u66f4\u65b0\u8cc7\u6599 ${percent}%\uff1b\u53ef\u5148\u96e2\u958b\u9801\u9762\uff0c\u56de\u4f86\u5f8c\u6703\u7e7c\u7e8c\u3002` : "\u6b63\u5728\u6e96\u5099\u6700\u65b0\u4e0a\u5e02\uff0f\u4e0a\u6ac3\u89c0\u5bdf\u7bc4\u570d\u3002";
+              setMarketRefreshStatus(publicMessage);
+              setCustomerTaskProgress(percent, publicMessage, { title:"\u6b63\u5728\u66f4\u65b0\u6392\u884c\u699c" });
               sessionStorage.setItem(storageKey, JSON.stringify({ jobId:current.jobId, mode, updatedAt:new Date().toISOString() }));
               if (current.done) break;
               await wait(Math.max(500, Number(current.pollAfterMs || 700)));
@@ -2570,11 +2720,13 @@
             if (current?.done) {
               sessionStorage.removeItem(storageKey);
               if (current.result) renderScreener(current.result, mode);
+              setCustomerTaskProgress(100, "\u6700\u65b0\u5feb\u7167\u5df2\u5b8c\u6210\u3002", { title:"\u6392\u884c\u699c\u5df2\u66f4\u65b0", complete:true });
               swingWorkflow = null;
               if ($("swingPage") && !$("swingPage").hidden) loadSwingWorkflow(true);
             }
           } catch (err) {
-            setMarketRefreshStatus(`\u5168\u5e02\u5834\u6383\u63cf\u5df2\u4fdd\u5b58\u9032\u5ea6\uff1a${err.message || "\u66ab\u6642\u4e2d\u65b7"}\u3002\u4e0b\u6b21\u6703\u5f9e\u540c\u4e00\u500b\u5de5\u4f5c\u7e8c\u63a5\uff0c\u4e0d\u6703\u907a\u5931\u5df2\u5b8c\u6210\u6279\u6b21\u3002`);
+            setMarketRefreshStatus("\u66f4\u65b0\u66ab\u6642\u4e2d\u65b7\uff0c\u9032\u5ea6\u5df2\u4fdd\u5b58\uff1b\u4e0b\u6b21\u6703\u81ea\u52d5\u7e8c\u63a5\u3002");
+            setCustomerTaskProgress(0, "\u66f4\u65b0\u66ab\u6642\u4e2d\u65b7\uff0c\u9032\u5ea6\u5df2\u4fdd\u5b58\u3002", { title:"\u7a0d\u5f8c\u518d\u8a66" });
           } finally {
             rankingRefreshRunner = null;
           }
@@ -2878,14 +3030,235 @@
 
     function allWorkbenchItems() {
       const seen = new Set();
-      const source = clientWorkbench?.ranked?.observationPool?.length
-        ? clientWorkbench.ranked.observationPool
-        : Object.values(clientWorkbench?.ranked || {}).flat();
+      const source = Object.values(clientWorkbench?.ranked || {}).flat();
       return source.filter((item) => {
         if (!item || seen.has(item.code)) return false;
         seen.add(item.code);
         return true;
       });
+    }
+
+    const marketIndustryFallback = {
+      "0050":"ETF core","006208":"ETF core","00878":"ETF income","0056":"ETF income",
+      "1101":"materials","1102":"materials","1216":"consumer","1301":"plastics","1303":"plastics","2002":"steel",
+      "2303":"semiconductor","2308":"electronics","2317":"electronics","2330":"semiconductor","2344":"semiconductor",
+      "2356":"electronics","2357":"electronics","2379":"semiconductor","2382":"electronics","2395":"industrial computer",
+      "2408":"semiconductor","2412":"telecom","2454":"semiconductor","2603":"shipping","2609":"shipping","2615":"shipping",
+      "2880":"financial","2881":"financial","2882":"financial","2884":"financial","2885":"financial","2886":"financial",
+      "2887":"financial","2891":"financial","2892":"financial","3008":"optics","3034":"semiconductor","3231":"electronics",
+      "3711":"semiconductor","4938":"electronics","5880":"financial","6505":"petrochemical","6669":"server"
+    };
+
+    const marketIndustryLabels = {
+      "ETF core":"ETF 核心","ETF income":"ETF 收益",materials:"原物料",consumer:"消費",plastics:"塑化",steel:"鋼鐵",
+      semiconductor:"半導體",electronics:"電子", "industrial computer":"工業電腦",telecom:"通訊",shipping:"航運",
+      financial:"金融",optics:"光學",petrochemical:"石化",server:"伺服器",etf:"ETF",unclassified:"其他"
+    };
+
+    function marketIndustryKey(item) {
+      return item?.industryGroup || item?.scoreV2?.fairValue?.industryGroup || marketIndustryFallback[item?.code] || "unclassified";
+    }
+
+    function marketIndustryLabel(value) {
+      return marketIndustryLabels[value] || String(value || "unclassified");
+    }
+
+    function weightedMarketScore(parts) {
+      const available = parts.filter((item) => Number.isFinite(Number(item.value)));
+      const weight = available.reduce((sum, item) => sum + item.weight, 0);
+      if (!weight) return null;
+      return Math.round(available.reduce((sum, item) => sum + Number(item.value) * item.weight, 0) / weight);
+    }
+
+    function marketTrendScore(item) {
+      const latest = item?.technicalSnapshot?.latest || {};
+      const close = Number(item?.close);
+      const ma20 = Number(latest.ma20);
+      const ma60 = Number(latest.ma60);
+      const ma120 = Number(latest.ma120);
+      if (![close, ma20, ma60].every(Number.isFinite)) return null;
+      let score = 35;
+      if (close >= ma20) score += 20;
+      if (ma20 >= ma60) score += 20;
+      if (Number.isFinite(ma120) && close >= ma120) score += 15;
+      if (Number(latest.volumeRatio) >= 1.2) score += 10;
+      return clamp(score, 0, 100);
+    }
+
+    function marketStrategyMatch(item, strategy = marketRadarStrategy) {
+      const scores = item?.scores || {};
+      const chaseCalm = Number.isFinite(Number(scores.chaseRisk?.score)) ? 100 - Number(scores.chaseRisk.score) : null;
+      const left = weightedMarketScore([
+        { value:scores.undervalued, weight:35 },
+        { value:scores.valuation?.score, weight:20 },
+        { value:scores.cashFlow?.score, weight:15 },
+        { value:scores.financialStability?.score, weight:15 },
+        { value:chaseCalm, weight:15 },
+      ]);
+      const right = weightedMarketScore([
+        { value:marketTrendScore(item), weight:30 },
+        { value:scores.marketConfidence?.score, weight:20 },
+        { value:scores.growth?.score, weight:20 },
+        { value:scores.profitability?.score, weight:10 },
+        { value:scores.cashFlow?.score, weight:10 },
+        { value:chaseCalm, weight:10 },
+      ]);
+      if (strategy === "left") return left;
+      if (strategy === "right") return right;
+      return weightedMarketScore([{ value:item?.professionalRating?.total, weight:60 }, { value:left, weight:20 }, { value:right, weight:20 }]);
+    }
+
+    function marketEventMatches(item, eventName) {
+      if (eventName === "value") return Number(item?.scores?.undervalued) >= 65;
+      if (eventName === "growth") return Number(item?.scores?.growth?.score) >= 65;
+      if (eventName === "cashflow") return Number(item?.scores?.cashFlow?.score) >= 65;
+      if (eventName === "trend") return Number(marketTrendScore(item)) >= 70;
+      if (eventName === "wait") return Number(item?.scores?.chaseRisk?.score) >= 72;
+      return true;
+    }
+
+    function marketHeatTone(change) {
+      if (change >= 2) return "heat-up-3";
+      if (change >= 1) return "heat-up-2";
+      if (change > .15) return "heat-up-1";
+      if (change <= -2) return "heat-down-3";
+      if (change <= -1) return "heat-down-2";
+      if (change < -.15) return "heat-down-1";
+      return "heat-flat";
+    }
+
+    function saveMarketRadarFilters() {
+      try {
+        localStorage.setItem("marketRadarFiltersV1", JSON.stringify({
+          industry:marketRadarIndustry, market:marketRadarMarket, strategy:marketRadarStrategy,
+          event:marketRadarEvent, quality:marketRadarQuality, sort:marketRadarSort,
+        }));
+      } catch {}
+    }
+
+    function restoreMarketRadarFilters() {
+      try {
+        const saved = JSON.parse(localStorage.getItem("marketRadarFiltersV1") || "null");
+        if (!saved) return;
+        marketRadarIndustry = saved.industry || "all";
+        marketRadarMarket = saved.market || "all";
+        marketRadarStrategy = saved.strategy || "balanced";
+        marketRadarEvent = saved.event || "all";
+        marketRadarQuality = saved.quality || "rankable";
+        marketRadarSort = saved.sort || "score";
+      } catch {}
+    }
+
+    function syncMarketRadarControls() {
+      const values = {
+        marketFilterMarket:marketRadarMarket, marketFilterIndustry:marketRadarIndustry,
+        marketFilterStrategy:marketRadarStrategy, marketFilterEvent:marketRadarEvent,
+        marketFilterQuality:marketRadarQuality, marketFilterSort:marketRadarSort,
+      };
+      Object.entries(values).forEach(([id, value]) => { if ($(id)) $(id).value = value; });
+    }
+
+    function renderMarketHeatmap(rows) {
+      const groups = new Map();
+      rows.forEach((item) => {
+        const key = marketIndustryKey(item);
+        const change = Number(item.change);
+        const current = groups.get(key) || { key, count:0, changeTotal:0, changeCount:0 };
+        current.count += 1;
+        if (Number.isFinite(change)) { current.changeTotal += change; current.changeCount += 1; }
+        groups.set(key, current);
+      });
+      const items = [...groups.values()].map((group) => ({ ...group, average:group.changeCount ? group.changeTotal / group.changeCount : 0 }))
+        .sort((a, b) => b.average - a.average || a.key.localeCompare(b.key));
+      $("marketFilterIndustry").innerHTML = `<option value="all">\u5168\u90e8\u7522\u696d</option>${items.map((item) => `<option value="${escapeHtml(item.key)}">${escapeHtml(marketIndustryLabel(item.key))}</option>`).join("")}`;
+      if (!["all", ...items.map(item => item.key)].includes(marketRadarIndustry)) marketRadarIndustry = "all";
+      syncMarketRadarControls();
+      $("industryHeatmap").innerHTML = items.length ? items.map((item) => `
+        <button type="button" class="industry-tile ${marketHeatTone(item.average)}${marketRadarIndustry === item.key ? " active" : ""}" data-industry="${escapeHtml(item.key)}">
+          <b>${escapeHtml(marketIndustryLabel(item.key))}</b><strong>${pct(item.average)}</strong><span>${item.count} \u6a94 / ${item.changeCount} \u6a94\u6709\u6f32\u8dcc</span>
+        </button>`).join("") : `<button type="button" class="industry-tile heat-flat" disabled><b>\u8cc7\u6599\u4e0d\u8db3</b><strong>--</strong><span>\u7121\u6cd5\u5f59\u7e3d</span></button>`;
+      $("industryCoverageBadge").textContent = `\u672c\u6279\u6b21 ${rows.length} \u6a94 / ${items.length} \u500b\u7522\u696d`;
+    }
+
+    function marketCompareRows(a, b) {
+      if (marketRadarSort === "coverage") {
+        const diff = clientRankingTrust(b).coveragePercent - clientRankingTrust(a).coveragePercent;
+        if (diff) return diff;
+      } else if (marketRadarSort === "quoteDate") {
+        const diff = String(b.quoteDate || b.dataStatus?.quoteDate || "").localeCompare(String(a.quoteDate || a.dataStatus?.quoteDate || ""));
+        if (diff) return diff;
+      } else if (marketRadarSort === "code") {
+        return String(a.code).localeCompare(String(b.code));
+      } else {
+        const diff = (marketStrategyMatch(b) ?? -1) - (marketStrategyMatch(a) ?? -1);
+        if (diff) return diff;
+      }
+      const coverageDiff = clientRankingTrust(b).coveragePercent - clientRankingTrust(a).coveragePercent;
+      if (coverageDiff) return coverageDiff;
+      const dateDiff = String(b.quoteDate || b.dataStatus?.quoteDate || "").localeCompare(String(a.quoteDate || a.dataStatus?.quoteDate || ""));
+      if (dateDiff) return dateDiff;
+      return String(a.code).localeCompare(String(b.code));
+    }
+
+    function renderMarketRadar(payload = clientWorkbench) {
+      if (!payload) return;
+      const rows = allWorkbenchItems();
+      const meta = payload.universeMeta || {};
+      const snapshot = payload.rankingSnapshot || {};
+      const rankable = rows.filter(item => clientRankingTrust(item).status === "rankable");
+      const highTrust = rows.filter(item => clientRankingTrust(item).quality === "high");
+      const quoteDates = rows.map(item => item.quoteDate || item.dataStatus?.quoteDate).filter(Boolean).sort();
+      const generatedAt = snapshot.generatedAt || payload.generatedAt;
+      $("marketRadarSummary").innerHTML = [
+        ["\u89c0\u5bdf\u6279\u6b21", `${meta.scoredCount ?? rows.length}/${meta.requestedCount ?? rows.length} \u6a94`, meta.version || "\u53ef\u63a7\u6279\u6b21"],
+        ["\u53ef\u5217\u5165\u6392\u540d", `${snapshot.rankableCount ?? rankable.length} \u6a94`, "\u6709\u5206\u6578\u3001\u5831\u50f9\u65e5\u300160%+ \u8986\u84cb\u3001\u7121\u904e\u671f"],
+        ["\u9ad8\u4fe1\u8cf4", `${snapshot.highTrustCount ?? highTrust.length} \u6a94`, "\u8986\u84cb\u7387 85% \u4ee5\u4e0a"],
+        ["\u5831\u50f9\u65e5", statusDate(snapshot.newestQuoteDate || quoteDates[quoteDates.length - 1]), snapshot.oldestQuoteDate ? `\u7bc4\u570d ${statusDate(snapshot.oldestQuoteDate)}\u2013${statusDate(snapshot.newestQuoteDate)}` : "\u6700\u65b0\u53ef\u7528\u65e5"],
+        ["\u66f4\u65b0\u6642\u9593", statusDate(generatedAt), "\u6700\u8fd1\u5b8c\u6574\u5feb\u7167"],
+      ].map(([label, value, note]) => `<div class="market-summary-item"><b>${escapeHtml(label)}</b><strong>${escapeHtml(value)}</strong><span>${escapeHtml(note)}</span></div>`).join("");
+      $("marketRadarState").textContent = `${statusDate(generatedAt)} \u00b7 \u516c\u958b\u8cc7\u6599\u6279\u6b21`;
+      renderMarketHeatmap(rows);
+      const filtered = rows.filter((item) => {
+        const trust = clientRankingTrust(item);
+        const market = String(item.market || "").toUpperCase();
+        if (marketRadarIndustry !== "all" && marketIndustryKey(item) !== marketRadarIndustry) return false;
+        if (marketRadarMarket === "TWSE" && !["TWSE","TSE"].includes(market)) return false;
+        if (marketRadarMarket === "OTC" && !["OTC","TWO","TPEX"].includes(market)) return false;
+        if (marketRadarQuality === "high" && trust.quality !== "high") return false;
+        if (marketRadarQuality === "rankable" && trust.status !== "rankable") return false;
+        if (!marketEventMatches(item, marketRadarEvent)) return false;
+        return Number.isFinite(Number(marketStrategyMatch(item)));
+      }).sort(marketCompareRows);
+      const strategyLabel = marketRadarStrategy === "left" ? "\u5de6\u5074" : marketRadarStrategy === "right" ? "\u53f3\u5074" : "\u7d9c\u5408";
+      const rankLabel = marketRadarSort === "score" ? "#" : "--";
+      $("marketRankingRows").innerHTML = filtered.length ? filtered.map((item, index) => {
+        const trust = clientRankingTrust(item);
+        const change = Number(item.change);
+        return `<tr><td>${rankLabel === "#" ? `#${index + 1}` : rankLabel}</td>
+          <td><button type="button" class="market-stock-button" data-market-code="${escapeHtml(item.code)}"><strong>${escapeHtml(item.code)} ${escapeHtml(item.name || "")}</strong><small>${escapeHtml(item.market || "--")}</small></button></td>
+          <td>${escapeHtml(marketIndustryLabel(marketIndustryKey(item)))}</td>
+          <td class="${change > 0 ? "market-change-up" : change < 0 ? "market-change-down" : ""}">${pct(change)}</td>
+          <td class="market-score">${scoreText(marketStrategyMatch(item))} <span class="note">${strategyLabel}</span></td>
+          <td>${scoreText(item.professionalRating?.total)}</td><td>${clientRankingTrustBadge(trust)}</td><td>${trust.coveragePercent || 0}%</td><td>${escapeHtml(statusDate(item.quoteDate || item.dataStatus?.quoteDate))}</td></tr>`;
+      }).join("") : `<tr><td colspan="9">\u76ee\u524d\u6c92\u6709\u7b26\u5408\u7be9\u9078\u8207\u8cc7\u6599\u9580\u6abb\u7684\u80a1\u7968\u3002</td></tr>`;
+      $("marketRankingCards").innerHTML = filtered.length ? filtered.map((item, index) => {
+        const trust = clientRankingTrust(item);
+        return `<article class="market-ranking-card"><header><button type="button" class="market-stock-button" data-market-code="${escapeHtml(item.code)}"><strong>${rankLabel === "#" ? `#${index + 1} ` : ""}${escapeHtml(item.code)} ${escapeHtml(item.name || "")}</strong><small>${escapeHtml(marketIndustryLabel(marketIndustryKey(item)))}</small></button>${clientRankingTrustBadge(trust)}</header>
+          <div class="market-ranking-card-grid"><div><span>${strategyLabel}\u5339\u914d</span><strong>${scoreText(marketStrategyMatch(item))}</strong></div><div><span>\u7e3d\u5206</span><strong>${scoreText(item.professionalRating?.total)}</strong></div><div><span>\u6f32\u8dcc</span><strong>${pct(Number(item.change))}</strong></div><div><span>\u8cc7\u6599\u8986\u84cb</span><strong>${trust.coveragePercent || 0}%</strong></div><div><span>\u5831\u50f9\u65e5</span><strong>${escapeHtml(statusDate(item.quoteDate || item.dataStatus?.quoteDate))}</strong></div><div><span>\u5e02\u5834</span><strong>${escapeHtml(item.market || "--")}</strong></div></div></article>`;
+      }).join("") : `<p class="note">\u76ee\u524d\u6c92\u6709\u7b26\u5408\u7be9\u9078\u8207\u8cc7\u6599\u9580\u6abb\u7684\u80a1\u7968\u3002</p>`;
+      $("marketRankingNote").textContent = `\u76ee\u524d\u986f\u793a ${filtered.length} \u6a94\uff1b${strategyLabel}\u5339\u914d\u5206\u53ea\u7528\u65bc\u521d\u7be9\uff0c\u500b\u80a1\u7a81\u7834\u3001\u5931\u6548\u8207\u591a\u7a7a\u8a0a\u865f\u4ecd\u9700\u9032\u5165 K \u7dda\u6df1\u5ea6\u5206\u6790\u3002\u672c\u699c\u662f\u53ef\u63a7\u6279\u6b21\uff0c\u4e0d\u662f\u5168\u5e02\u5834\u5373\u6642\u6392\u540d\u3002`;
+    }
+
+    async function loadMarketRadar(force = false) {
+      if (clientWorkbench && !force) return renderMarketRadar(clientWorkbench);
+      $("marketRadarState").textContent = "\u8acb\u7a0d\u5019\uff0c\u6b63\u5728\u8b80\u53d6\u6700\u8fd1\u5b8c\u6574\u5feb\u7167";
+      try {
+        renderClientWorkbench(await getWorkbench());
+      } catch (err) {
+        $("marketRadarState").textContent = "\u8cc7\u6599\u66ab\u6642\u7121\u6cd5\u8b80\u53d6";
+        $("marketRankingRows").innerHTML = `<tr><td colspan="9">${escapeHtml(friendlyRequestError(err, "\u6392\u884c\u699c\u8cc7\u6599\u66ab\u6642\u4e0d\u53ef\u7528\u3002"))}</td></tr>`;
+        $("marketRankingCards").innerHTML = `<p class="note">\u6392\u884c\u699c\u8cc7\u6599\u66ab\u6642\u4e0d\u53ef\u7528\u3002</p>`;
+      }
     }
 
     function parseClientPortfolio() {
@@ -3125,6 +3498,7 @@
       renderClientRanking(clientRankingMode);
       renderClientPortfolio();
       renderBacktestLab(payload?.backtest?.results);
+      renderMarketRadar(payload);
     }
 
     async function loadClientWorkbench(force = false) {
@@ -3703,6 +4077,7 @@
     }
 
     function renderSwingDeep(payload) {
+      setCustomerTaskProgress(100, "\u6df1\u5ea6\u5206\u6790\u5df2\u5b8c\u6210\u3002", { title:"\u5206\u6790\u5b8c\u6210", complete:true });
       const stagePayload = payload.stages || payload;
       const contract = decodeTree(payload.text?.contract || payload.contract || {});
       const orchestration = decodeTree(payload.text?.orchestration || payload.orchestration || {});
@@ -3716,36 +4091,7 @@
       const technicalText = decodeTree(stagePayload.technical?.text || {});
       const signalText = decodeTree(stagePayload.signal?.text || {});
       const summaryItems = summaryText.rows || stagePayload.summary?.rows || [];
-      const flowStageLabel = (value) => ({
-        macro:"總經與市場", screener:"台股篩選", "user-selection-gate":"有效標的驗證",
-        valuation:"可比估值", "deep-analysis":"基本面深度", technical:"日線技術",
-        signal:"K 線訊號", summary:"最終整合"
-      })[value] || value || "--";
-      const flowStatusLabel = (value) => ({
-        pending:"等待中", running:"處理中", passed:"已通過", generated:"已完成",
-        generated_after_ticker_retry:"修正後完成", evidence_unavailable:"證據未達門檻",
-        completed_with_limitations:"部分完成", partial_or_failed:"部分失敗",
-        exception:"資料取得失敗", timeout:"逾時", api_error:"外部服務失敗",
-        missing_secret:"AI 服務未設定", disabled:"未啟用"
-      })[value] || value || "未知";
-      const specialistRows = (contract.specialists || []).map(skill => `
-        <tr><td>${escapeHtml(flowStageLabel(skill.stage))}</td><td>${escapeHtml(skill.name || "")}</td><td>${escapeHtml(skill.path || "")}</td></tr>`).join("");
-      const llmStepRows = (llm.steps || []).map(step => `
-        <tr><td>${escapeHtml(flowStageLabel(step.stage))}</td><td>${escapeHtml(step.skill || "")}</td><td>${escapeHtml(flowStatusLabel(step.status))}</td><td>${escapeHtml(step.message || "")}</td></tr>`).join("");
-      const contractPanel = contract.orchestrator ? `
-        <details class="data-status">
-          <summary><b>進階分析流程資訊</b></summary>
-          <div class="data-status-grid">
-            <div class="data-status-card"><b>整合流程</b><strong>${escapeHtml(contract.orchestrator.name || "")}</strong></div>
-            <div class="data-status-card"><b>專業階段</b><strong>${(contract.specialists || []).length}</strong></div>
-            <div class="data-status-card"><b>選股門檻</b><strong>${escapeHtml(payload.gate?.status === "passed" ? "已通過" : payload.gate?.status || "未通過")}</strong></div>
-            <div class="data-status-card"><b>報告引擎</b><strong>${escapeHtml(llm.ok ? "AI 報告" : "證據型備援報告")}</strong></div>
-          </div>
-          <p class="note">${escapeHtml(contract.gate?.rule || "")}</p>
-          <p class="note">AI 狀態：${escapeHtml(llm.status || "未知")} ${llm.model ? ` / ${escapeHtml(llm.model)}` : ""}${llm.message ? ` / ${escapeHtml(llm.message)}` : ""}</p>
-          ${llmStepRows ? tableFromRows(["階段", "分析角色", "狀態", "訊息"], [llmStepRows]) : ""}
-          ${tableFromRows(["階段", "分析模組", "專案內來源"], [specialistRows || `<tr><td colspan="3">未提供</td></tr>`])}
-        </details>` : "";
+      const contractPanel = "";
       const evidenceStageLabel = (value) => ({ valuation:"估值", deep:"基本面", technical:"日線技術", signal:"K 線訊號", summary:"最終整合" })[value] || value || "--";
       const evidenceRows = (evidenceManifest.entries || []).slice(0, 30).map(item => `
         <tr><td>${escapeHtml(item.evidenceId || "")}</td><td>${escapeHtml(item.code || "")}</td><td>${escapeHtml(evidenceStageLabel(item.stage))}</td><td>${escapeHtml(missingLabel(item.field || ""))}</td><td>${escapeHtml(item.value ?? "")}</td><td>${escapeHtml(item.date || "--")}</td><td>${item.sourceUrl ? `<a href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noopener">${escapeHtml(item.source || "查看來源")}</a>` : escapeHtml(item.source || "未標示")}</td></tr>`).join("");
@@ -4829,18 +5175,60 @@
       setHomeStatus("value", "\u5f85\u5831\u50f9", "\u5831\u50f9\u5b8c\u6210\u5f8c\u555f\u52d5", "warn");
       setHomeStatusSummary(`${code} \u8cc7\u6599\u8f09\u5165\u4e2d`);
       $("status").textContent = `\u6b63\u5728\u8f09\u5165 ${code} \u6700\u65b0\u8cc7\u6599...`;
+      setCustomerTaskProgress(12, `\u6b63\u5728\u8b80\u53d6 ${code} \u7684\u6700\u65b0\u53ef\u7528\u8cc7\u6599\u3002`, { title:"\u8acb\u7a0d\u5019" });
       try {
         const quote = await getQuote(code);
+        setCustomerTaskProgress(58, "\u5831\u50f9\u5df2\u53d6\u5f97\uff0c\u6b63\u5728\u5efa\u7acb\u50f9\u683c\u8207\u98a8\u96aa\u89c0\u5bdf\u3002", { title:"\u6b63\u5728\u5206\u6790" });
         setHomeStatus("quote", "\u5df2\u53d6\u5f97", "\u958b\u59cb\u8a08\u7b97\u652f\u6490\u58d3\u529b", "active");
         setHomeStatus("analysis", "\u8a08\u7b97\u4e2d", "\u5efa\u7acb\u4eca\u65e5\u64cd\u4f5c\u5224\u65b7", "warn");
         render(analyze(code, quote));
+        setCustomerTaskProgress(100, `${code} \u521d\u6b65\u5206\u6790\u5df2\u5b8c\u6210\u3002`, { title:"\u5206\u6790\u5b8c\u6210", complete:true });
       } catch (err) {
         console.error(err);
         showLoadError(code, err);
+        setCustomerTaskProgress(0, "\u8cc7\u6599\u66ab\u6642\u7121\u6cd5\u8b80\u53d6\uff0c\u8acb\u7a0d\u5f8c\u518d\u8a66\u3002", { title:"\u5206\u6790\u672a\u5b8c\u6210" });
       }
     }
 
     $("stockForm").addEventListener("submit", (e) => { e.preventDefault(); run($("stockInput").value); });
+    document.querySelector(".market-header-actions").addEventListener("click", (e) => {
+      const button = e.target.closest("[data-market-view]");
+      if (button) openWorkspace(button.dataset.marketView || "client");
+    });
+    $("industryHeatmap").addEventListener("click", (e) => {
+      const button = e.target.closest("[data-industry]");
+      if (!button) return;
+      marketRadarIndustry = marketRadarIndustry === button.dataset.industry ? "all" : button.dataset.industry;
+      saveMarketRadarFilters();
+      renderMarketRadar();
+    });
+    ["marketFilterMarket","marketFilterIndustry","marketFilterStrategy","marketFilterEvent","marketFilterQuality","marketFilterSort"].forEach((id) => {
+      $(id).addEventListener("change", () => {
+        marketRadarMarket = $("marketFilterMarket").value;
+        marketRadarIndustry = $("marketFilterIndustry").value;
+        marketRadarStrategy = $("marketFilterStrategy").value;
+        marketRadarEvent = $("marketFilterEvent").value;
+        marketRadarQuality = $("marketFilterQuality").value;
+        marketRadarSort = $("marketFilterSort").value;
+        saveMarketRadarFilters();
+        renderMarketRadar();
+      });
+    });
+    $("marketFilterReset").addEventListener("click", () => {
+      marketRadarMarket = "all";
+      marketRadarIndustry = "all";
+      marketRadarStrategy = "balanced";
+      marketRadarEvent = "all";
+      marketRadarQuality = "rankable";
+      marketRadarSort = "score";
+      saveMarketRadarFilters();
+      syncMarketRadarControls();
+      renderMarketRadar();
+    });
+    $("marketRadarHome").addEventListener("click", (e) => {
+      const button = e.target.closest("[data-market-code]");
+      if (button) run(button.dataset.marketCode).then(() => openWorkspace("stock"));
+    });
     $("stockSuggestionList").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-stock-suggestion]");
       if (!btn) return;
@@ -5033,6 +5421,8 @@
     window.addEventListener("popstate", syncWorkspaceFromLocation);
     setupResponsiveStatusDisclosure();
     setupReveal();
+    restoreMarketRadarFilters();
+    syncMarketRadarControls();
     renderPortfolioHealth();
     const initialCode = new URLSearchParams(location.search).get("code");
     if (initialCode) run(initialCode).then(syncWorkspaceFromLocation);
@@ -5040,6 +5430,7 @@
       renderEmptyStockState();
       syncWorkspaceFromLocation();
     }
+    loadMarketRadar();
     loadScreenerMode(currentScreenerMode);
     if (adminEnabled) openWorkspace("admin", "replace");
   </script>
