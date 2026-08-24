@@ -326,7 +326,8 @@
     .risk-note p { color:#55524e; font-size:12px; line-height:1.65; }
     .page { max-width:1240px; padding:0 1rem 1.4rem; }
     .page.workspace-active > .market-radar-home { display:none; }
-    .market-app-header { position:sticky; top:0; z-index:40; margin:0 -1rem; padding:.68rem 1rem; border-bottom:1px solid #dfe5e3; background:rgba(255,255,255,.96); backdrop-filter:blur(14px); box-shadow:0 5px 18px rgba(21,51,47,.06); }
+    .market-app-header { position:sticky; top:0; z-index:40; display:block; min-height:0; align-content:normal; overflow:visible; margin:0 -1rem; padding:.68rem 1rem; border:0; border-bottom:1px solid #dfe5e3; border-radius:0; color:var(--ink); background:rgba(255,255,255,.96); backdrop-filter:blur(14px); box-shadow:0 5px 18px rgba(21,51,47,.06); }
+    .market-app-header::before { display:none; }
     .market-topbar { max-width:1208px; margin:0 auto; display:grid; grid-template-columns:auto minmax(280px,1fr) auto; gap:1rem; align-items:center; }
     .market-brand { display:flex; align-items:center; gap:.6rem; min-width:max-content; }
     .market-brand-mark { display:grid; place-items:center; width:34px; height:34px; border-radius:9px; color:#fff; background:#0d786c; font-weight:850; letter-spacing:-.03em; }
@@ -446,7 +447,7 @@
     @media (max-width:520px) {
       .page { padding:0 .72rem .9rem; }
       .market-app-header { position:relative; margin:0 -.72rem; padding:.65rem .72rem; }
-      .market-brand small,.market-header-actions button:not(:last-child) { display:none; }
+      .market-brand small,.market-header-actions { display:none; }
       .market-brand strong { font-size:.85rem; }
       .market-radar-home { padding-top:.72rem; }
       .market-radar-title { align-items:flex-start; }
@@ -1533,6 +1534,16 @@
 
     function setupResponsiveStatusDisclosure() {
       const details = $("homeStatusDetails");
+      if (!details || !window.matchMedia) return;
+      const mobile = window.matchMedia("(max-width:520px)");
+      const apply = () => { details.open = !mobile.matches; };
+      apply();
+      if (mobile.addEventListener) mobile.addEventListener("change", apply);
+      else if (mobile.addListener) mobile.addListener(apply);
+    }
+
+    function setupMarketFilterDisclosure() {
+      const details = $("marketFilterDetails");
       if (!details || !window.matchMedia) return;
       const mobile = window.matchMedia("(max-width:520px)");
       const apply = () => { details.open = !mobile.matches; };
@@ -3127,6 +3138,13 @@
       return "heat-flat";
     }
 
+    function marketDailyChangePct(item) {
+      const close = Number(item?.close);
+      const change = Number(item?.change);
+      const previousClose = close - change;
+      return Number.isFinite(close) && Number.isFinite(change) && previousClose > 0 ? (change / previousClose) * 100 : NaN;
+    }
+
     function saveMarketRadarFilters() {
       try {
         localStorage.setItem("marketRadarFiltersV1", JSON.stringify({
@@ -3162,7 +3180,7 @@
       const groups = new Map();
       rows.forEach((item) => {
         const key = marketIndustryKey(item);
-        const change = Number(item.change);
+        const change = marketDailyChangePct(item);
         const current = groups.get(key) || { key, count:0, changeTotal:0, changeCount:0 };
         current.count += 1;
         if (Number.isFinite(change)) { current.changeTotal += change; current.changeCount += 1; }
@@ -3233,7 +3251,7 @@
       const rankLabel = marketRadarSort === "score" ? "#" : "--";
       $("marketRankingRows").innerHTML = filtered.length ? filtered.map((item, index) => {
         const trust = clientRankingTrust(item);
-        const change = Number(item.change);
+        const change = marketDailyChangePct(item);
         return `<tr><td>${rankLabel === "#" ? `#${index + 1}` : rankLabel}</td>
           <td><button type="button" class="market-stock-button" data-market-code="${escapeHtml(item.code)}"><strong>${escapeHtml(item.code)} ${escapeHtml(item.name || "")}</strong><small>${escapeHtml(item.market || "--")}</small></button></td>
           <td>${escapeHtml(marketIndustryLabel(marketIndustryKey(item)))}</td>
@@ -3244,7 +3262,7 @@
       $("marketRankingCards").innerHTML = filtered.length ? filtered.map((item, index) => {
         const trust = clientRankingTrust(item);
         return `<article class="market-ranking-card"><header><button type="button" class="market-stock-button" data-market-code="${escapeHtml(item.code)}"><strong>${rankLabel === "#" ? `#${index + 1} ` : ""}${escapeHtml(item.code)} ${escapeHtml(item.name || "")}</strong><small>${escapeHtml(marketIndustryLabel(marketIndustryKey(item)))}</small></button>${clientRankingTrustBadge(trust)}</header>
-          <div class="market-ranking-card-grid"><div><span>${strategyLabel}\u5339\u914d</span><strong>${scoreText(marketStrategyMatch(item))}</strong></div><div><span>\u7e3d\u5206</span><strong>${scoreText(item.professionalRating?.total)}</strong></div><div><span>\u6f32\u8dcc</span><strong>${pct(Number(item.change))}</strong></div><div><span>\u8cc7\u6599\u8986\u84cb</span><strong>${trust.coveragePercent || 0}%</strong></div><div><span>\u5831\u50f9\u65e5</span><strong>${escapeHtml(statusDate(item.quoteDate || item.dataStatus?.quoteDate))}</strong></div><div><span>\u5e02\u5834</span><strong>${escapeHtml(item.market || "--")}</strong></div></div></article>`;
+          <div class="market-ranking-card-grid"><div><span>${strategyLabel}\u5339\u914d</span><strong>${scoreText(marketStrategyMatch(item))}</strong></div><div><span>\u7e3d\u5206</span><strong>${scoreText(item.professionalRating?.total)}</strong></div><div><span>\u6f32\u8dcc</span><strong>${pct(marketDailyChangePct(item))}</strong></div><div><span>\u8cc7\u6599\u8986\u84cb</span><strong>${trust.coveragePercent || 0}%</strong></div><div><span>\u5831\u50f9\u65e5</span><strong>${escapeHtml(statusDate(item.quoteDate || item.dataStatus?.quoteDate))}</strong></div><div><span>\u5e02\u5834</span><strong>${escapeHtml(item.market || "--")}</strong></div></div></article>`;
       }).join("") : `<p class="note">\u76ee\u524d\u6c92\u6709\u7b26\u5408\u7be9\u9078\u8207\u8cc7\u6599\u9580\u6abb\u7684\u80a1\u7968\u3002</p>`;
       $("marketRankingNote").textContent = `\u76ee\u524d\u986f\u793a ${filtered.length} \u6a94\uff1b${strategyLabel}\u5339\u914d\u5206\u53ea\u7528\u65bc\u521d\u7be9\uff0c\u500b\u80a1\u7a81\u7834\u3001\u5931\u6548\u8207\u591a\u7a7a\u8a0a\u865f\u4ecd\u9700\u9032\u5165 K \u7dda\u6df1\u5ea6\u5206\u6790\u3002\u672c\u699c\u662f\u53ef\u63a7\u6279\u6b21\uff0c\u4e0d\u662f\u5168\u5e02\u5834\u5373\u6642\u6392\u540d\u3002`;
     }
@@ -5420,6 +5438,7 @@
     }
     window.addEventListener("popstate", syncWorkspaceFromLocation);
     setupResponsiveStatusDisclosure();
+    setupMarketFilterDisclosure();
     setupReveal();
     restoreMarketRadarFilters();
     syncMarketRadarControls();

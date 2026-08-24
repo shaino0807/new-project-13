@@ -74,7 +74,7 @@ Description: Verifies the macro/news panel distinguishes readable evidence from 
 
 Steps:
 1. Navigate to the app.
-2. From the homepage doorway cards, click 開啟 Dino K線選股 exactly once and wait until the workspace heading 1. 總經與最新新聞 is visible; do not click a hidden or already-active workspace tab.
+2. From the compact homepage navigation, click 策略選股 exactly once and wait until the workspace heading 1. 總經與最新新聞 is visible; do not click a hidden or already-active workspace tab.
 3. Wait for that section to either render news cards or show its explicit timeout/unavailable state, independently of any stock search.
 4. If news cards are present, inspect their source links and whether the UI says article content or only RSS material was available. If no cards are present, inspect the unavailable explanation instead and stop.
 
@@ -86,9 +86,9 @@ Description: Verifies each stock search requests the aggregated backend route an
 
 Steps:
 1. Navigate to the app.
-2. Use the top stock code/name field in the hero form, not the lower Agent question field, to run 2330 analysis.
+2. Use the stock code/name field in the compact header, not the lower Agent question field, to run 2330 analysis.
 3. Wait for fundamentals to finish loading.
-4. Use the same top stock code/name field and the analysis button, not the Agent question button, to run 2344 analysis.
+4. Use the same compact-header stock code/name field and the analysis button, not the Agent question button, to run 2344 analysis.
 5. Wait for fundamentals to update to the new stock.
 
 Expected: Available rows include numeric values and source dates. In Dino deep analysis, the fundamental section shows period, current value, comparison value, change, interpretation, and source for monthly revenue, EPS/profitability, cash flow, and balance-sheet evidence. A complete fundamental conclusion requires the visible minimum evidence gate; unavailable upstream data is marked clearly instead of inventing values.
@@ -121,23 +121,23 @@ Viewport: desktop
 Description: Verifies Dino exposes evidence-gated market context and starts a persistent deep-analysis job without an immediate network failure.
 
 Steps:
-1. Navigate to the app and click the homepage 開啟 Dino K線選股 doorway card once.
+1. Navigate to the app and click the homepage 策略選股 navigation button once.
 2. Wait for macro/news, the 1-3 month screener, source panel, and either a complete thematic snapshot or the explicit full-market-building state.
 3. Confirm the legacy 16-stock theme rearrangement is not shown as a full-market result while the first valid snapshot is building.
 4. Enter the inactive/nonexistent code 2334 in the manual selection field and click 進入深度流程.
 5. Confirm the page says that 2334 is not a currently valid listed/OTC target and does not create a job, call the AI report chain, or render repeated Yahoo 404/N/A tables.
 6. Replace it with 2330 and click 進入深度流程.
-7. Wait until the persistent job progress panel shows a job ID or a named analysis stage; do not wait for every research stage or the final LLM report in this smoke test.
+7. Wait until the customer progress tray shows 請稍候, a percentage, and a short customer-facing status; do not wait for every research stage or the final report in this smoke test.
 
-Expected: Dino can load before a stock is selected. A completed thematic snapshot contains five independently scanned full-market Top 10 tables with coverage, reason, date/source, and invalidation fields; otherwise an honest building state is shown. The numeric input path validates current market membership instead of accepting any four digits. Invalid 2334 is rejected before job creation with a clear Chinese explanation. Starting valid 2330 creates or resumes the staged report job and displays progress instead of an immediate Network Error. A stage is shown as completed only when its required structured evidence passes; unavailable evidence cannot be labeled generated merely because AI prose exists. Long valuation, fundamental, technical, signal, and synthesis stages continue through the resumable job contract outside this short browser smoke test.
+Expected: Dino can load before a stock is selected. A completed thematic snapshot contains five independently scanned full-market Top 10 tables with coverage, reason, date/source, and invalidation fields; otherwise an honest building state is shown. The numeric input path validates current market membership instead of accepting any four digits. Invalid 2334 is rejected before job creation with a clear Chinese explanation. Starting valid 2330 creates or resumes the staged report job and displays percentage progress instead of an immediate Network Error. The customer UI must not expose a job ID, Skill path, internal stage key, internal success/failure count, or orchestration table. A result is shown only when its required structured evidence passes; unavailable evidence cannot be labeled generated merely because AI prose exists. Long valuation, fundamental, technical, signal, and synthesis stages continue through the resumable job contract outside this short browser smoke test.
 
 ## Test 11 - Keyboard, focus, and workspace history remain coherent
 Viewport: desktop and mobile
 Description: Verifies the revised progressive workflow is operable without a pointer and preserves browser navigation.
 
 Steps:
-1. Navigate to the app without a stock and use Tab to reach the stock input and 開始分析 button.
-2. Confirm the only stock-specific deep-analysis action says 請先選擇股票 and is disabled, while 自選股與持股 and Dino K線選股 remain available.
+1. Navigate to the app without a stock and use Tab to reach the compact header stock input and 分析 button.
+2. Confirm the market radar ranking and 策略選股 remain available before a stock is selected.
 3. Analyze 2330, activate 查看完整分析 by keyboard, then use ArrowRight and ArrowLeft on the workspace tab list.
 4. Confirm focus and `aria-selected` move together across visible tabs.
 5. In 股票完整分析, use the five section links and then use ArrowRight and ArrowLeft on the 技術副圖 tab list.
@@ -146,16 +146,16 @@ Steps:
 
 Expected: Every interactive control has a visible focus indicator, status changes are announced through live regions, disabled entries do not receive accidental activation, and the workspace URL hash matches the active workspace tab. Section links scroll without replacing that workspace hash. The indicator tab focus and `aria-selected` state move together. Browser Back returns to the homepage rather than trapping the visitor, while Forward restores the prior workspace view. Reduced motion removes reveal/status animation without hiding content, and increased contrast keeps borders and focus rings visible.
 
-## Test 12 - Warning status remains readable
+## Test 12 - Customer progress remains readable without internal workflow leakage
 Viewport: desktop and mobile
-Description: Prevents a generic warning utility class from overriding the Hero status-card palette.
+Description: Verifies long-running customer operations use a compact progress treatment instead of exposing implementation details.
 
 Steps:
-1. Navigate to the app and trigger or simulate the 價值雷達 waiting-for-data state.
-2. Inspect the Hero status tile class and its computed label, value, detail, background, and border colors.
-3. Repeat while another warning badge or decision card is visible elsewhere on the page.
+1. Navigate to the app and run a stock analysis.
+2. Start or resume a ranking refresh or strategy deep analysis.
+3. Inspect the fixed customer task tray and the inline deep-analysis waiting state at desktop and 390 x 844.
 
-Expected: The Hero uses its component-specific `status-tone-warning` class rather than a generic `warn` class. Its label, value, and detail text remain white against the dark amber background, with a contrast ratio of at least 4.5:1. Other warning components keep their own scoped palettes and do not change the Hero tile.
+Expected: The customer sees 請稍候 or a plain-language task title, a percentage, one short status sentence, and whether leaving the page is safe. The progress bar and text remain legible with a contrast ratio of at least 4.5:1. No job ID, Skill name/path, internal phase key, orchestration contract, internal success/failure count, or raw backend message is visible.
 
 ## Test 13 - Network failures are actionable
 Viewport: desktop and mobile
@@ -174,7 +174,7 @@ Viewport: desktop and mobile
 Description: Verifies the separate macro-risk workspace keeps all 17 indicators, all six report parts, strict evidence rules, and resumable refresh behavior.
 
 Steps:
-1. Navigate to the app without selecting a stock, then open 宏觀風險掃描 from the homepage doorway or workspace tab.
+1. Navigate to the app without selecting a stock, then open 風險掃描 from the compact homepage navigation or workspace tab.
 2. Confirm the page renders five short-term, seven medium-term, and five long-term indicators, grouped in that order.
 3. Confirm each row shows current value or `--`, data date or an explicit unavailable state, fixed threshold, signal, direction versus the prior snapshot, interpretation, limitation, and a traceable source link.
 4. Confirm the three horizon cards show 1-3 個月, 3-12 個月, and 1-3 年+, including the count of unalerted, red, yellow, and unknown indicators.
@@ -204,7 +204,7 @@ Viewport: desktop, 390 x 844, and 320 x 844
 Description: Verifies the customer ranking is explicit about its controlled batch, freshness, eligibility, deterministic ordering, and compact mobile reading path.
 
 Steps:
-1. Navigate to 自選股與持股 and click 更新工作台 once. Wait for the ranking status cards or the explicit unavailable state.
+1. Navigate to the homepage market radar. Wait for the ranking status strip or the explicit unavailable state; then open 自選股 if the detailed workbench needs inspection.
 2. Inspect 本次評分, 可列入排名, 高信賴度, and 更新時間. Confirm the note also states the quote-date window and controlled-batch scope.
 3. Keep 資料品質 on 可列入排名. Switch between 低估, 高估, 現金流, 成長, and 小資; for an equal primary score, confirm the tie order is data coverage, then quote date, then stock code.
 4. Change 資料品質 to 高信賴度 and then 包含資料受限列. Confirm limited rows display a data-limited state and receive no fabricated rank.
@@ -212,3 +212,19 @@ Steps:
 6. At desktop width, vertically scroll the dense ranking panel and horizontally scroll it if needed. At 390 x 844 and 320 x 844, confirm it changes to labeled cards.
 
 Expected: The ranking states that it is not a real-time full-market leaderboard. A row is rankable only with a score, quote date, at least 60% coverage, and no stale dataset; high trust additionally requires 85% coverage. The primary-score order is deterministic and does not depend on upstream return order. Rank, stock, and the table header stay readable on desktop; the two fixed identity columns do not obscure the remaining fields. Mobile has no page-level horizontal overflow, exposes status, score, coverage, and quote date in each card, and keeps every control at least 44 CSS pixels high.
+
+## Test 17 - Market radar industry, left-right strategy, and honest scope
+Viewport: desktop, 390 x 844, and 320 x 844
+Description: Verifies the approved light market-radar homepage uses the current controlled batch for industry and strategy research without pretending to be TradingView or a full-market real-time feed.
+
+Steps:
+1. Navigate to the homepage and wait for the latest complete snapshot.
+2. Inspect the batch summary, industry heatmap, filter controls, ranking table, and mobile ranking cards.
+3. Select one industry tile and confirm the industry select and ranking rows update together without a new upstream scoring request.
+4. Switch strategy between 綜合研究, 左側交易, and 右側交易. Confirm each row shows the selected strategy label and a reproducible match score.
+5. Switch event filters between 低估值得研究, 成長轉強, 現金流較完整, 趨勢確認, and 追高風險.
+6. Select a ranking row and confirm it opens the existing stock analysis path.
+7. Reload the page and confirm the browser-local filter preference is restored.
+8. At mobile width, confirm the industry tiles scroll horizontally, filters use a disclosure panel, and ranking rows become labeled cards.
+
+Expected: The heatmap aggregates the current controlled batch's actual one-day quote change percentages by the site's industry group and states that it is not full-market breadth. Left-side matching weighs undervaluation, valuation, cash flow, financial stability, and avoiding chase risk; right-side matching separately weighs trend, market confidence, growth, profitability, cash flow, and avoiding chase risk. These scores are labeled as first-pass research matching, not buy signals. Box, breakout, fakeout, invalidation, and long/short conclusions remain in the existing K-line deep-analysis path. No TradingView or Dipping.ai data or proprietary formula is imported, copied, or implied.
