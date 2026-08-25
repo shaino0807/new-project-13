@@ -116,11 +116,14 @@ const MACRO_RISK_SCAN_SNAPSHOT_TABLE = "macro_risk_scan_snapshots_v1";
 const MACRO_RISK_SCAN_REGISTRY_TABLE = "macro_risk_scan_registry_v1";
 const MACRO_RISK_SCAN_VERSION = "macro-risk-scan-v2";
 const MACRO_RISK_SCAN_BATCH_SIZE = 4;
-const RANKING_MIN_SUCCESS_RATIO = 0.8;
+const RANKING_MIN_SUCCESS_RATIO = 0.95;
+const RANKING_MIN_ITEM_COVERAGE = 60;
+const RANKING_OUTPUT_LIMIT = 64;
+const RANKING_PILOT_SIZE = 250;
 const RANKING_JOB_BATCH_SIZE = 4;
-const RANKING_JOB_TOP_PER_MODE = 40;
-const RANKING_SNAPSHOT_ITEM_LIMIT = 80;
-const MARKET_FEATURE_SCHEMA_VERSION = "market-features-v4";
+const RANKING_JOB_TOP_PER_MODE = RANKING_OUTPUT_LIMIT;
+const RANKING_SNAPSHOT_ITEM_LIMIT = RANKING_OUTPUT_LIMIT;
+const MARKET_FEATURE_SCHEMA_VERSION = "market-features-v5";
 const MARKET_SCAN_MIN_SUCCESS_RATIO = 0.95;
 const MARKET_UNIVERSE_MIN_TWSE_COUNT = 900;
 const MARKET_UNIVERSE_MIN_TPEX_COUNT = 700;
@@ -1397,11 +1400,9 @@ async function loadFundamentals(code: string, options: { fast?: boolean; evidenc
   if (fallbackApplied) {
     if (officialFinancialFallback?.profitability || officialFinancialFallback?.balanceSheet) {
       cachedDataStatus.push("TWSE/TPEx MOPS fallback");
-      staleDataStatus.push("TWSE/TPEx MOPS fallback");
     }
     if (officialRevenueFallback?.revenue) {
       cachedDataStatus.push("TWSE monthly revenue fallback");
-      staleDataStatus.push("TWSE monthly revenue fallback");
     }
     if (officialValuationFallback?.valuation) cachedDataStatus.push("TWSE/TPEx official valuation fallback");
   }
@@ -1557,6 +1558,7 @@ type ValueScore = {
 const TAIWAN_UNIVERSE_VERSION = "tw-liquid-v1-2026-06";
 const TAIWAN_COMPANY_UNIVERSE_VERSION = "finmind-tw-company-universe-2026-07";
 const TAIWAN_COMPANY_TYPES = new Set(["twse", "tpex", "emerging"]);
+type TaiwanCompanyProfile = { code: string; name: string; type: string; industry: string };
 const OFFICIAL_TAIWAN_COMPANY_UNIVERSE_ENDPOINTS = [
   { type: "twse", source: "TWSE t187ap03_L", url: "https://openapi.twse.com.tw/v1/opendata/t187ap03_L" },
   { type: "tpex", source: "TPEx mopsfin_t187ap03_O", url: "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_O" },
@@ -1674,7 +1676,7 @@ const COMPANY_THEME_DETAILS: Record<string, string> = {
 
 const SCORE_SOURCE_NOTE = "Transparent model: Yahoo/TWSE quotes plus FinMind financial data; no InvestingPro data or third-party analyst consensus is used.";
 
-function summarizeTaiwanCompanies(companies: Array<{ code: string; name: string; type: string; industry: string }>) {
+function summarizeTaiwanCompanies(companies: TaiwanCompanyProfile[]) {
   return companies.reduce((acc: Record<string, number>, item) => {
     acc[item.type] = (acc[item.type] || 0) + 1;
     return acc;
@@ -2488,7 +2490,11 @@ function buildCfoGuide(total: number | null, chaseRiskScore: number | null, down
   };
 }
 
-function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typeof loadFundamentals>>): ValueScore {
+function buildValueScores(
+  quote: QuoteInfo,
+  fundamentals: Awaited<ReturnType<typeof loadFundamentals>>,
+  companyProfile?: TaiwanCompanyProfile | null,
+): ValueScore {
   const data = fundamentals.data;
   const profit = data.profitability;
   const revenue = data.revenue;
@@ -2872,10 +2878,10 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
   const fairDownsidePct = Number.isFinite(upsidePct) && (upsidePct as number) < 0 ? upsidePct : null;
   const cfoGuide = buildCfoGuide(professionalTotal, chaseRiskComponent.score, fairDownsidePct, close);
   const universeEntry = TAIWAN_SCREENING_UNIVERSE.find(item => item.code === quote.code);
-  const industryGroup = universeEntry?.group || (fundamentals.assetType === "etf" ? "etf" : "unclassified");
-  const isFinancialIndustry = /^28/.test(quote.code) || /financial|bank|insurance/i.test(industryGroup);
-  const isSemiconductorIndustry = /semiconductor/i.test(industryGroup);
-  const isCyclicalIndustry = /steel|materials|plastics|shipping|commodity/i.test(industryGroup);
+  const industryGroup = String(companyProfile?.industry || universeEntry?.group || (fundamentals.assetType === "etf" ? "etf" : "unclassified")).trim() || "unclassified";
+  const isFinancialIndustry = /^28/.test(quote.code) || /financial|bank|insurance|\u91d1\u878d|\u9280\u884c|\u4fdd\u96aa/i.test(industryGroup);
+  const isSemiconductorIndustry = /semiconductor|\u534a\u5c0e\u9ad4/i.test(industryGroup);
+  const isCyclicalIndustry = /steel|materials|plastics|shipping|commodity|\u92fc\u9435|\u5851\u81a0|\u822a\u904b|\u5316\u5de5|\u6c34\u6ce5/i.test(industryGroup);
   const isDividendProfile = /income|dividend/i.test(industryGroup);
   const growthAnchor = [
     revenue?.yoy,
@@ -3496,12 +3502,12 @@ function buildValueScores(quote: QuoteInfo, fundamentals: Awaited<ReturnType<typ
   };
 }
 
-async function loadValueScore(code: string, options: { fast?: boolean; evidenceMinimum?: boolean } = {}) {
+async function loadValueScore(code: string, options: { fast?: boolean; evidenceMinimum?: boolean; companyProfile?: TaiwanCompanyProfile | null } = {}) {
   const [quote, fundamentals] = await Promise.all([
     loadQuote(code),
     loadFundamentals(code, options),
   ]);
-  return buildValueScores(quote, fundamentals);
+  return buildValueScores(quote, fundamentals, options.companyProfile);
 }
 
 function screenerSortValue(mode: string, item: ValueScore) {
@@ -3634,8 +3640,9 @@ async function loadScreener(mode: string, universeValue: unknown, options: { fas
   }));
   const isDefaultUniverse = customUniverse.length === 0;
   const universe = isDefaultUniverse ? buildDefaultScreenerUniverse(marketUniverseResult) : customUniverse;
+  const companyProfiles = new Map<string, TaiwanCompanyProfile>(((marketUniverseResult as any).companies || []).map((company: TaiwanCompanyProfile) => [company.code, company] as [string, TaiwanCompanyProfile]));
   const scoreLimit = isDefaultUniverse ? 10 : 4;
-  const results = await settleWithLimit(universe, scoreLimit, code => loadValueScore(code, options));
+  const results = await settleWithLimit(universe, scoreLimit, code => loadValueScore(code, { ...options, companyProfile: companyProfiles.get(code) || null }));
   const items: ValueScore[] = [];
   const errors: Array<{ code: string; message: string }> = [];
   results.forEach((result, index) => {
@@ -7664,8 +7671,8 @@ function buildSwingSummaryFromStages(codes: string[], valuation: any, deep: any,
 }
 
 function rankingItemHasMinimumEvidence(mode: string, item: ValueScore) {
-  const coverage = Number(item.dataStatus?.coverage?.percent || 0);
-  if (!item.ok || !item.code || !Number.isFinite(item.close) || !item.quoteDate || coverage < 55) return false;
+  const trust = item.rankingTrust || buildRankingTrust(item);
+  if (!item.ok || !item.code || !Number.isFinite(item.close) || trust.status !== "rankable") return false;
   if (mode === "overvalued") return Number.isFinite(item.scores.overvalued);
   if (mode === "cashflow") return Number.isFinite(item.scores.cashFlow?.score);
   if (mode === "growth") return Number.isFinite(item.scores.growth?.score);
@@ -7678,13 +7685,14 @@ function applyRankingEvidenceGate(payload: any, mode: string) {
   const requested = Number(payload?.universeMeta?.requestedCount || payload?.universe?.length || 0);
   const scored = Number(payload?.universeMeta?.scoredCount ?? (Array.isArray(payload?.items) ? payload.items.length : 0));
   const eligible = (payload?.items || []).filter((item: ValueScore) => rankingItemHasMinimumEvidence(mode, item));
+  const highTrustCount = eligible.filter((item: ValueScore) => (item.rankingTrust || buildRankingTrust(item)).quality === "high").length;
   const successRatio = requested > 0 ? scored / requested : 0;
   const passed = successRatio >= RANKING_MIN_SUCCESS_RATIO && eligible.length > 0;
   const reasons = [
     successRatio < RANKING_MIN_SUCCESS_RATIO
       ? `Only ${scored} of ${requested} requested stocks were scored; minimum success ratio is ${Math.round(RANKING_MIN_SUCCESS_RATIO * 100)}%.`
       : "",
-    eligible.length === 0 ? "No ranked stock passed quote-date, score, and 55% data-coverage requirements." : "",
+    eligible.length === 0 ? `No ranked stock passed score, quote-date, ${RANKING_MIN_ITEM_COVERAGE}% data-coverage, and no-stale-data requirements.` : "",
   ].filter(Boolean);
   return {
     ...payload,
@@ -7695,13 +7703,14 @@ function applyRankingEvidenceGate(payload: any, mode: string) {
       requested,
       scored,
       eligible: eligible.length,
+      highTrust: highTrustCount,
       successRatio: round(successRatio * 100, 1),
       minimumSuccessRatio: RANKING_MIN_SUCCESS_RATIO * 100,
-      minimumItemCoverage: 55,
+      minimumItemCoverage: RANKING_MIN_ITEM_COVERAGE,
       displayed: passed ? Math.min(eligible.length, RANKING_SNAPSHOT_ITEM_LIMIT) : 0,
       displayLimit: RANKING_SNAPSHOT_ITEM_LIMIT,
       reasons,
-      policy: "Publish only complete snapshots whose scoring batch and displayed rows pass the minimum evidence gate.",
+      policy: `Each mode independently sorts the complete scoring universe and publishes its own Top ${RANKING_OUTPUT_LIMIT}; every displayed row requires a score, quote date, ${RANKING_MIN_ITEM_COVERAGE}%+ coverage, and no stale datasets.`,
     },
     message: passed ? "" : reasons.join(" ") || "Ranking evidence gate did not pass.",
   };
@@ -7745,7 +7754,7 @@ async function readRankingSnapshot(mode: string) {
         snapshotGeneratedAt: rejectedJob.updatedAt || rejectedJob.result?.generatedAt || null,
         evidenceGate: gate,
         message: gate?.reasons?.join(" ") || (mode === "cashflow"
-          ? "The latest scoring batch completed, but no stock had a verifiable cash-flow score at the 55% evidence threshold. No cash-flow ranking was published; running the same batch again will not invent the missing evidence."
+          ? `The latest scoring batch completed, but no stock had a verifiable cash-flow score at the ${RANKING_MIN_ITEM_COVERAGE}% evidence threshold without stale data. No cash-flow ranking was published; running the same batch again will not invent the missing evidence.`
           : "The latest completed scoring batch did not pass this mode's evidence requirements, so no snapshot was published."),
       };
     }
@@ -7774,13 +7783,107 @@ async function readRankingSnapshot(mode: string) {
   };
 }
 
-async function publishRankingSnapshots(basePayload: any, mode: string) {
+async function loadMarketRadarSnapshot() {
+  const modes = ["undervalued", "overvalued", "active", "cashflow", "growth", "small-investor"];
+  const snapshots = await Promise.all(modes.map(mode => readRankingSnapshot(mode).catch(err => ({
+    ok: false,
+    mode,
+    snapshotStatus: "unavailable",
+    message: err instanceof Error ? err.message : String(err),
+  }))));
+  const complete = snapshots.filter((snapshot: any) => snapshot?.ok && snapshot?.snapshotStatus === "complete");
+  if (!complete.length) {
+    return {
+      ok: false,
+      snapshotStatus: "missing",
+      message: "No completed persisted ranking snapshot is available. The homepage did not start a scoring run.",
+      unavailableModes: snapshots.map((snapshot: any) => ({ mode: snapshot.mode, status: snapshot.snapshotStatus, message: snapshot.message || "" })),
+    };
+  }
+  const byMode = Object.fromEntries(snapshots.map((snapshot: any) => [snapshot.mode, snapshot]));
+  const byCode = new Map<string, any>();
+  complete.forEach((snapshot: any) => (snapshot.items || []).forEach((item: any) => {
+    if (item?.code && !byCode.has(item.code)) byCode.set(item.code, item);
+  }));
+  const allItems = [...byCode.values()];
+  const observationPool = [...allItems]
+    .sort((a, b) => compareRankingItems(a, b, item => item.professionalRating?.total ?? null))
+    .slice(0, RANKING_OUTPUT_LIMIT);
+  const rankableItems = allItems.filter(item => (item.rankingTrust || buildRankingTrust(item)).status === "rankable");
+  const quoteDates = rankableItems
+    .map(item => item.quoteDate || item.dataStatus?.quoteDate)
+    .filter(Boolean)
+    .sort();
+  const preferred = byMode.undervalued?.ok ? byMode.undervalued : complete[0];
+  const requested = Number(preferred?.evidenceGate?.requested || preferred?.universeMeta?.requestedCount || 0);
+  const scored = Number(preferred?.evidenceGate?.scored || preferred?.universeMeta?.scoredCount || 0);
+  const generatedAt = preferred?.snapshotGeneratedAt || preferred?.generatedAt || preferred?.refreshedAt || null;
+  const avgScore = rankableItems.length
+    ? round(rankableItems.reduce((sum, item) => sum + Number(item.professionalRating?.total || 0), 0) / rankableItems.length, 1)
+    : null;
+  const marketThemes = await readMarketThemeSnapshot().catch(() => null);
+  return {
+    ok: true,
+    snapshotStatus: "complete",
+    generatedAt,
+    source: "Persisted ranking snapshots; homepage reads do not run stock scoring or backtests.",
+    universeMeta: {
+      ...(preferred?.universeMeta || {}),
+      requestedCount: requested,
+      scoredCount: scored,
+      rankingOutputLimit: RANKING_OUTPUT_LIMIT,
+      rankingPolicy: `Every mode independently sorts the same scored universe and returns its own Top ${RANKING_OUTPUT_LIMIT}.`,
+    },
+    rankingSnapshot: {
+      generatedAt,
+      requestedCount: requested,
+      scoredCount: scored,
+      rankableCount: Number(preferred?.evidenceGate?.eligible ?? rankableItems.length),
+      highTrustCount: Number(preferred?.evidenceGate?.highTrust ?? rankableItems.filter(item => (item.rankingTrust || buildRankingTrust(item)).quality === "high").length),
+      oldestQuoteDate: quoteDates[0] || null,
+      newestQuoteDate: quoteDates[quoteDates.length - 1] || null,
+      rankingRule: `Primary mode score, coverage, quote date, then stock code; score + quote date + ${RANKING_MIN_ITEM_COVERAGE}% coverage + no stale datasets are required.`,
+    },
+    marketState: {
+      avgScore,
+      highChase: rankableItems.filter(item => Number(item.scores?.chaseRisk?.score || 0) >= 72).length,
+      goodCoverage: rankableItems.filter(item => Number(item.dataStatus?.coverage?.percent || 0) >= 85).length,
+      undervalued: rankableItems.filter(item => Number(item.scores?.undervalued || 0) >= 65).length,
+      total: rankableItems.length,
+      tone: "neutral",
+      note: `Persisted independent Top ${RANKING_OUTPUT_LIMIT} snapshots; no visitor-triggered rescoring.`,
+    },
+    ranked: {
+      observationPool,
+      todayWatch: observationPool.filter(item => Number(item.professionalRating?.total || 0) >= 65 && Number(item.scores?.chaseRisk?.score || 100) < 72).slice(0, 8),
+      watchlist: (byMode["small-investor"]?.items || []).slice(0, RANKING_OUTPUT_LIMIT),
+      chaseRisk: [...rankableItems].sort((a, b) => compareRankingItems(a, b, item => item.scores?.chaseRisk?.score ?? null)).slice(0, RANKING_OUTPUT_LIMIT),
+      undervalued: byMode.undervalued?.items || [],
+      overvalued: byMode.overvalued?.items || [],
+      active: byMode.active?.items || [],
+      cashflow: byMode.cashflow?.items || [],
+      growth: byMode.growth?.items || [],
+      smallInvestor: byMode["small-investor"]?.items || [],
+      etf: observationPool.filter(item => item.professionalRating?.assetModel === "etf"),
+    },
+    rankingModes: modes,
+    marketThemes,
+    finmind: {
+      status: "snapshot",
+      note: "The homepage shows the latest completed persisted evidence and does not consume FinMind quota on page load.",
+    },
+    backtest: { modelVersion: "not-run-on-homepage", results: [] },
+    unavailableModes: snapshots.filter((snapshot: any) => !snapshot.ok).map((snapshot: any) => ({ mode: snapshot.mode, status: snapshot.snapshotStatus, message: snapshot.message || "" })),
+  };
+}
+
+async function publishRankingSnapshots(basePayload: any, mode: string, options: { activate?: boolean } = {}) {
   const rankingModes = ["undervalued", "overvalued", "active", "cashflow", "growth", "small-investor"];
   const payloads = Object.fromEntries(rankingModes.map(rankingMode => {
     const rankedPayload = {
       ...basePayload,
       mode: rankingMode,
-      items: [...(basePayload.items || [])].sort((a, b) => screenerSortValue(rankingMode, b) - screenerSortValue(rankingMode, a)),
+      items: [...(basePayload.items || [])].sort((a, b) => compareRankingItems(a, b, item => screenerSortValue(rankingMode, item))),
     };
     return [rankingMode, applyRankingEvidenceGate(rankedPayload, rankingMode)];
   }));
@@ -7789,12 +7892,33 @@ async function publishRankingSnapshots(basePayload: any, mode: string) {
   const now = new Date().toISOString();
   const completeModes = rankingModes.filter(rankingMode => payloads[rankingMode]?.ok);
   const rejectedModes = rankingModes.filter(rankingMode => !payloads[rankingMode]?.ok);
+  if (options.activate === false) {
+    return {
+      ...requestedPayload,
+      snapshotStatus: "pilot-complete",
+      snapshotGeneratedAt: requestedPayload.generatedAt || now,
+      refreshedAt: now,
+      pilotByMode: Object.fromEntries(completeModes.map(rankingMode => [rankingMode, {
+        items: payloads[rankingMode].items,
+        evidenceGate: payloads[rankingMode].evidenceGate,
+      }])),
+      batch: {
+        scoringRuns: 1,
+        requestedMode: mode,
+        publishedModes: [],
+        evaluatedModes: completeModes,
+        rejectedModes,
+        rejectedByMode: Object.fromEntries(rejectedModes.map(rankingMode => [rankingMode, payloads[rankingMode]?.evidenceGate || null])),
+        policy: `Pilot-only evaluation: every mode independently selects its Top ${RANKING_OUTPUT_LIMIT}, but no pilot snapshot is activated as the public full-market ranking.`,
+      },
+    };
+  }
   const records = completeModes.map(rankingMode => ({
     mode: rankingMode,
     status: "complete",
     generatedAt: payloads[rankingMode].generatedAt || now,
     updatedAt: now,
-    evidenceVersion: "ranking-evidence-gate-v1",
+    evidenceVersion: "ranking-evidence-gate-v2",
     batchId: stableEvidenceId(["ranking-batch", basePayload.generatedAt, basePayload.universe?.join(",")]),
     payload: payloads[rankingMode],
   }));
@@ -7827,7 +7951,7 @@ async function publishRankingSnapshots(basePayload: any, mode: string) {
       publishedModes: completeModes,
       rejectedModes,
       rejectedByMode: Object.fromEntries(rejectedModes.map(rankingMode => [rankingMode, payloads[rankingMode]?.evidenceGate || null])),
-      policy: "One shared scoring batch produces every ranking mode; switching tabs reads persisted snapshots without rescoring.",
+      policy: `One complete feature universe produces independent deterministic rankings; each mode publishes its own Top ${RANKING_OUTPUT_LIMIT}, and switching tabs reads persisted snapshots without rescoring.`,
     },
   };
 }
@@ -7838,7 +7962,9 @@ function compactRankingItem(item: ValueScore) {
     code: item.code,
     name: item.name,
     market: item.market,
+    industryGroup: item.industryGroup,
     close: item.close,
+    change: item.change,
     quoteDate: item.quoteDate,
     volume: item.volume,
     generatedAt: item.generatedAt,
@@ -7869,9 +7995,14 @@ function compactRankingItem(item: ValueScore) {
     dataStatus: {
       quoteDate: item.dataStatus?.quoteDate,
       coverage: item.dataStatus?.coverage,
+      cachedDatasets: item.dataStatus?.cachedDatasets || [],
+      staleDatasets: item.dataStatus?.staleDatasets || [],
       warnings: item.dataStatus?.warnings || [],
     },
     professionalRating: item.professionalRating,
+    rankingTrust: item.rankingTrust || buildRankingTrust(item),
+    allocationGuide: item.allocationGuide,
+    cfoGuide: item.cfoGuide,
   };
 }
 
@@ -7885,7 +8016,7 @@ function mergeRankingCandidatePool(existing: any[], incoming: any[]) {
   const keepCodes = new Set<string>();
   modes.forEach(mode => {
     [...all]
-      .sort((a, b) => screenerSortValue(mode, b) - screenerSortValue(mode, a))
+      .sort((a, b) => compareRankingItems(a, b, item => screenerSortValue(mode, item)))
       .slice(0, RANKING_JOB_TOP_PER_MODE)
       .forEach(item => keepCodes.add(item.code));
   });
@@ -7993,8 +8124,10 @@ async function readMarketThemeSnapshot() {
 }
 
 function publicRankingRefreshJob(job: any) {
-  const total = job.universe?.length || 0;
-  const processed = Math.min(job.currentIndex || 0, total);
+  const universeTotal = job.universe?.length || 0;
+  const retryTotal = job.retryCodes?.length || 0;
+  const total = universeTotal + retryTotal;
+  const processed = Math.min(Number(job.currentIndex || 0) + Number(job.retryIndex || 0), total);
   const done = ["completed", "rejected", "failed"].includes(job.status);
   return {
     ok: job.status !== "failed",
@@ -8015,18 +8148,59 @@ function publicRankingRefreshJob(job: any) {
     message: job.message || "",
     scope: job.scope || "twse-tpex-full-market",
     universeStatus: job.universeStatus || (total ? "ready" : "pending"),
+    pilot: job.pilotSize ? {
+      enabled: true,
+      size: job.pilotSize,
+      label: `${job.pilotSize}-stock performance pilot; not a public full-market ranking`,
+    } : { enabled: false },
+    performance: job.performance || null,
     result: done ? job.result || null : null,
   };
 }
 
-async function createRankingRefreshJob(mode: string) {
+function buildRepresentativePilotUniverse(companies: TaiwanCompanyProfile[], size = RANKING_PILOT_SIZE) {
+  const listed = [...new Map<string, TaiwanCompanyProfile>(companies
+    .filter(company => company.type === "twse" || company.type === "tpex")
+    .filter(company => /^\d{4}$/.test(company.code))
+    .map(company => [company.code, company] as [string, TaiwanCompanyProfile])).values()]
+    .sort((a, b) => `${a.type}|${a.industry}|${a.code}`.localeCompare(`${b.type}|${b.industry}|${b.code}`));
+  if (listed.length <= size) return listed;
+  const selected = new Map<string, TaiwanCompanyProfile>();
+  const buckets = new Map<string, TaiwanCompanyProfile[]>();
+  listed.forEach(company => {
+    const key = `${company.type}|${company.industry || "unclassified"}`;
+    buckets.set(key, [...(buckets.get(key) || []), company]);
+  });
+  [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b)).forEach(([, rows]) => {
+    if (selected.size >= size) return;
+    const representative = rows[Math.floor((rows.length - 1) / 2)];
+    selected.set(representative.code, representative);
+  });
+  const remaining = listed.filter(company => !selected.has(company.code));
+  const needed = Math.max(0, size - selected.size);
+  for (let index = 0; index < needed; index += 1) {
+    const candidateIndex = Math.min(remaining.length - 1, Math.floor(((index + 0.5) * remaining.length) / needed));
+    const candidate = remaining[candidateIndex];
+    if (candidate) selected.set(candidate.code, candidate);
+  }
+  if (selected.size < size) {
+    remaining.forEach(company => {
+      if (selected.size < size) selected.set(company.code, company);
+    });
+  }
+  return [...selected.values()].sort((a, b) => a.code.localeCompare(b.code)).slice(0, size);
+}
+
+async function createRankingRefreshJob(mode: string, options: { pilotSize?: number | null } = {}) {
   const now = new Date().toISOString();
+  const pilotSize = Number(options.pilotSize) === RANKING_PILOT_SIZE ? RANKING_PILOT_SIZE : null;
+  const scope = pilotSize ? `twse-tpex-pilot-${pilotSize}` : "twse-tpex-full-market";
   const recentJobs = await listAllDbRecords(RANKING_REFRESH_JOB_TABLE, 2).catch(() => []);
   const reusable = recentJobs
     .filter((item: any) => item?.status === "queued" || item?.status === "running")
-    .filter((item: any) => item?.scope === "twse-tpex-full-market")
+    .filter((item: any) => item?.scope === scope)
     .filter((item: any) => item?.schemaVersion === MARKET_FEATURE_SCHEMA_VERSION)
-    .filter((item: any) => !item?.universe?.length || (
+    .filter((item: any) => pilotSize || !item?.universe?.length || (
       Number(item?.universeMeta?.fullMarketCounts?.twse || 0) >= MARKET_UNIVERSE_MIN_TWSE_COUNT
       && Number(item?.universeMeta?.fullMarketCounts?.tpex || 0) >= MARKET_UNIVERSE_MIN_TPEX_COUNT
       && Number(item?.universe?.length || 0) >= MARKET_UNIVERSE_MIN_LISTED_OTC_COUNT
@@ -8039,9 +8213,10 @@ async function createRankingRefreshJob(mode: string) {
     createdAt: now,
     updatedAt: now,
     mode,
+    pilotSize,
     schemaVersion: MARKET_FEATURE_SCHEMA_VERSION,
     phase: "universe",
-    scope: "twse-tpex-full-market",
+    scope,
     universeStatus: "pending",
     universe: [],
     currentIndex: 0,
@@ -8051,13 +8226,22 @@ async function createRankingRefreshJob(mode: string) {
     retryCodes: [],
     retryIndex: 0,
     featureBatchIds: {},
+    companyProfiles: [],
     newsTopicIndex: 0,
     newsEvidence: [],
     items: [],
     errors: [],
     runningBatchAt: null,
+    performance: {
+      startedAt: now,
+      activeScoringMs: 0,
+      scoringBatches: 0,
+      stockAttempts: 0,
+      successfulStocks: 0,
+      failedStocks: 0,
+    },
     universeMeta: {
-      name: "Taiwan listed and OTC full-market scoring job",
+      name: pilotSize ? `Taiwan listed and OTC ${pilotSize}-stock performance pilot` : "Taiwan listed and OTC full-market scoring job",
       version: TAIWAN_UNIVERSE_VERSION,
       fullMarketVersion: TAIWAN_COMPANY_UNIVERSE_VERSION,
       fullMarketCompanyCount: null,
@@ -8067,12 +8251,17 @@ async function createRankingRefreshJob(mode: string) {
       defaultCount: 0,
       requestedCount: 0,
       scoredCount: 0,
-      defaultSeedLimit: DEFAULT_FULL_MARKET_SEED_LIMIT,
+      rankingOutputLimit: RANKING_OUTPUT_LIMIT,
+      pilotSize,
       defaultSeedSource: "full TWSE and TPEx company directory; emerging stocks are kept separate",
       groups: [],
-      note: "The job resumes in small batches and publishes only after the complete listed/OTC scope passes the evidence gate.",
+      note: pilotSize
+        ? `The pilot deterministically samples ${pilotSize} companies across TWSE/TPEx and official industry groups. Each ranking mode independently selects its own Top ${RANKING_OUTPUT_LIMIT}; pilot results must not replace the public full-market label.`
+        : `The job resumes in small batches and each ranking mode independently selects its own Top ${RANKING_OUTPUT_LIMIT} only after the complete listed/OTC scope passes the evidence gate.`,
     },
-    message: "Ranking refresh queued. No completed snapshot is replaced until every batch finishes and the evidence gate passes.",
+    message: pilotSize
+      ? `${pilotSize}-stock performance pilot queued. It will not be described as a full-market ranking.`
+      : "Full-market ranking refresh queued. No completed snapshot is replaced until every batch finishes and the evidence gate passes.",
   };
   const [id] = await db.add(RANKING_REFRESH_JOB_TABLE, [record]);
   if (!id) throw new Error("Unable to create ranking refresh job.");
@@ -8084,7 +8273,7 @@ async function advanceRankingRefreshJob(id: string) {
   if (!job || ["completed", "rejected", "failed"].includes(job.status)) return job;
   const runningAgeMs = Date.now() - Date.parse(job.runningBatchAt || 0);
   if (job.status === "running" && Number.isFinite(runningAgeMs) && runningAgeMs < 60000) return job;
-  if (!job.universe?.length && job.scope === "twse-tpex-full-market") {
+  if (!job.universe?.length && String(job.scope || "").startsWith("twse-tpex-")) {
     job.status = "running";
     job.universeStatus = "loading";
     job.runningBatchAt = new Date().toISOString();
@@ -8093,19 +8282,23 @@ async function advanceRankingRefreshJob(id: string) {
     await saveRankingRefreshJob(id, job);
     try {
       const marketUniverse: any = await withTimeout(loadTaiwanCompanyUniverse(), 35000, "Taiwan company universe timed out");
-      const universe = (marketUniverse.companies || [])
-        .filter((company: any) => company.type === "twse" || company.type === "tpex")
-        .map((company: any) => cleanCode(company.code))
-        .filter((code: string) => /^\d{4}$/.test(code));
-      if (!universe.length) throw new Error("The listed/OTC company directory returned no eligible stocks.");
+      const listedCompanies: TaiwanCompanyProfile[] = (marketUniverse.companies || [])
+        .filter((company: TaiwanCompanyProfile) => company.type === "twse" || company.type === "tpex")
+        .filter((company: TaiwanCompanyProfile) => /^\d{4}$/.test(cleanCode(company.code)))
+        .map((company: TaiwanCompanyProfile) => ({ ...company, code: cleanCode(company.code) }));
+      if (!listedCompanies.length) throw new Error("The listed/OTC company directory returned no eligible stocks.");
       const twseCount = Number(marketUniverse.counts?.twse || 0);
       const tpexCount = Number(marketUniverse.counts?.tpex || 0);
       if (twseCount < MARKET_UNIVERSE_MIN_TWSE_COUNT
         || tpexCount < MARKET_UNIVERSE_MIN_TPEX_COUNT
-        || universe.length < MARKET_UNIVERSE_MIN_LISTED_OTC_COUNT) {
-        throw new Error(`Incomplete official directory: TWSE ${twseCount}, TPEx ${tpexCount}, listed/OTC total ${universe.length}. Required minimums are ${MARKET_UNIVERSE_MIN_TWSE_COUNT}, ${MARKET_UNIVERSE_MIN_TPEX_COUNT}, and ${MARKET_UNIVERSE_MIN_LISTED_OTC_COUNT}; no partial-market scan was started.`);
+        || listedCompanies.length < MARKET_UNIVERSE_MIN_LISTED_OTC_COUNT) {
+        throw new Error(`Incomplete official directory: TWSE ${twseCount}, TPEx ${tpexCount}, listed/OTC total ${listedCompanies.length}. Required minimums are ${MARKET_UNIVERSE_MIN_TWSE_COUNT}, ${MARKET_UNIVERSE_MIN_TPEX_COUNT}, and ${MARKET_UNIVERSE_MIN_LISTED_OTC_COUNT}; no partial-market scan was started.`);
       }
-      job.universe = [...new Set(universe)];
+      const selectedCompanies = job.pilotSize
+        ? buildRepresentativePilotUniverse(listedCompanies, Number(job.pilotSize))
+        : listedCompanies.sort((a, b) => a.code.localeCompare(b.code));
+      job.universe = selectedCompanies.map(company => company.code);
+      job.companyProfiles = selectedCompanies;
       job.phase = "features";
       job.universeStatus = "ready";
       job.runningBatchAt = null;
@@ -8114,15 +8307,23 @@ async function advanceRankingRefreshJob(id: string) {
       job.universeMeta = {
         ...job.universeMeta,
         fullMarketVersion: marketUniverse.version || TAIWAN_COMPANY_UNIVERSE_VERSION,
-        fullMarketCompanyCount: marketUniverse.companyCount || job.universe.length,
+        fullMarketCompanyCount: listedCompanies.length,
         fullMarketCounts: marketUniverse.counts || null,
         fullMarketStatus: "connected",
         fullMarketMessage: marketUniverse.warning || null,
         defaultCount: job.universe.length,
         requestedCount: job.universe.length,
-        note: `Full scan scope contains ${job.universe.length} listed/OTC companies. Emerging stocks are excluded from this ranking because their liquidity and source coverage require a separate model.`,
+        rankingOutputLimit: RANKING_OUTPUT_LIMIT,
+        selectionRule: job.pilotSize
+          ? `Deterministic ${job.pilotSize}-stock stratified sample: at least one representative per TWSE/TPEx official-industry bucket, then systematic fill across the remaining listed/OTC directory.`
+          : "Complete TWSE and TPEx official company directory; no fixed candidate list is applied before scoring.",
+        note: job.pilotSize
+          ? `Pilot scope contains ${job.universe.length} of ${listedCompanies.length} listed/OTC companies. Every ranking mode independently sorts all ${job.universe.length} pilot rows and selects its own Top ${RANKING_OUTPUT_LIMIT}. Pilot output is not the formal full-market leaderboard.`
+          : `Full scan scope contains ${job.universe.length} listed/OTC companies. Every ranking mode independently sorts the same complete feature universe and selects its own Top ${RANKING_OUTPUT_LIMIT}. Emerging stocks are excluded because their liquidity and source coverage require a separate model.`,
       };
-      job.message = `Loaded ${job.universe.length} listed/OTC companies. The next request starts the first persisted scoring batch.`;
+      job.message = job.pilotSize
+        ? `Loaded a deterministic ${job.universe.length}-stock pilot from the ${listedCompanies.length}-company listed/OTC directory. The next request starts the first persisted scoring batch.`
+        : `Loaded all ${job.universe.length} listed/OTC companies. The next request starts the first persisted scoring batch.`;
     } catch (err) {
       job.universeStatus = "pending";
       job.runningBatchAt = null;
@@ -8218,24 +8419,40 @@ async function advanceRankingRefreshJob(id: string) {
   if (job.phase === "publish") {
     await beginPhase("Publishing passed full-market snapshots with registry replacement only after evidence gates succeed.");
     try {
-      const themeSnapshot = await publishMarketThemeSnapshot(job);
+      const themeSnapshot = job.pilotSize
+        ? { ok: true, snapshotStatus: "pilot-only", message: "Pilot theme results were evaluated without replacing the active public full-market theme snapshot." }
+        : await publishMarketThemeSnapshot(job);
+      const featureRows = await loadMarketFeatureRows(job);
       const basePayload = {
-        ok: (job.items || []).length > 0,
+        ok: featureRows.length > 0,
         mode: "undervalued",
         universe: job.universe,
-        universeMeta: { ...job.universeMeta, scoredCount: job.scoredCount, failedCount: job.failedCount },
+        universeMeta: { ...job.universeMeta, scoredCount: featureRows.length, failedCount: job.failedCount },
         source: SCORE_SOURCE_NOTE,
         generatedAt: new Date().toISOString(),
-        items: job.items,
+        items: featureRows,
         errors: job.errors,
       };
-      const rankingResult = await publishRankingSnapshots(basePayload, job.mode || "undervalued");
+      const rankingResult = await publishRankingSnapshots(basePayload, job.mode || "undervalued", { activate: !job.pilotSize });
+      const attempts = Number(job.performance?.stockAttempts || 0);
+      const activeScoringMs = Number(job.performance?.activeScoringMs || 0);
+      job.performance = {
+        ...(job.performance || {}),
+        completedAt: new Date().toISOString(),
+        successRatio: attempts ? round((Number(job.performance?.successfulStocks || 0) / attempts) * 100, 1) : 0,
+        averageActiveMsPerAttempt: attempts ? Math.round(activeScoringMs / attempts) : null,
+        estimatedFullMarketActiveMs: attempts ? Math.round((activeScoringMs / attempts) * Number(job.universeMeta?.fullMarketCompanyCount || MARKET_UNIVERSE_MIN_LISTED_OTC_COUNT)) : null,
+        externalRequestCount: null,
+        requestCountLimitation: "Exact upstream HTTP-call attribution is not yet available in the AppDeploy runtime; stock attempts, retries, active scoring time, and failures are measured directly.",
+      };
       job.result = { ...rankingResult, marketThemes: themeSnapshot };
       job.status = rankingResult.ok && themeSnapshot.ok ? "completed" : "rejected";
       job.runningBatchAt = null;
       job.updatedAt = new Date().toISOString();
       job.message = job.status === "completed"
-        ? `Published full-market rankings, five independent Top 10 tables, and ${job.newsThemeResult?.tables?.length || 0} evidence-backed news themes.`
+        ? (job.pilotSize
+          ? `Completed the ${job.pilotSize}-stock performance pilot and six independent Top ${RANKING_OUTPUT_LIMIT} evaluations without replacing any public full-market snapshot.`
+          : `Published full-market rankings, five independent Top 10 tables, and ${job.newsThemeResult?.tables?.length || 0} evidence-backed news themes.`)
         : themeSnapshot.message || rankingResult.message || "Publication gates rejected the completed scan; the prior active snapshot remains unchanged.";
       await saveRankingRefreshJob(id, job);
       return job;
@@ -8255,13 +8472,17 @@ async function advanceRankingRefreshJob(id: string) {
   const sourceCodes = isRetry ? (job.retryCodes || []) : (job.universe || []);
   const batch = sourceCodes.slice(start, start + RANKING_JOB_BATCH_SIZE);
   if (!batch.length) {
-    job.phase = "themes";
-    return await finishPhase("All stock attempts are complete. The next request evaluates five independent full-market themes.");
+    job.phase = job.pilotSize ? "publish" : "themes";
+    return await finishPhase(job.pilotSize
+      ? "All pilot stock attempts are complete. The next request evaluates six independent Top 64 rankings without public activation."
+      : "All stock attempts are complete. The next request evaluates five independent full-market themes.");
   }
   await beginPhase(`${isRetry ? "Retrying missing evidence for" : "Scoring"} stocks ${start + 1}-${start + batch.length} of ${sourceCodes.length}.`);
+  const scoringStartedAt = Date.now();
   try {
+    const companyProfiles = new Map<string, TaiwanCompanyProfile>((job.companyProfiles || []).map((company: TaiwanCompanyProfile) => [company.code, company] as [string, TaiwanCompanyProfile]));
     const results = await settleWithLimit(batch, 4, code => withTimeout(
-      loadValueScore(code, { fast: true, evidenceMinimum: true }),
+      loadValueScore(code, { fast: true, evidenceMinimum: true, companyProfile: companyProfiles.get(code) || null }),
       18000,
       `Stock ${code} scoring timed out and was queued for retry`
     ));
@@ -8281,6 +8502,17 @@ async function advanceRankingRefreshJob(id: string) {
     const featureBatchId = await persistMarketFeatureBatch(id, batchKey, completedItems, { start, end: start + batch.length });
     if (featureBatchId) job.featureBatchIds = { ...(job.featureBatchIds || {}), [batchKey]: featureBatchId };
     job.items = mergeRankingCandidatePool(job.items || [], completedItems);
+    const scoringDurationMs = Date.now() - scoringStartedAt;
+    job.performance = {
+      ...(job.performance || {}),
+      activeScoringMs: Number(job.performance?.activeScoringMs || 0) + scoringDurationMs,
+      scoringBatches: Number(job.performance?.scoringBatches || 0) + 1,
+      stockAttempts: Number(job.performance?.stockAttempts || 0) + batch.length,
+      successfulStocks: Number(job.performance?.successfulStocks || 0) + completedItems.length,
+      failedStocks: Number(job.performance?.failedStocks || 0) + failedCodes.length,
+      lastBatchMs: scoringDurationMs,
+      averageBatchMs: Math.round((Number(job.performance?.activeScoringMs || 0) + scoringDurationMs) / (Number(job.performance?.scoringBatches || 0) + 1)),
+    };
     const unresolved = new Set<string>(job.unresolvedCodes || []);
     completedItems.forEach(item => unresolved.delete(item.code));
     failedCodes.forEach(code => unresolved.add(code));
@@ -8288,19 +8520,21 @@ async function advanceRankingRefreshJob(id: string) {
     if (isRetry) {
       job.scoredCount = Number(job.scoredCount || 0) + completedItems.length;
       job.retryIndex = start + batch.length;
-      if (job.retryIndex >= sourceCodes.length) job.phase = "themes";
+      if (job.retryIndex >= sourceCodes.length) job.phase = job.pilotSize ? "publish" : "themes";
     } else {
       job.scoredCount = Number(job.scoredCount || 0) + completedItems.length;
       job.currentIndex = start + batch.length;
       if (job.currentIndex >= sourceCodes.length) {
         job.retryCodes = [...unresolved];
         job.retryIndex = 0;
-        job.phase = job.retryCodes.length ? "retry" : "themes";
+        job.phase = job.retryCodes.length ? "retry" : (job.pilotSize ? "publish" : "themes");
       }
     }
     job.failedCount = unresolved.size;
     const nextMessage = job.phase === "retry"
       ? `Initial full-market scan completed. Retrying ${job.retryCodes.length} stocks that lacked usable evidence.`
+      : job.phase === "publish" && job.pilotSize
+        ? `All ${job.universe.length} pilot stocks were attempted and missing evidence was retried. The next request builds six independent Top ${RANKING_OUTPUT_LIMIT} pilot rankings without public activation.`
       : job.phase === "themes"
         ? `All ${job.universe.length} stocks were attempted and missing evidence was retried. The next request evaluates five independent themes.`
         : `Saved ${job.currentIndex} of ${job.universe.length} stock attempts; ${job.scoredCount} currently have persisted common features.`;
@@ -9830,7 +10064,7 @@ export const handler = router({
   "GET /api/screener": [async ({ query }: any) => {
     const mode = String(query.mode || "undervalued").replace(/[^a-z-]/g, "").slice(0, 32) || "undervalued";
     try {
-      return json(await loadScreener(mode, query.universe), 200);
+      return json(query.universe ? await loadScreener(mode, query.universe) : await readRankingSnapshot(mode), 200);
     } catch (err) {
       return json({
         ok: false,
@@ -9849,11 +10083,24 @@ export const handler = router({
     }
   }],
 
+  "GET /api/market-radar": [async () => {
+    try {
+      return json(await loadMarketRadarSnapshot(), 200);
+    } catch (err) {
+      return json({
+        ok: false,
+        snapshotStatus: "unavailable",
+        message: `Unable to read persisted market radar snapshots: ${err instanceof Error ? err.message : String(err)}`,
+      }, 502);
+    }
+  }],
+
   "POST /api/screener/refresh": [async (ctx: any) => {
     const body = await readRequestJson(ctx);
     const mode = String(body.mode || "undervalued").replace(/[^a-z-]/g, "").slice(0, 32) || "undervalued";
+    const pilotSize = Number(body.pilotSize) === RANKING_PILOT_SIZE ? RANKING_PILOT_SIZE : null;
     try {
-      const job = await createRankingRefreshJob(mode);
+      const job = await createRankingRefreshJob(mode, { pilotSize });
       return json(publicRankingRefreshJob(job), 202);
     } catch (err) {
       return json({ ok: false, mode, message: `Unable to create ranking refresh job: ${err instanceof Error ? err.message : String(err)}` }, 502);
