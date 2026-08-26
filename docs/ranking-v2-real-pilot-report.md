@@ -1,7 +1,9 @@
 # 排行榜第二版：真實 250 檔效能試跑報告
 
-試跑日期：2026-08-26  
-AppDeploy 工作 ID：`8e409344-986b-4c37-8d4a-4e42cc93bde6`  
+試跑日期：2026-08-26
+
+AppDeploy 工作 ID：`8e409344-986b-4c37-8d4a-4e42cc93bde6`
+
 試跑版本：`ranking-pilot-v3-liquidity-metrics`
 
 ## 結論
