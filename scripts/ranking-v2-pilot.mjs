@@ -211,6 +211,7 @@ async function verifySourceContracts() {
     noActive55Threshold: !backend.includes("dataCoveragePct >= 55") && !backend.includes("coveragePct < 55"),
     liquidityStrata: backend.includes("loadPilotLiquidityProfiles") && backend.includes('company.liquidityTier || "unavailable"'),
     exactRequestMetrics: backend.includes("externalRequestCount: externalRequests.total") && !backend.includes("externalRequestCount: null"),
+    readTimeSnapshotGate: backend.includes("const revalidatedPayload = applyRankingEvidenceGate") && backend.includes("The persisted snapshot no longer satisfies the current"),
     noStaleGate: backend.includes('trust.status !== "rankable"'),
     compactTrust: backend.includes("rankingTrust: item.rankingTrust || buildRankingTrust(item)"),
     pilotDoesNotActivate: backend.includes("{ activate: !job.pilotSize }") && backend.includes('snapshotStatus: "pilot-complete"'),

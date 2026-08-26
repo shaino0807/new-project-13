@@ -7910,8 +7910,26 @@ async function readRankingSnapshot(mode: string) {
       message: "The active ranking snapshot is incomplete or unavailable; the prior table was not replaced.",
     };
   }
-  return {
+  const revalidatedPayload = applyRankingEvidenceGate({
     ...record.payload,
+    items: (record.payload.items || []).map((item: ValueScore) => ({
+      ...item,
+      rankingTrust: buildRankingTrust(item),
+    })),
+  }, mode);
+  if (!revalidatedPayload.ok) {
+    return {
+      ...revalidatedPayload,
+      ok: false,
+      snapshotId,
+      snapshotStatus: "rejected",
+      snapshotGeneratedAt: record.generatedAt,
+      refreshedAt: record.updatedAt,
+      message: `The persisted snapshot no longer satisfies the current ${RANKING_MIN_ITEM_COVERAGE}% coverage, quote-date, and no-stale-data policy. ${revalidatedPayload.message || "No legacy rows were exposed."}`,
+    };
+  }
+  return {
+    ...revalidatedPayload,
     snapshotId,
     snapshotStatus: "complete",
     snapshotGeneratedAt: record.generatedAt,
