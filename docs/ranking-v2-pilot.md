@@ -76,3 +76,5 @@ node scripts/ranking-v2-pilot.mjs --live-universe
 外部請求計數已放在共用請求層：只有真正送往供應者的 HTTP 請求才計入總數，快取與同批共用中的請求另外計數，不會把邏輯上的重複讀取誤算為新增流量。1,985 檔推估會保留固定的目錄與全市場行情成本，只放大逐檔評分部分。
 
 本次核准範圍包含一次 AppDeploy 250 檔遠端實測，但不包含完整 1,985 檔掃描、GitHub 推送或 GitHub Pages 更新。實測數字與擴張建議會另寫入遠端試跑報告。
+
+遠端實測已於 2026-08-26 完成；結果、資料缺口與暫緩擴張決策請見 [ranking-v2-real-pilot-report.md](ranking-v2-real-pilot-report.md)。
