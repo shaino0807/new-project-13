@@ -120,8 +120,8 @@ const RANKING_MIN_SUCCESS_RATIO = 0.95;
 const RANKING_MIN_ITEM_COVERAGE = 60;
 const RANKING_OUTPUT_LIMIT = 64;
 const RANKING_PILOT_SIZE = 250;
+const RANKING_PILOT_VERSION = "ranking-pilot-v3-liquidity-metrics";
 const RANKING_JOB_BATCH_SIZE = 4;
-const RANKING_JOB_TOP_PER_MODE = RANKING_OUTPUT_LIMIT;
 const RANKING_SNAPSHOT_ITEM_LIMIT = RANKING_OUTPUT_LIMIT;
 const MARKET_FEATURE_SCHEMA_VERSION = "market-features-v5";
 const MARKET_SCAN_MIN_SUCCESS_RATIO = 0.95;
@@ -151,38 +151,132 @@ async function getOpenAiReportModel() {
   return String(model || "gpt-4.1-nano").trim() || "gpt-4.1-nano";
 }
 
-async function fetchJson(url: string, timeoutMs = 9000) {
+type ExternalRequestMetrics = {
+  total: number;
+  succeeded: number;
+  failed: number;
+  responseBytes: number;
+  cacheHits: number;
+  inflightHits: number;
+  byProvider: Record<string, number>;
+  bytesByProvider: Record<string, number>;
+  failuresByProvider: Record<string, number>;
+};
+
+function emptyExternalRequestMetrics(): ExternalRequestMetrics {
+  return {
+    total: 0,
+    succeeded: 0,
+    failed: 0,
+    responseBytes: 0,
+    cacheHits: 0,
+    inflightHits: 0,
+    byProvider: {},
+    bytesByProvider: {},
+    failuresByProvider: {},
+  };
+}
+
+function externalProvider(url: string) {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    if (host.includes("finmind")) return "FinMind";
+    if (host.includes("query1.finance.yahoo") || host.includes("query2.finance.yahoo")) return "Yahoo Finance";
+    if (host.includes("mis.twse.com.tw")) return "TWSE MIS";
+    if (host.includes("openapi.twse.com.tw")) return "TWSE OpenAPI";
+    if (host.includes("mops.twse.com.tw")) return "MOPS";
+    if (host.includes("tpex.org.tw")) return "TPEx OpenAPI";
+    return host || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+function addMetric(target: Record<string, number>, key: string, value = 1) {
+  target[key] = Number(target[key] || 0) + value;
+}
+
+function mergeExternalRequestMetrics(target: ExternalRequestMetrics, incoming: ExternalRequestMetrics) {
+  target.total += incoming.total;
+  target.succeeded += incoming.succeeded;
+  target.failed += incoming.failed;
+  target.responseBytes += incoming.responseBytes;
+  target.cacheHits += incoming.cacheHits;
+  target.inflightHits += incoming.inflightHits;
+  Object.entries(incoming.byProvider).forEach(([key, value]) => addMetric(target.byProvider, key, value));
+  Object.entries(incoming.bytesByProvider).forEach(([key, value]) => addMetric(target.bytesByProvider, key, value));
+  Object.entries(incoming.failuresByProvider).forEach(([key, value]) => addMetric(target.failuresByProvider, key, value));
+  return target;
+}
+
+async function measuredFetch(url: string, init: RequestInit, metrics?: ExternalRequestMetrics) {
+  const provider = externalProvider(url);
+  if (metrics) {
+    metrics.total += 1;
+    addMetric(metrics.byProvider, provider);
+  }
+  try {
+    const response = await fetch(url, init);
+    if (metrics) {
+      if (response.ok) metrics.succeeded += 1;
+      else {
+        metrics.failed += 1;
+        addMetric(metrics.failuresByProvider, provider);
+      }
+    }
+    return response;
+  } catch (err) {
+    if (metrics) {
+      metrics.failed += 1;
+      addMetric(metrics.failuresByProvider, provider);
+    }
+    throw err;
+  }
+}
+
+function recordResponseBytes(metrics: ExternalRequestMetrics | undefined, url: string, text: string) {
+  if (!metrics) return;
+  const bytes = new TextEncoder().encode(text).length;
+  metrics.responseBytes += bytes;
+  addMetric(metrics.bytesByProvider, externalProvider(url), bytes);
+}
+
+async function fetchJson(url: string, timeoutMs = 9000, metrics?: ExternalRequestMetrics) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(url, {
+    const res = await measuredFetch(url, {
       signal: controller.signal,
       headers: {
         "User-Agent": "Mozilla/5.0",
         Accept: "application/json,text/plain,*/*",
       },
-    });
+    }, metrics);
+    const text = await res.text();
+    recordResponseBytes(metrics, url, text);
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    return JSON.parse((await res.text()).trim());
+    return JSON.parse(text.trim());
   } finally {
     clearTimeout(timer);
   }
 }
 
-async function fetchTextResponse(url: string, timeoutMs = 9000) {
+async function fetchTextResponse(url: string, timeoutMs = 9000, metrics?: ExternalRequestMetrics) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(url, {
+    const res = await measuredFetch(url, {
       signal: controller.signal,
       headers: {
         "User-Agent": "Mozilla/5.0",
         Accept: "application/rss+xml,application/xml,text/xml,text/html,*/*",
       },
-    });
+    }, metrics);
+    const text = await res.text();
+    recordResponseBytes(metrics, url, text);
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
     return {
-      text: await res.text(),
+      text,
       finalUrl: res.url || url,
       contentType: res.headers.get("content-type") || "",
     };
@@ -191,8 +285,8 @@ async function fetchTextResponse(url: string, timeoutMs = 9000) {
   }
 }
 
-async function fetchText(url: string, timeoutMs = 9000) {
-  return (await fetchTextResponse(url, timeoutMs)).text;
+async function fetchText(url: string, timeoutMs = 9000, metrics?: ExternalRequestMetrics) {
+  return (await fetchTextResponse(url, timeoutMs, metrics)).text;
 }
 
 type FinMindRow = Record<string, any>;
@@ -303,13 +397,14 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
   });
 }
 
-async function requestFinMindDataset(dataset: string, code: string, timeoutMs = 12000): Promise<FinMindDatasetResult> {
+async function requestFinMindDataset(dataset: string, code: string, timeoutMs = 12000, metrics?: ExternalRequestMetrics): Promise<FinMindDatasetResult> {
   const cacheKey = `${dataset}:${code}`;
   const inflightKey = timeoutMs >= 12000 ? cacheKey : `${cacheKey}:timeout:${timeoutMs}`;
   const now = Date.now();
   const cached = finMindCache.get(cacheKey);
   const ttl = finMindCacheTtl(dataset);
   if (cached && now - cached.fetchedAt < ttl) {
+    if (metrics) metrics.cacheHits += 1;
     return {
       dataset,
       data: cached.data,
@@ -320,7 +415,10 @@ async function requestFinMindDataset(dataset: string, code: string, timeoutMs = 
   }
 
   const activeRequest = finMindInflight.get(inflightKey);
-  if (activeRequest) return activeRequest;
+  if (activeRequest) {
+    if (metrics) metrics.inflightHits += 1;
+    return activeRequest;
+  }
 
   const request = (async () => {
     const params = new URLSearchParams({
@@ -341,14 +439,16 @@ async function requestFinMindDataset(dataset: string, code: string, timeoutMs = 
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
-        const res = await fetch(requestUrlFor(startDate), {
+        const requestUrl = requestUrlFor(startDate);
+        const res = await measuredFetch(requestUrl, {
           signal: controller.signal,
           headers: {
             Accept: "application/json",
             ...(useToken && token ? { Authorization: `Bearer ${token}` } : {}),
           },
-        });
+        }, metrics);
         const text = await res.text();
+        recordResponseBytes(metrics, requestUrl, text);
         let payload: any = null;
         try {
           payload = JSON.parse(text);
@@ -1225,12 +1325,12 @@ async function loadEtfProfile(code: string, name: string, options: { fast?: bool
   return profile;
 }
 
-async function loadFundamentals(code: string, options: { fast?: boolean; evidenceMinimum?: boolean } = {}) {
+async function loadFundamentals(code: string, options: { fast?: boolean; evidenceMinimum?: boolean; metrics?: ExternalRequestMetrics } = {}) {
   const authenticated = Boolean(await getFinMindToken());
   let infoResult: FinMindDatasetResult | null = null;
   if (!options.evidenceMinimum) {
     try {
-      infoResult = await requestFinMindDataset("TaiwanStockInfo", code, options.fast ? 5000 : 12000);
+      infoResult = await requestFinMindDataset("TaiwanStockInfo", code, options.fast ? 5000 : 12000, options.metrics);
     } catch {
       infoResult = null;
     }
@@ -1274,7 +1374,7 @@ async function loadFundamentals(code: string, options: { fast?: boolean; evidenc
         "TaiwanStockMarginPurchaseShortSale",
         "TaiwanStockSecuritiesLending",
       ];
-  const results = await Promise.allSettled(datasets.map(dataset => requestFinMindDataset(dataset, code, options.fast ? 5000 : 12000)));
+  const results = await Promise.allSettled(datasets.map(dataset => requestFinMindDataset(dataset, code, options.fast ? 5000 : 12000, options.metrics)));
   const available = new Map<string, FinMindDatasetResult>();
   if (infoResult) available.set("TaiwanStockInfo", infoResult);
   const errors: Array<{ dataset: string; code: string; message: string }> = [];
@@ -1317,7 +1417,7 @@ async function loadFundamentals(code: string, options: { fast?: boolean; evidenc
   let officialValuationFallback: Awaited<ReturnType<typeof loadOfficialValuationFallback>> | null = null;
   if ((!options.fast || options.evidenceMinimum) && assetType === "stock" && (!data.profitability || !data.balanceSheet)) {
     try {
-      officialFinancialFallback = await loadOfficialFinancialFallback(code);
+      officialFinancialFallback = await loadOfficialFinancialFallback(code, options.metrics);
       if (!data.profitability && officialFinancialFallback.profitability) {
         data.profitability = officialFinancialFallback.profitability as any;
       }
@@ -1338,7 +1438,7 @@ async function loadFundamentals(code: string, options: { fast?: boolean; evidenc
   }
   if ((!options.fast || options.evidenceMinimum) && assetType === "stock" && !data.revenue) {
     try {
-      officialRevenueFallback = await loadOfficialRevenueFallback(code);
+      officialRevenueFallback = await loadOfficialRevenueFallback(code, options.metrics);
       if (officialRevenueFallback?.revenue) {
         data.revenue = officialRevenueFallback.revenue as any;
         const revenueFetchedAt = Date.parse(officialRevenueFallback.fetchedAt);
@@ -1358,7 +1458,7 @@ async function loadFundamentals(code: string, options: { fast?: boolean; evidenc
     !Number.isFinite(data.valuation.dividendYield));
   if (valuationNeedsFallback) {
     try {
-      officialValuationFallback = await loadOfficialValuationFallback(code);
+      officialValuationFallback = await loadOfficialValuationFallback(code, options.metrics);
       if (officialValuationFallback?.valuation) {
         const official = officialValuationFallback.valuation;
         const current: any = data.valuation || {};
@@ -1558,7 +1658,16 @@ type ValueScore = {
 const TAIWAN_UNIVERSE_VERSION = "tw-liquid-v1-2026-06";
 const TAIWAN_COMPANY_UNIVERSE_VERSION = "finmind-tw-company-universe-2026-07";
 const TAIWAN_COMPANY_TYPES = new Set(["twse", "tpex", "emerging"]);
-type TaiwanCompanyProfile = { code: string; name: string; type: string; industry: string };
+type TaiwanCompanyProfile = {
+  code: string;
+  name: string;
+  type: string;
+  industry: string;
+  liquidityTier?: "high" | "medium" | "low" | "unavailable";
+  liquidityValue?: number | null;
+  liquidityDate?: string | null;
+  liquiditySource?: string | null;
+};
 const OFFICIAL_TAIWAN_COMPANY_UNIVERSE_ENDPOINTS = [
   { type: "twse", source: "TWSE t187ap03_L", url: "https://openapi.twse.com.tw/v1/opendata/t187ap03_L" },
   { type: "tpex", source: "TPEx mopsfin_t187ap03_O", url: "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_O" },
@@ -1819,12 +1928,18 @@ const MOPS_HTML_CACHE_TTL_MS = 30 * 60 * 1000;
 const mopsFinancialHtmlCache = new Map<string, { text: string; fetchedAt: number }>();
 const mopsFinancialHtmlInflight = new Map<string, Promise<string | null>>();
 
-async function fetchMopsFinancialHtml(endpoint: "ajax_t163sb04" | "ajax_t163sb05", typek: string, year: number, season: number) {
+async function fetchMopsFinancialHtml(endpoint: "ajax_t163sb04" | "ajax_t163sb05", typek: string, year: number, season: number, metrics?: ExternalRequestMetrics) {
   const key = `${endpoint}:${typek}:${year}:${season}`;
   const cached = mopsFinancialHtmlCache.get(key);
-  if (cached && Date.now() - cached.fetchedAt < MOPS_HTML_CACHE_TTL_MS) return cached.text;
+  if (cached && Date.now() - cached.fetchedAt < MOPS_HTML_CACHE_TTL_MS) {
+    if (metrics) metrics.cacheHits += 1;
+    return cached.text;
+  }
   const inflight = mopsFinancialHtmlInflight.get(key);
-  if (inflight) return inflight;
+  if (inflight) {
+    if (metrics) metrics.inflightHits += 1;
+    return inflight;
+  }
   const request = (async () => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 6000);
@@ -1838,7 +1953,8 @@ async function fetchMopsFinancialHtml(endpoint: "ajax_t163sb04" | "ajax_t163sb05
         year: String(year),
         season: String(season),
       });
-      const res = await fetch(`${MOPS_FINANCIAL_URL}/${endpoint}`, {
+      const requestUrl = `${MOPS_FINANCIAL_URL}/${endpoint}`;
+      const res = await measuredFetch(requestUrl, {
         method: "POST",
         signal: controller.signal,
         headers: {
@@ -1846,8 +1962,9 @@ async function fetchMopsFinancialHtml(endpoint: "ajax_t163sb04" | "ajax_t163sb05
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body,
-      });
+      }, metrics);
       const text = await res.text();
+      recordResponseBytes(metrics, requestUrl, text);
       if (!res.ok) return null;
       mopsFinancialHtmlCache.set(key, { text, fetchedAt: Date.now() });
       return text;
@@ -1860,12 +1977,12 @@ async function fetchMopsFinancialHtml(endpoint: "ajax_t163sb04" | "ajax_t163sb05
   return request;
 }
 
-async function fetchMopsFinancialRow(endpoint: "ajax_t163sb04" | "ajax_t163sb05", code: string) {
+async function fetchMopsFinancialRow(endpoint: "ajax_t163sb04" | "ajax_t163sb05", code: string, metrics?: ExternalRequestMetrics) {
   const typeCandidates = ["sii", "otc", "rotc"];
   const quarterCandidates = currentRocQuarterCandidates();
   for (const { year, season } of quarterCandidates) {
     const settled = await Promise.allSettled(typeCandidates.map(async typek => {
-      const text = await fetchMopsFinancialHtml(endpoint, typek, year, season);
+      const text = await fetchMopsFinancialHtml(endpoint, typek, year, season, metrics);
       if (!text || !text.includes(code)) return null;
       const mapped = mapMopsRow(text, code);
       if (mapped) {
@@ -1890,20 +2007,27 @@ const OFFICIAL_STATEMENT_CATEGORIES = ["ci", "mim", "basi", "fh", "ins", "bd"];
 const officialStatementCache = new Map<string, { rows: any[]; fetchedAt: number }>();
 const officialStatementInflight = new Map<string, Promise<any[]>>();
 
-async function requestOfficialStatementRows(market: "TWSE" | "TPEx", statement: "income" | "balance", category: string) {
+async function requestOfficialStatementRows(market: "TWSE" | "TPEx", statement: "income" | "balance", category: string, metrics?: ExternalRequestMetrics) {
   const path = market === "TWSE"
     ? `https://openapi.twse.com.tw/v1/opendata/t187ap${statement === "income" ? "06" : "07"}_L_${category}`
     : `https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap${statement === "income" ? "06" : "07"}_O_${category}`;
   const cached = officialStatementCache.get(path);
-  if (cached && Date.now() - cached.fetchedAt < MOPS_HTML_CACHE_TTL_MS) return cached.rows;
+  if (cached && Date.now() - cached.fetchedAt < MOPS_HTML_CACHE_TTL_MS) {
+    if (metrics) metrics.cacheHits += 1;
+    return cached.rows;
+  }
   const inflight = officialStatementInflight.get(path);
-  if (inflight) return inflight;
+  if (inflight) {
+    if (metrics) metrics.inflightHits += 1;
+    return inflight;
+  }
   const request = (async () => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
     try {
-      const res = await fetch(path, { signal: controller.signal, headers: { Accept: "application/json" } });
+      const res = await measuredFetch(path, { signal: controller.signal, headers: { Accept: "application/json" } }, metrics);
       const text = await res.text();
+      recordResponseBytes(metrics, path, text);
       if (!res.ok) throw new Error(`Official ${market} ${statement} statement HTTP ${res.status}: ${text.slice(0, 120)}`);
       const rows = JSON.parse(text);
       if (!Array.isArray(rows)) throw new Error(`Official ${market} ${statement} statement returned a non-array payload`);
@@ -1940,16 +2064,16 @@ function pickStatementValue(row: Record<string, string> | null, includes: string
   return null;
 }
 
-async function loadOfficialStructuredFinancialFallback(code: string) {
-  const valuationIndex = await requestOfficialValuationIndex().catch(() => null);
+async function loadOfficialStructuredFinancialFallback(code: string, metrics?: ExternalRequestMetrics) {
+  const valuationIndex = await requestOfficialValuationIndex(metrics).catch(() => null);
   const market = valuationIndex?.rows.get(code)?.market === "TPEx" ? "TPEx" : "TWSE";
   const categoryOrder = swingGroup(code) === "financial"
     ? ["fh", "basi", "ins", "bd", "mim", "ci"]
     : OFFICIAL_STATEMENT_CATEGORIES;
   for (const category of categoryOrder) {
     const settled = await Promise.allSettled([
-      requestOfficialStatementRows(market, "income", category),
-      requestOfficialStatementRows(market, "balance", category),
+      requestOfficialStatementRows(market, "income", category, metrics),
+      requestOfficialStatementRows(market, "balance", category, metrics),
     ]);
     const incomeRows = settled[0].status === "fulfilled" ? settled[0].value : [];
     const balanceRows = settled[1].status === "fulfilled" ? settled[1].value : [];
@@ -2033,12 +2157,12 @@ async function loadOfficialStructuredFinancialFallback(code: string) {
   return null;
 }
 
-async function loadOfficialFinancialFallback(code: string) {
-  const structured = await loadOfficialStructuredFinancialFallback(code).catch(() => null);
+async function loadOfficialFinancialFallback(code: string, metrics?: ExternalRequestMetrics) {
+  const structured = await loadOfficialStructuredFinancialFallback(code, metrics).catch(() => null);
   if (structured?.profitability || structured?.balanceSheet) return structured;
   const [income, balance] = await Promise.all([
-    fetchMopsFinancialRow("ajax_t163sb04", code),
-    fetchMopsFinancialRow("ajax_t163sb05", code),
+    fetchMopsFinancialRow("ajax_t163sb04", code, metrics),
+    fetchMopsFinancialRow("ajax_t163sb05", code, metrics),
   ]);
   const incomeRow = income?.row || null;
   const balanceRow = balance?.row || null;
@@ -2087,20 +2211,26 @@ async function loadOfficialFinancialFallback(code: string) {
 let officialMonthlyRevenueCache: { rows: Array<Record<string, string>>; fetchedAt: number } | null = null;
 let officialMonthlyRevenueInflight: Promise<Array<Record<string, string>>> | null = null;
 
-async function requestOfficialMonthlyRevenueRows() {
+async function requestOfficialMonthlyRevenueRows(metrics?: ExternalRequestMetrics) {
   if (officialMonthlyRevenueCache && Date.now() - officialMonthlyRevenueCache.fetchedAt < MOPS_HTML_CACHE_TTL_MS) {
+    if (metrics) metrics.cacheHits += 1;
     return officialMonthlyRevenueCache.rows;
   }
-  if (officialMonthlyRevenueInflight) return officialMonthlyRevenueInflight;
+  if (officialMonthlyRevenueInflight) {
+    if (metrics) metrics.inflightHits += 1;
+    return officialMonthlyRevenueInflight;
+  }
   officialMonthlyRevenueInflight = (async () => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 7000);
     try {
-      const res = await fetch("https://openapi.twse.com.tw/v1/opendata/t187ap05_L", {
+      const requestUrl = "https://openapi.twse.com.tw/v1/opendata/t187ap05_L";
+      const res = await measuredFetch(requestUrl, {
         signal: controller.signal,
         headers: { Accept: "application/json" },
-      });
+      }, metrics);
       const text = await res.text();
+      recordResponseBytes(metrics, requestUrl, text);
       if (!res.ok) throw new Error(`TWSE monthly revenue HTTP ${res.status}: ${text.slice(0, 120)}`);
       const rows = JSON.parse(text);
       if (!Array.isArray(rows)) throw new Error("TWSE monthly revenue returned a non-array payload");
@@ -2122,8 +2252,8 @@ function officialRevenueDate(value: unknown) {
   return `${year}-${month}-01`;
 }
 
-async function loadOfficialRevenueFallback(code: string) {
-  const rows = await requestOfficialMonthlyRevenueRows();
+async function loadOfficialRevenueFallback(code: string, metrics?: ExternalRequestMetrics) {
+  const rows = await requestOfficialMonthlyRevenueRows(metrics);
   const row = rows.find(item => cleanCode(String(item["\u516C\u53F8\u4EE3\u865F"] || "")) === code) || null;
   if (!row) return null;
   const revenue = parseMopsNumeric(row["\u71DF\u696D\u6536\u5165-\u7576\u6708\u71DF\u6536"]);
@@ -2187,18 +2317,23 @@ function officialValuationNumber(value: unknown, allowZero = false) {
   return parsed;
 }
 
-async function requestOfficialValuationIndex() {
+async function requestOfficialValuationIndex(metrics?: ExternalRequestMetrics) {
   if (officialValuationCache && Date.now() - officialValuationCache.fetchedAt < MOPS_HTML_CACHE_TTL_MS) {
+    if (metrics) metrics.cacheHits += 1;
     return officialValuationCache;
   }
-  if (officialValuationInflight) return officialValuationInflight;
+  if (officialValuationInflight) {
+    if (metrics) metrics.inflightHits += 1;
+    return officialValuationInflight;
+  }
   officialValuationInflight = (async () => {
     const settled = await Promise.allSettled(OFFICIAL_VALUATION_ENDPOINTS.map(async endpoint => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 7000);
       try {
-        const res = await fetch(endpoint.sourceUrl, { signal: controller.signal, headers: { Accept: "application/json" } });
+        const res = await measuredFetch(endpoint.sourceUrl, { signal: controller.signal, headers: { Accept: "application/json" } }, metrics);
         const text = await res.text();
+        recordResponseBytes(metrics, endpoint.sourceUrl, text);
         if (!res.ok) throw new Error(`${endpoint.source} HTTP ${res.status}: ${text.slice(0, 120)}`);
         const rows = JSON.parse(text);
         if (!Array.isArray(rows)) throw new Error(`${endpoint.source} returned a non-array payload`);
@@ -2247,18 +2382,19 @@ async function requestOfficialValuationIndex() {
   return officialValuationInflight;
 }
 
-async function loadOfficialValuationFallback(code: string) {
-  const index = await requestOfficialValuationIndex();
+async function loadOfficialValuationFallback(code: string, metrics?: ExternalRequestMetrics) {
+  const index = await requestOfficialValuationIndex(metrics);
   const valuation = index.rows.get(code) || null;
   return valuation ? { valuation, warnings: index.warnings, fetchedAt: new Date(index.fetchedAt).toISOString() } : null;
 }
 
-async function requestOfficialCompanyRows(endpoint: typeof OFFICIAL_TAIWAN_COMPANY_UNIVERSE_ENDPOINTS[number]) {
+async function requestOfficialCompanyRows(endpoint: typeof OFFICIAL_TAIWAN_COMPANY_UNIVERSE_ENDPOINTS[number], metrics?: ExternalRequestMetrics) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 25000);
   try {
-    const res = await fetch(endpoint.url, { signal: controller.signal, headers: { Accept: "application/json" } });
+    const res = await measuredFetch(endpoint.url, { signal: controller.signal, headers: { Accept: "application/json" } }, metrics);
     const text = await res.text();
+    recordResponseBytes(metrics, endpoint.url, text);
     if (!res.ok) throw new Error(`${endpoint.source} HTTP ${res.status}: ${text.slice(0, 120)}`);
     const rows = JSON.parse(text);
     if (!Array.isArray(rows)) throw new Error(`${endpoint.source} returned a non-array payload`);
@@ -2268,9 +2404,9 @@ async function requestOfficialCompanyRows(endpoint: typeof OFFICIAL_TAIWAN_COMPA
   }
 }
 
-async function loadOfficialTaiwanCompanyUniverseFallback(finMindError: unknown) {
+async function loadOfficialTaiwanCompanyUniverseFallback(finMindError: unknown, metrics?: ExternalRequestMetrics) {
   const settled = await Promise.allSettled(
-    OFFICIAL_TAIWAN_COMPANY_UNIVERSE_ENDPOINTS.map(async endpoint => ({ endpoint, rows: await requestOfficialCompanyRows(endpoint) }))
+    OFFICIAL_TAIWAN_COMPANY_UNIVERSE_ENDPOINTS.map(async endpoint => ({ endpoint, rows: await requestOfficialCompanyRows(endpoint, metrics) }))
   );
   const byCode = new Map<string, { code: string; name: string; type: string; industry: string }>();
   const rawUnique = new Set<string>();
@@ -2323,12 +2459,12 @@ async function loadOfficialTaiwanCompanyUniverseFallback(finMindError: unknown) 
   };
 }
 
-async function loadTaiwanCompanyUniverse() {
+async function loadTaiwanCompanyUniverse(metrics?: ExternalRequestMetrics) {
   try {
-    const info = await requestFinMindDataset("TaiwanStockInfo", "");
+    const info = await requestFinMindDataset("TaiwanStockInfo", "", 12000, metrics);
     return buildTaiwanCompanyUniverseFromFinMind(info);
   } catch (err) {
-    return loadOfficialTaiwanCompanyUniverseFallback(err);
+    return loadOfficialTaiwanCompanyUniverseFallback(err, metrics);
   }
 }
 
@@ -2369,7 +2505,7 @@ function weightedAvailability(parts: Array<{ score: number | null; weight: numbe
 function gradeFromScoreV2(score: number | null, coveragePct: number): "A" | "B" | "C" | "D" | "X" {
   if (score === null || coveragePct < 45) return "X";
   let grade: "A" | "B" | "C" | "D" = score >= 80 ? "A" : score >= 65 ? "B" : score >= 50 ? "C" : "D";
-  if (coveragePct < 55) return "D";
+  if (coveragePct < RANKING_MIN_ITEM_COVERAGE) return "D";
   if (coveragePct < 70 && (grade === "A" || grade === "B")) return "C";
   if (coveragePct < 85 && grade === "A") return "B";
   return grade;
@@ -3329,11 +3465,11 @@ function buildValueScores(
   const professionalV2Total = strictWeightedScore(professionalV2Components.map(item => ({ score: item.score, weight: item.weight })));
   const professionalV2Grade = gradeFromScoreV2(professionalV2Total, dataConfidenceScore);
   const rankingEligibility = {
-    undervalued: hasQuoteV2 && valuationV2Component.score !== null && fairValueV2 !== null && fairValueV2Confidence >= 40 && (fundamentals.assetType === "etf" || (hasEpsV2 && hasCashFlowV2)) && dataCoveragePct >= 55,
-    overvalued: hasQuoteV2 && valuationV2Component.score !== null && fairValueV2 !== null && fairValueV2Confidence >= 40 && dataCoveragePct >= 55,
+    undervalued: hasQuoteV2 && valuationV2Component.score !== null && fairValueV2 !== null && fairValueV2Confidence >= 40 && (fundamentals.assetType === "etf" || (hasEpsV2 && hasCashFlowV2)) && dataCoveragePct >= RANKING_MIN_ITEM_COVERAGE,
+    overvalued: hasQuoteV2 && valuationV2Component.score !== null && fairValueV2 !== null && fairValueV2Confidence >= 40 && dataCoveragePct >= RANKING_MIN_ITEM_COVERAGE,
     cashflow: hasCashFlowV2,
     growth: growthV2Score !== null && weightedAvailability(growthV2Parts) >= 50,
-    smallInvestor: smallInvestorV2 !== null && hasQuoteV2 && dataCoveragePct >= 55,
+    smallInvestor: smallInvestorV2 !== null && hasQuoteV2 && dataCoveragePct >= RANKING_MIN_ITEM_COVERAGE,
     chaseRisk: chaseRiskV2Component.score !== null && weightedAvailability(chaseRiskV2Parts) >= 60,
     todayWatch: professionalV2Total !== null && professionalV2Total >= 65 && (chaseRiskV2Component.score || 100) < 72 && dataConfidenceScore >= 70,
     watchlist: ["A", "B", "C"].includes(professionalV2Grade) && dataConfidenceScore >= 55,
@@ -3358,7 +3494,7 @@ function buildValueScores(
       caps: [
         "coverage >=85 normal",
         "coverage 70-84 max grade B",
-        "coverage 55-69 max grade C",
+        "coverage 60-69 max grade C",
         "coverage 45-54 max grade D",
         "coverage <45 grade X",
       ],
@@ -3502,9 +3638,9 @@ function buildValueScores(
   };
 }
 
-async function loadValueScore(code: string, options: { fast?: boolean; evidenceMinimum?: boolean; companyProfile?: TaiwanCompanyProfile | null } = {}) {
+async function loadValueScore(code: string, options: { fast?: boolean; evidenceMinimum?: boolean; companyProfile?: TaiwanCompanyProfile | null; metrics?: ExternalRequestMetrics } = {}) {
   const [quote, fundamentals] = await Promise.all([
-    loadQuote(code),
+    loadQuote(code, options.metrics),
     loadFundamentals(code, options),
   ]);
   return buildValueScores(quote, fundamentals, options.companyProfile);
@@ -4216,7 +4352,7 @@ async function loadWorkbench() {
   return payload;
 }
 
-async function fetchYahooChart(code: string, range: YahooChartRange = "1y") {
+async function fetchYahooChart(code: string, range: YahooChartRange = "1y", metrics?: ExternalRequestMetrics) {
   const suffixes = code.includes(".") ? [""] : [".TW", ".TWO"];
   const hosts = ["query1.finance.yahoo.com", "query2.finance.yahoo.com"];
   const errors: string[] = [];
@@ -4226,7 +4362,7 @@ async function fetchYahooChart(code: string, range: YahooChartRange = "1y") {
       const symbol = `${code}${suffix}`;
       const url = `https://${host}/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d&includePrePost=false&events=history`;
       try {
-        const data = await fetchJson(url);
+        const data = await fetchJson(url, 9000, metrics);
         const result = data?.chart?.result?.[0];
         const quote = result?.indicators?.quote?.[0];
         const timestamps = result?.timestamp || [];
@@ -4312,10 +4448,10 @@ async function fetchYahooSymbolChart(symbol: string, label: string, range: Yahoo
   };
 }
 
-async function fetchTwseMis(code: string) {
+async function fetchTwseMis(code: string, metrics?: ExternalRequestMetrics) {
   const channels = [`tse_${code}.tw`, `otc_${code}.tw`].join("|");
   const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${encodeURIComponent(channels)}&json=1&delay=0`;
-  const data = await fetchJson(url, 7000);
+  const data = await fetchJson(url, 7000, metrics);
   const row = data?.msgArray?.find((item: any) => item?.c === code && item?.z && item.z !== "-");
   if (!row) return null;
 
@@ -4334,7 +4470,7 @@ async function fetchTwseMis(code: string) {
   };
 }
 
-async function fetchExchangeSnapshot(code: string) {
+async function fetchExchangeSnapshot(code: string, metrics?: ExternalRequestMetrics) {
   const endpoints = [
     { market: "TWSE", url: "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL" },
     { market: "OTC", url: "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes" },
@@ -4343,7 +4479,7 @@ async function fetchExchangeSnapshot(code: string) {
 
   for (const endpoint of endpoints) {
     try {
-      const data = await fetchJson(endpoint.url);
+      const data = await fetchJson(endpoint.url, 9000, metrics);
       const row = Array.isArray(data) ? data.find((item: any) =>
         String(item.Code || item.SecuritiesCompanyCode || item.SecuritiesCode || item["\u8B49\u5238\u4EE3\u865F"]) === code
       ) : null;
@@ -5477,27 +5613,27 @@ function buildAnalysis(series: DailyBar[], week52High: number, week52Low: number
   };
 }
 
-async function loadQuote(code: string): Promise<QuoteInfo> {
+async function loadQuote(code: string, metrics?: ExternalRequestMetrics): Promise<QuoteInfo> {
   let chart: Awaited<ReturnType<typeof fetchYahooChart>> | null = null;
   let realtime: Awaited<ReturnType<typeof fetchTwseMis>> | null = null;
   let snapshot: Awaited<ReturnType<typeof fetchExchangeSnapshot>> | null = null;
   const sourceNotes: string[] = [];
 
   try {
-    chart = await fetchYahooChart(code);
+    chart = await fetchYahooChart(code, "1y", metrics);
   } catch (err) {
     sourceNotes.push(`Yahoo daily failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   if (/^\d+$/.test(code)) {
     try {
-      realtime = await fetchTwseMis(code);
+      realtime = await fetchTwseMis(code, metrics);
     } catch (err) {
       sourceNotes.push(`TWSE MIS failed: ${err instanceof Error ? err.message : String(err)}`);
     }
     if (!realtime) {
       try {
-        snapshot = await fetchExchangeSnapshot(code);
+        snapshot = await fetchExchangeSnapshot(code, metrics);
       } catch (err) {
         sourceNotes.push(`Exchange snapshot failed: ${err instanceof Error ? err.message : String(err)}`);
       }
@@ -8006,23 +8142,6 @@ function compactRankingItem(item: ValueScore) {
   };
 }
 
-function mergeRankingCandidatePool(existing: any[], incoming: any[]) {
-  const byCode = new Map<string, any>();
-  [...(existing || []), ...(incoming || [])].forEach(item => {
-    if (item?.code) byCode.set(item.code, item);
-  });
-  const all = [...byCode.values()];
-  const modes = ["undervalued", "overvalued", "active", "cashflow", "growth", "small-investor"];
-  const keepCodes = new Set<string>();
-  modes.forEach(mode => {
-    [...all]
-      .sort((a, b) => compareRankingItems(a, b, item => screenerSortValue(mode, item)))
-      .slice(0, RANKING_JOB_TOP_PER_MODE)
-      .forEach(item => keepCodes.add(item.code));
-  });
-  return all.filter(item => keepCodes.has(item.code));
-}
-
 async function readRankingRefreshJob(id: string) {
   const [record] = await db.get<any>(RANKING_REFRESH_JOB_TABLE, [id]);
   return record ? { ...record, id } : null;
@@ -8141,7 +8260,7 @@ function publicRankingRefreshJob(job: any) {
       processed,
       total,
       percent: total ? Math.round((processed / total) * 100) : 0,
-      scored: Number(job.scoredCount ?? job.items?.length ?? 0),
+      scored: Number(job.scoredCount || 0),
       failed: Number(job.failedCount ?? job.errors?.length ?? 0),
     },
     pollAfterMs: done ? 0 : 700,
@@ -8151,10 +8270,85 @@ function publicRankingRefreshJob(job: any) {
     pilot: job.pilotSize ? {
       enabled: true,
       size: job.pilotSize,
+      version: job.pilotVersion || null,
       label: `${job.pilotSize}-stock performance pilot; not a public full-market ranking`,
     } : { enabled: false },
     performance: job.performance || null,
     result: done ? job.result || null : null,
+  };
+}
+
+const PILOT_LIQUIDITY_ENDPOINTS = [
+  { type: "twse", source: "TWSE STOCK_DAY_ALL", url: "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL" },
+  { type: "tpex", source: "TPEx mainboard quotes", url: "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes" },
+];
+
+function normalizeLiquidityDate(value: unknown) {
+  const digits = String(value || "").replace(/[^0-9]/g, "");
+  if (digits.length === 8) return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+  if (digits.length === 7) {
+    const year = Number(digits.slice(0, 3)) + 1911;
+    return `${year}-${digits.slice(3, 5)}-${digits.slice(5, 7)}`;
+  }
+  return null;
+}
+
+async function loadPilotLiquidityProfiles(metrics?: ExternalRequestMetrics) {
+  const settled = await Promise.allSettled(PILOT_LIQUIDITY_ENDPOINTS.map(async endpoint => {
+    const rows = await fetchJson(endpoint.url, 12000, metrics);
+    if (!Array.isArray(rows)) throw new Error(`${endpoint.source} returned a non-array payload`);
+    return { endpoint, rows };
+  }));
+  const profiles = new Map<string, TaiwanCompanyProfile>();
+  const warnings: string[] = [];
+  const dates: string[] = [];
+  settled.forEach(result => {
+    if (result.status === "rejected") {
+      warnings.push(result.reason instanceof Error ? result.reason.message : String(result.reason));
+      return;
+    }
+    const { endpoint, rows } = result.value;
+    rows.forEach((row: any) => {
+      const code = cleanCode(row.Code || row.SecuritiesCompanyCode || row.SecuritiesCode || row["證券代號"] || "");
+      if (!/^\d{4}$/.test(code)) return;
+      const volume = toNumber(row.TradeVolume || row.Volume || row.TradingShares || row.TransactionNumber || row["成交股數"] || row["成交量"]);
+      const tradeValue = toNumber(row.TradeValue || row.TransactionAmount || row.TradingValue || row["成交金額"]);
+      const close = toNumber(row.ClosingPrice || row.Close || row["收盤價"]);
+      const liquidityValue = Number.isFinite(tradeValue) && tradeValue > 0
+        ? tradeValue
+        : Number.isFinite(volume) && volume > 0
+          ? volume * (Number.isFinite(close) && close > 0 ? close : 1)
+          : null;
+      const date = normalizeLiquidityDate(row.Date || row.TradingDate || row["日期"]);
+      if (date) dates.push(date);
+      profiles.set(code, {
+        code,
+        name: String(row.Name || row.CompanyName || row.SecuritiesCompanyName || row["證券名稱"] || code),
+        type: endpoint.type,
+        industry: "",
+        liquidityTier: liquidityValue !== null ? "medium" : "unavailable",
+        liquidityValue,
+        liquidityDate: date,
+        liquiditySource: endpoint.source,
+      });
+    });
+  });
+  for (const type of ["twse", "tpex"]) {
+    const rows = [...profiles.values()]
+      .filter(profile => profile.type === type && Number.isFinite(profile.liquidityValue))
+      .sort((a, b) => Number(a.liquidityValue) - Number(b.liquidityValue) || a.code.localeCompare(b.code));
+    rows.forEach((profile, index) => {
+      const percentile = rows.length ? (index + 0.5) / rows.length : 0;
+      profile.liquidityTier = percentile < 1 / 3 ? "low" : percentile < 2 / 3 ? "medium" : "high";
+    });
+  }
+  return {
+    profiles,
+    generatedAt: new Date().toISOString(),
+    oldestDate: dates.sort()[0] || null,
+    newestDate: dates.sort().at(-1) || null,
+    warnings,
+    sources: PILOT_LIQUIDITY_ENDPOINTS.map(endpoint => ({ source: endpoint.source, url: endpoint.url })),
   };
 }
 
@@ -8163,15 +8357,19 @@ function buildRepresentativePilotUniverse(companies: TaiwanCompanyProfile[], siz
     .filter(company => company.type === "twse" || company.type === "tpex")
     .filter(company => /^\d{4}$/.test(company.code))
     .map(company => [company.code, company] as [string, TaiwanCompanyProfile])).values()]
-    .sort((a, b) => `${a.type}|${a.industry}|${a.code}`.localeCompare(`${b.type}|${b.industry}|${b.code}`));
+    .sort((a, b) => `${a.type}|${a.industry}|${a.liquidityTier || "unavailable"}|${a.code}`.localeCompare(`${b.type}|${b.industry}|${b.liquidityTier || "unavailable"}|${b.code}`));
   if (listed.length <= size) return listed;
   const selected = new Map<string, TaiwanCompanyProfile>();
   const buckets = new Map<string, TaiwanCompanyProfile[]>();
   listed.forEach(company => {
-    const key = `${company.type}|${company.industry || "unclassified"}`;
+    const key = `${company.type}|${company.industry || "unclassified"}|${company.liquidityTier || "unavailable"}`;
     buckets.set(key, [...(buckets.get(key) || []), company]);
   });
-  [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b)).forEach(([, rows]) => {
+  const bucketEntries = [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b));
+  const representativeBuckets = bucketEntries.length <= size
+    ? bucketEntries
+    : Array.from({ length: size }, (_, index) => bucketEntries[Math.floor(((index + 0.5) * bucketEntries.length) / size)]);
+  representativeBuckets.forEach(([, rows]) => {
     if (selected.size >= size) return;
     const representative = rows[Math.floor((rows.length - 1) / 2)];
     selected.set(representative.code, representative);
@@ -8200,6 +8398,7 @@ async function createRankingRefreshJob(mode: string, options: { pilotSize?: numb
     .filter((item: any) => item?.status === "queued" || item?.status === "running")
     .filter((item: any) => item?.scope === scope)
     .filter((item: any) => item?.schemaVersion === MARKET_FEATURE_SCHEMA_VERSION)
+    .filter((item: any) => !pilotSize || item?.pilotVersion === RANKING_PILOT_VERSION)
     .filter((item: any) => pilotSize || !item?.universe?.length || (
       Number(item?.universeMeta?.fullMarketCounts?.twse || 0) >= MARKET_UNIVERSE_MIN_TWSE_COUNT
       && Number(item?.universeMeta?.fullMarketCounts?.tpex || 0) >= MARKET_UNIVERSE_MIN_TPEX_COUNT
@@ -8214,6 +8413,7 @@ async function createRankingRefreshJob(mode: string, options: { pilotSize?: numb
     updatedAt: now,
     mode,
     pilotSize,
+    pilotVersion: pilotSize ? RANKING_PILOT_VERSION : null,
     schemaVersion: MARKET_FEATURE_SCHEMA_VERSION,
     phase: "universe",
     scope,
@@ -8229,7 +8429,6 @@ async function createRankingRefreshJob(mode: string, options: { pilotSize?: numb
     companyProfiles: [],
     newsTopicIndex: 0,
     newsEvidence: [],
-    items: [],
     errors: [],
     runningBatchAt: null,
     performance: {
@@ -8239,6 +8438,7 @@ async function createRankingRefreshJob(mode: string, options: { pilotSize?: numb
       stockAttempts: 0,
       successfulStocks: 0,
       failedStocks: 0,
+      externalRequests: emptyExternalRequestMetrics(),
     },
     universeMeta: {
       name: pilotSize ? `Taiwan listed and OTC ${pilotSize}-stock performance pilot` : "Taiwan listed and OTC full-market scoring job",
@@ -8281,11 +8481,27 @@ async function advanceRankingRefreshJob(id: string) {
     job.message = "Loading the complete TWSE and TPEx company directory after job creation.";
     await saveRankingRefreshJob(id, job);
     try {
-      const marketUniverse: any = await withTimeout(loadTaiwanCompanyUniverse(), 35000, "Taiwan company universe timed out");
+      const setupStartedAt = Date.now();
+      const phaseMetrics = emptyExternalRequestMetrics();
+      const marketUniverse: any = await withTimeout(loadTaiwanCompanyUniverse(phaseMetrics), 35000, "Taiwan company universe timed out");
+      const liquidity = job.pilotSize
+        ? await withTimeout(loadPilotLiquidityProfiles(phaseMetrics), 30000, "Taiwan liquidity snapshot timed out")
+        : null;
       const listedCompanies: TaiwanCompanyProfile[] = (marketUniverse.companies || [])
         .filter((company: TaiwanCompanyProfile) => company.type === "twse" || company.type === "tpex")
         .filter((company: TaiwanCompanyProfile) => /^\d{4}$/.test(cleanCode(company.code)))
-        .map((company: TaiwanCompanyProfile) => ({ ...company, code: cleanCode(company.code) }));
+        .map((company: TaiwanCompanyProfile) => {
+          const code = cleanCode(company.code);
+          const liquidityProfile = liquidity?.profiles.get(code);
+          return {
+            ...company,
+            code,
+            liquidityTier: liquidityProfile?.liquidityTier || (job.pilotSize ? "unavailable" : undefined),
+            liquidityValue: liquidityProfile?.liquidityValue ?? null,
+            liquidityDate: liquidityProfile?.liquidityDate || null,
+            liquiditySource: liquidityProfile?.liquiditySource || null,
+          };
+        });
       if (!listedCompanies.length) throw new Error("The listed/OTC company directory returned no eligible stocks.");
       const twseCount = Number(marketUniverse.counts?.twse || 0);
       const tpexCount = Number(marketUniverse.counts?.tpex || 0);
@@ -8297,6 +8513,15 @@ async function advanceRankingRefreshJob(id: string) {
       const selectedCompanies = job.pilotSize
         ? buildRepresentativePilotUniverse(listedCompanies, Number(job.pilotSize))
         : listedCompanies.sort((a, b) => a.code.localeCompare(b.code));
+      const externalRequests = emptyExternalRequestMetrics();
+      mergeExternalRequestMetrics(externalRequests, job.performance?.externalRequests || emptyExternalRequestMetrics());
+      mergeExternalRequestMetrics(externalRequests, phaseMetrics);
+      job.performance = {
+        ...(job.performance || {}),
+        externalRequests,
+        setupExternalRequests: phaseMetrics,
+        setupMs: Date.now() - setupStartedAt,
+      };
       job.universe = selectedCompanies.map(company => company.code);
       job.companyProfiles = selectedCompanies;
       job.phase = "features";
@@ -8314,8 +8539,22 @@ async function advanceRankingRefreshJob(id: string) {
         defaultCount: job.universe.length,
         requestedCount: job.universe.length,
         rankingOutputLimit: RANKING_OUTPUT_LIMIT,
+        liquidity: liquidity ? {
+          methodology: "Within-market terciles based on the latest official daily trading value; volume times close is used only when trading value is unavailable.",
+          oldestDate: liquidity.oldestDate,
+          newestDate: liquidity.newestDate,
+          availableCount: listedCompanies.filter(company => company.liquidityTier !== "unavailable").length,
+          unavailableCount: listedCompanies.filter(company => company.liquidityTier === "unavailable").length,
+          selectedByTier: selectedCompanies.reduce((counts: Record<string, number>, company) => {
+            const tier = company.liquidityTier || "unavailable";
+            counts[tier] = Number(counts[tier] || 0) + 1;
+            return counts;
+          }, {}),
+          sources: liquidity.sources,
+          warnings: liquidity.warnings,
+        } : null,
         selectionRule: job.pilotSize
-          ? `Deterministic ${job.pilotSize}-stock stratified sample: at least one representative per TWSE/TPEx official-industry bucket, then systematic fill across the remaining listed/OTC directory.`
+          ? `Deterministic ${job.pilotSize}-stock stratified sample across TWSE/TPEx, official industry, and official-liquidity tier; then systematic fill across the remaining listed/OTC directory.`
           : "Complete TWSE and TPEx official company directory; no fixed candidate list is applied before scoring.",
         note: job.pilotSize
           ? `Pilot scope contains ${job.universe.length} of ${listedCompanies.length} listed/OTC companies. Every ranking mode independently sorts all ${job.universe.length} pilot rows and selects its own Top ${RANKING_OUTPUT_LIMIT}. Pilot output is not the formal full-market leaderboard.`
@@ -8436,14 +8675,62 @@ async function advanceRankingRefreshJob(id: string) {
       const rankingResult = await publishRankingSnapshots(basePayload, job.mode || "undervalued", { activate: !job.pilotSize });
       const attempts = Number(job.performance?.stockAttempts || 0);
       const activeScoringMs = Number(job.performance?.activeScoringMs || 0);
+      const universeCount = Number(job.universe?.length || 0);
+      const fullMarketCount = Number(job.universeMeta?.fullMarketCompanyCount || MARKET_UNIVERSE_MIN_LISTED_OTC_COUNT);
+      const completedAt = new Date().toISOString();
+      const elapsedMs = Math.max(0, Date.parse(completedAt) - Date.parse(job.performance?.startedAt || job.createdAt || completedAt));
+      const coverageValues = featureRows
+        .map((item: any) => Number(item.dataStatus?.coverage?.percent))
+        .filter(Number.isFinite);
+      const quoteDateCount = featureRows.filter((item: any) => Boolean(item.quoteDate || item.dataStatus?.quoteDate)).length;
+      const coverage60Count = featureRows.filter((item: any) => Number(item.dataStatus?.coverage?.percent || 0) >= RANKING_MIN_ITEM_COVERAGE).length;
+      const noStaleCount = featureRows.filter((item: any) => !(item.dataStatus?.staleDatasets || []).length).length;
+      const rankableCount = featureRows.filter((item: any) => (item.rankingTrust || buildRankingTrust(item)).status === "rankable").length;
+      const externalRequests: ExternalRequestMetrics = job.performance?.externalRequests || emptyExternalRequestMetrics();
+      const scoringRequests: ExternalRequestMetrics = job.performance?.scoringExternalRequests || emptyExternalRequestMetrics();
+      const setupRequests: ExternalRequestMetrics = job.performance?.setupExternalRequests || emptyExternalRequestMetrics();
+      const setupMs = Number(job.performance?.setupMs || 0);
+      const scalableWallMs = Math.max(0, elapsedMs - setupMs);
+      const projectedScoringFactor = universeCount ? fullMarketCount / universeCount : 0;
+      const estimatedFullMarketExternalRequests = Math.round(setupRequests.total + scoringRequests.total * projectedScoringFactor);
+      const estimatedFullMarketResponseBytes = Math.round(setupRequests.responseBytes + scoringRequests.responseBytes * projectedScoringFactor);
+      const finalFailureCount = Math.max(0, universeCount - featureRows.length);
+      const uniqueSuccessRatio = universeCount ? round((featureRows.length / universeCount) * 100, 1) : 0;
       job.performance = {
         ...(job.performance || {}),
-        completedAt: new Date().toISOString(),
-        successRatio: attempts ? round((Number(job.performance?.successfulStocks || 0) / attempts) * 100, 1) : 0,
+        completedAt,
+        elapsedMs,
+        successRatio: uniqueSuccessRatio,
+        attemptSuccessRatio: attempts ? round((Number(job.performance?.successfulStocks || 0) / attempts) * 100, 1) : 0,
         averageActiveMsPerAttempt: attempts ? Math.round(activeScoringMs / attempts) : null,
-        estimatedFullMarketActiveMs: attempts ? Math.round((activeScoringMs / attempts) * Number(job.universeMeta?.fullMarketCompanyCount || MARKET_UNIVERSE_MIN_LISTED_OTC_COUNT)) : null,
-        externalRequestCount: null,
-        requestCountLimitation: "Exact upstream HTTP-call attribution is not yet available in the AppDeploy runtime; stock attempts, retries, active scoring time, and failures are measured directly.",
+        averageWallMsPerStock: universeCount ? Math.round(elapsedMs / universeCount) : null,
+        estimatedFullMarketActiveMs: universeCount ? Math.round((activeScoringMs / universeCount) * fullMarketCount) : null,
+        estimatedFullMarketWallMs: universeCount ? Math.round(setupMs + (scalableWallMs / universeCount) * fullMarketCount) : null,
+        externalRequestCount: externalRequests.total,
+        externalRequests,
+        estimatedFullMarketExternalRequests,
+        estimatedFullMarketResponseBytes,
+        retries: Number(job.performance?.retryAttempts || 0),
+        finalFailures: finalFailureCount,
+        finalFailureRate: universeCount ? round((finalFailureCount / universeCount) * 100, 1) : 0,
+        dataCompleteness: {
+          scored: featureRows.length,
+          requested: universeCount,
+          scoreSuccessPercent: uniqueSuccessRatio,
+          quoteDateCount,
+          quoteDatePercent: universeCount ? round((quoteDateCount / universeCount) * 100, 1) : 0,
+          coverage60Count,
+          coverage60Percent: universeCount ? round((coverage60Count / universeCount) * 100, 1) : 0,
+          noStaleCount,
+          noStalePercent: universeCount ? round((noStaleCount / universeCount) * 100, 1) : 0,
+          rankableCount,
+          rankablePercent: universeCount ? round((rankableCount / universeCount) * 100, 1) : 0,
+          averageCoveragePercent: coverageValues.length ? round(coverageValues.reduce((sum: number, value: number) => sum + value, 0) / coverageValues.length, 1) : null,
+          medianCoveragePercent: coverageValues.length ? median(coverageValues) : null,
+        },
+        scaleRecommendation: uniqueSuccessRatio >= RANKING_MIN_SUCCESS_RATIO * 100
+          ? "Pilot data-success gate passed. Use persisted batches, shared source caches, and a daily off-peak schedule before a 1,985-stock production scan."
+          : "Pilot data-success gate failed. Do not expand to 1,985 stocks until source coverage, retries, and caching are improved.",
       };
       job.result = { ...rankingResult, marketThemes: themeSnapshot };
       job.status = rankingResult.ok && themeSnapshot.ok ? "completed" : "rejected";
@@ -8480,9 +8767,10 @@ async function advanceRankingRefreshJob(id: string) {
   await beginPhase(`${isRetry ? "Retrying missing evidence for" : "Scoring"} stocks ${start + 1}-${start + batch.length} of ${sourceCodes.length}.`);
   const scoringStartedAt = Date.now();
   try {
+    const batchMetrics = emptyExternalRequestMetrics();
     const companyProfiles = new Map<string, TaiwanCompanyProfile>((job.companyProfiles || []).map((company: TaiwanCompanyProfile) => [company.code, company] as [string, TaiwanCompanyProfile]));
     const results = await settleWithLimit(batch, 4, code => withTimeout(
-      loadValueScore(code, { fast: true, evidenceMinimum: true, companyProfile: companyProfiles.get(code) || null }),
+      loadValueScore(code, { fast: true, evidenceMinimum: true, companyProfile: companyProfiles.get(code) || null, metrics: batchMetrics }),
       18000,
       `Stock ${code} scoring timed out and was queued for retry`
     ));
@@ -8501,8 +8789,13 @@ async function advanceRankingRefreshJob(id: string) {
     const batchKey = `${isRetry ? "retry" : "features"}-${start}`;
     const featureBatchId = await persistMarketFeatureBatch(id, batchKey, completedItems, { start, end: start + batch.length });
     if (featureBatchId) job.featureBatchIds = { ...(job.featureBatchIds || {}), [batchKey]: featureBatchId };
-    job.items = mergeRankingCandidatePool(job.items || [], completedItems);
     const scoringDurationMs = Date.now() - scoringStartedAt;
+    const externalRequests = emptyExternalRequestMetrics();
+    mergeExternalRequestMetrics(externalRequests, job.performance?.externalRequests || emptyExternalRequestMetrics());
+    mergeExternalRequestMetrics(externalRequests, batchMetrics);
+    const scoringExternalRequests = emptyExternalRequestMetrics();
+    mergeExternalRequestMetrics(scoringExternalRequests, job.performance?.scoringExternalRequests || emptyExternalRequestMetrics());
+    mergeExternalRequestMetrics(scoringExternalRequests, batchMetrics);
     job.performance = {
       ...(job.performance || {}),
       activeScoringMs: Number(job.performance?.activeScoringMs || 0) + scoringDurationMs,
@@ -8510,6 +8803,10 @@ async function advanceRankingRefreshJob(id: string) {
       stockAttempts: Number(job.performance?.stockAttempts || 0) + batch.length,
       successfulStocks: Number(job.performance?.successfulStocks || 0) + completedItems.length,
       failedStocks: Number(job.performance?.failedStocks || 0) + failedCodes.length,
+      retryAttempts: Number(job.performance?.retryAttempts || 0) + (isRetry ? batch.length : 0),
+      initialFailures: Number(job.performance?.initialFailures || 0) + (isRetry ? 0 : failedCodes.length),
+      externalRequests,
+      scoringExternalRequests,
       lastBatchMs: scoringDurationMs,
       averageBatchMs: Math.round((Number(job.performance?.activeScoringMs || 0) + scoringDurationMs) / (Number(job.performance?.scoringBatches || 0) + 1)),
     };

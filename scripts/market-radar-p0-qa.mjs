@@ -140,10 +140,34 @@ try {
   const initialCalls = await page.evaluate(() => window.__apiCalls);
   assert(initialCalls.some(call => call === "GET /api/market-radar"), "Homepage did not read the persisted market-radar endpoint");
   assert(!initialCalls.some(call => call.includes("/api/workbench")), "Homepage unexpectedly called /api/workbench");
+  const desktopRanking = await page.evaluate(() => {
+    const table = document.querySelector(".market-ranking-table");
+    const headers = [...table.querySelectorAll("thead th")].map(cell => cell.textContent.trim());
+    const firstHeader = table.querySelector("thead th:nth-child(1)");
+    const secondHeader = table.querySelector("thead th:nth-child(2)");
+    return {
+      rowCount: table.querySelectorAll("tbody tr").length,
+      headers,
+      firstPosition: getComputedStyle(firstHeader).position,
+      secondPosition: getComputedStyle(secondHeader).position,
+      secondLeft: getComputedStyle(secondHeader).left,
+      cardsDisplay: getComputedStyle(document.querySelector("#marketRankingCards")).display,
+    };
+  });
+  for (const label of ["產業", "漲跌", "資料狀態", "覆蓋率", "報價日"]) {
+    assert(desktopRanking.headers.some(header => header.includes(label)), `Desktop ranking is missing ${label}`);
+  }
+  assert(desktopRanking.rowCount >= 8, `Desktop ranking rendered only ${desktopRanking.rowCount} rows`);
+  assert(desktopRanking.firstPosition === "sticky" && desktopRanking.secondPosition === "sticky", "Desktop rank and stock columns are not sticky");
+  assert(desktopRanking.secondLeft !== "auto", "Desktop stock column has no fixed left offset");
+  assert(desktopRanking.cardsDisplay === "none", "Mobile ranking cards are visible at desktop width");
 
   await page.setViewportSize({ width: 390, height: 844 });
   const mobile = await page.evaluate(() => {
     const actions = [...document.querySelectorAll(".market-header-actions button")];
+    const inputRect = document.querySelector("#stockInput").getBoundingClientRect();
+    const analyzeRect = document.querySelector("#analyzeBtn").getBoundingClientRect();
+    const firstCard = document.querySelector("#marketRankingCards .market-ranking-card");
     return {
       visibleActions: actions.filter(button => {
         const style = getComputedStyle(button);
@@ -151,11 +175,20 @@ try {
         return style.display !== "none" && rect.width > 0 && rect.height > 0;
       }).map(button => ({ text: button.textContent.trim(), height: button.getBoundingClientRect().height })),
       overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      stockSearchVisible: inputRect.width > 0 && inputRect.height > 0 && analyzeRect.width > 0 && analyzeRect.height >= 44,
+      desktopTableDisplay: getComputedStyle(document.querySelector(".market-ranking-wrap")).display,
+      cardsDisplay: getComputedStyle(document.querySelector("#marketRankingCards")).display,
+      firstCardText: firstCard?.textContent || "",
     };
   });
   assert(mobile.visibleActions.length === 3, `Expected three visible mobile primary actions, found ${mobile.visibleActions.length}`);
   assert(mobile.visibleActions.every(action => action.height >= 44), "A mobile primary action is shorter than 44px");
   assert(mobile.overflow <= 1, `Mobile page has ${mobile.overflow}px horizontal overflow`);
+  assert(mobile.stockSearchVisible, "Mobile stock-analysis input or action is not visible and touch-sized");
+  assert(mobile.desktopTableDisplay === "none" && mobile.cardsDisplay === "grid", "Ranking did not switch from desktop table to mobile cards");
+  for (const label of ["電子零組件", "漲跌", "資料覆蓋", "報價日", "高信賴"]) {
+    assert(mobile.firstCardText.includes(label), `Mobile ranking card is missing ${label}`);
+  }
 
   await page.locator('.market-header-actions [data-market-view="client"]').click();
   await page.waitForFunction(() => location.hash === "#workspace-client");
@@ -183,7 +216,7 @@ try {
   }
   assert(await page.locator("#stockPage").isVisible(), "Successful stock search did not show the stock workspace");
 
-  process.stdout.write(`${JSON.stringify({ ok: true, initialCalls, mobile, successfulSearchHash: await page.evaluate(() => location.hash) }, null, 2)}\n`);
+  process.stdout.write(`${JSON.stringify({ ok: true, initialCalls, desktopRanking, mobile, successfulSearchHash: await page.evaluate(() => location.hash) }, null, 2)}\n`);
 } finally {
   await browser.close();
   await new Promise(resolve => server.close(resolve));
