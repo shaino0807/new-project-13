@@ -45,6 +45,8 @@ function summary(job) {
     message: job.message,
     universeMeta: result.universeMeta || null,
     performance: job.performance || null,
+    sampleFingerprint: result.universeMeta?.sampleFingerprint || job.universeMeta?.sampleFingerprint || null,
+    outcomeClassification: job.performance?.outcomeClassification || null,
     modes: Object.fromEntries(Object.entries(pilotByMode).map(([mode, value]) => [mode, {
       displayed: value?.items?.length || 0,
       evidenceGate: value?.evidenceGate || null,

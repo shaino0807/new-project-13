@@ -24,11 +24,61 @@ type QuoteInfo = {
   volume: number;
   source: string;
   sourceUrls: Record<string, string | null>;
+  quoteOutcome: {
+    category: "current" | QuoteFailureCategory;
+    evidence: string[];
+  };
   series: DailyBar[];
   analysis: ReturnType<typeof buildAnalysis>;
 };
 
 type YahooChartRange = "6mo" | "1y" | "5y";
+
+type TaiwanListedMarket = "twse" | "tpex";
+type QuoteFailureCategory = "suspended_or_halted" | "no_quote_for_latest_session" | "provider_failure" | "not_rankable" | "unresolved";
+
+class QuoteLoadError extends Error {
+  category: QuoteFailureCategory;
+  evidence: string[];
+
+  constructor(category: QuoteFailureCategory, message: string, evidence: string[] = []) {
+    super(message);
+    this.name = "QuoteLoadError";
+    this.category = category;
+    this.evidence = evidence;
+  }
+}
+
+function normalizeListedMarket(value: unknown): TaiwanListedMarket | null {
+  const market = String(value || "").trim().toLowerCase();
+  if (["twse", "tse", "listed"].includes(market)) return "twse";
+  if (["tpex", "otc", "two"].includes(market)) return "tpex";
+  return null;
+}
+
+function yahooSuffixesFor(code: string, market: unknown) {
+  if (code.includes(".")) return [""];
+  const normalized = normalizeListedMarket(market);
+  if (normalized === "twse") return [".TW"];
+  if (normalized === "tpex") return [".TWO"];
+  return [".TW", ".TWO"];
+}
+
+function classifyQuoteFailure(error: unknown): QuoteFailureCategory {
+  if (error instanceof QuoteLoadError) return error.category;
+  const message = error instanceof Error ? error.message : String(error || "");
+  if (["suspended_or_halted", "no_quote_for_latest_session", "provider_failure", "not_rankable", "unresolved"].includes(message)) {
+    return message as QuoteFailureCategory;
+  }
+  if (/suspend|halt|\u505c\u6b62\u4ea4\u6613|\u66ab\u505c\u4ea4\u6613|\u505c\u6b62\u8cb7\u8ce3|\u66ab\u505c\u8cb7\u8ce3/i.test(message)) return "suspended_or_halted";
+  if (/no quote|no usable evidence|empty chart|quote unavailable|\u7121\u5831\u50f9/i.test(message)) return "no_quote_for_latest_session";
+  if (/timed out|timeout|fetch failed|HTTP 429|HTTP 5\d\d|non-array payload|provider/i.test(message)) return "provider_failure";
+  return "unresolved";
+}
+
+function retryableQuoteFailure(category: QuoteFailureCategory) {
+  return category === "provider_failure";
+}
 
 const FALLBACK_NAMES: Record<string, string> = {
   "0050": "\u5143\u5927\u53F0\u706350",
@@ -109,6 +159,11 @@ const RANKING_SNAPSHOT_TABLE = "ranking_snapshots_v1";
 const RANKING_REGISTRY_TABLE = "ranking_registry_v1";
 const RANKING_REFRESH_JOB_TABLE = "ranking_refresh_jobs_v1";
 const MARKET_FEATURE_BATCH_TABLE = "market_feature_batches_v2";
+const MARKET_HISTORY_DAY_TABLE = "market_history_days_v1";
+const MARKET_HISTORY_REGISTRY_TABLE = "market_history_registry_v1";
+const MARKET_HISTORY_PROFILE_BATCH_TABLE = "market_history_profile_batches_v1";
+const FINMIND_DATASET_CACHE_TABLE = "finmind_dataset_cache_v1";
+const FINMIND_DATASET_CACHE_REGISTRY_TABLE = "finmind_dataset_cache_registry_v1";
 const MARKET_THEME_SNAPSHOT_TABLE = "market_theme_snapshots_v2";
 const MARKET_THEME_REGISTRY_TABLE = "market_theme_registry_v2";
 const MACRO_RISK_SCAN_JOB_TABLE = "macro_risk_scan_jobs_v1";
@@ -121,9 +176,12 @@ const RANKING_MIN_ITEM_COVERAGE = 60;
 const RANKING_OUTPUT_LIMIT = 64;
 const RANKING_PILOT_SIZE = 250;
 const RANKING_PILOT_VERSION = "ranking-pilot-v3-liquidity-metrics";
-const RANKING_JOB_BATCH_SIZE = 4;
+const RANKING_JOB_BATCH_SIZE = 20;
+const RANKING_JOB_CONCURRENCY = 4;
 const RANKING_SNAPSHOT_ITEM_LIMIT = RANKING_OUTPUT_LIMIT;
-const MARKET_FEATURE_SCHEMA_VERSION = "market-features-v5";
+const MARKET_FEATURE_SCHEMA_VERSION = "market-features-v6-exact-ranking";
+const MARKET_HISTORY_SCHEMA_VERSION = "official-market-history-v1";
+const MARKET_HISTORY_TARGET_SESSIONS = 120;
 const MARKET_SCAN_MIN_SUCCESS_RATIO = 0.95;
 const MARKET_UNIVERSE_MIN_TWSE_COUNT = 900;
 const MARKET_UNIVERSE_MIN_TPEX_COUNT = 700;
@@ -301,6 +359,7 @@ type FinMindDatasetResult = {
   data: FinMindRow[];
   fetchedAt: string;
   cached: boolean;
+  cacheSource?: "memory" | "persistent" | "upstream";
   stale: boolean;
   warning?: string;
 };
@@ -321,8 +380,75 @@ const FINMIND_API_URL = "https://api.finmindtrade.com/api/v4/data";
 const FINMIND_SOURCE_URL = "https://finmind.github.io/";
 const finMindCache = new Map<string, FinMindCacheEntry>();
 const finMindInflight = new Map<string, Promise<FinMindDatasetResult>>();
+const FINMIND_PERSISTENT_DATASETS = new Set([
+  "TaiwanStockFinancialStatements",
+  "TaiwanStockBalanceSheet",
+  "TaiwanStockCashFlowsStatement",
+  "TaiwanStockMonthRevenue",
+]);
+const finMindPersistentRegistryCache = new Map<string, { id?: string; dataset: string; entries: Record<string, string>; updatedAt?: string }>();
+let finMindPersistentWriteChain: Promise<void> = Promise.resolve();
 let finMindTokenPromise: Promise<string> | null = null;
 let finMindTokenDisabledUntil = 0;
+
+async function readFinMindPersistentRegistry(dataset: string) {
+  const cached = finMindPersistentRegistryCache.get(dataset);
+  if (cached) return cached;
+  const records = await listAllDbRecords(FINMIND_DATASET_CACHE_REGISTRY_TABLE, 2).catch(() => []);
+  const registry = records
+    .filter((record: any) => record?.dataset === dataset)
+    .sort((a: any, b: any) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))[0]
+    || { dataset, entries: {} };
+  finMindPersistentRegistryCache.set(dataset, registry);
+  return registry;
+}
+
+async function readPersistentFinMindCache(cacheKey: string) {
+  const dataset = cacheKey.split(":", 1)[0];
+  const registry = await readFinMindPersistentRegistry(dataset);
+  const id = registry.entries?.[cacheKey];
+  if (!id) return null;
+  const [record] = await db.get<any>(FINMIND_DATASET_CACHE_TABLE, [id]);
+  if (!record || !Array.isArray(record.data) || !Number.isFinite(Date.parse(record.fetchedAt || ""))) return null;
+  return { data: record.data as FinMindRow[], fetchedAt: Date.parse(record.fetchedAt) };
+}
+
+async function persistFinMindCache(cacheKey: string, dataset: string, code: string, entry: FinMindCacheEntry) {
+  if (!FINMIND_PERSISTENT_DATASETS.has(dataset)) return;
+  finMindPersistentWriteChain = finMindPersistentWriteChain.then(async () => {
+    const registry = await readFinMindPersistentRegistry(dataset);
+    const record = {
+      dataset,
+      code,
+      fetchedAt: new Date(entry.fetchedAt).toISOString(),
+      data: entry.data,
+    };
+    let id = registry.entries?.[cacheKey];
+    if (id) {
+      const [updated] = await db.update(FINMIND_DATASET_CACHE_TABLE, [{ id, record }]);
+      if (!updated) id = "";
+    }
+    if (!id) {
+      [id] = await db.add(FINMIND_DATASET_CACHE_TABLE, [record]);
+    }
+    if (!id) throw new Error(`Unable to persist FinMind cache ${cacheKey}`);
+    const nextRegistry = {
+      dataset,
+      entries: { ...(registry.entries || {}), [cacheKey]: id },
+      updatedAt: new Date().toISOString(),
+    };
+    if (registry.id) {
+      const [updated] = await db.update(FINMIND_DATASET_CACHE_REGISTRY_TABLE, [{ id: registry.id, record: nextRegistry }]);
+      if (!updated) throw new Error("Unable to update FinMind cache registry.");
+      finMindPersistentRegistryCache.set(dataset, { id: registry.id, ...nextRegistry });
+    } else {
+      const [registryId] = await db.add(FINMIND_DATASET_CACHE_REGISTRY_TABLE, [nextRegistry]);
+      if (!registryId) throw new Error("Unable to create FinMind cache registry.");
+      finMindPersistentRegistryCache.set(dataset, { id: registryId, ...nextRegistry });
+    }
+  }).catch(() => undefined);
+  await finMindPersistentWriteChain;
+}
 
 async function getFinMindToken() {
   if (Date.now() < finMindTokenDisabledUntil) return "";
@@ -345,8 +471,8 @@ function finMindCacheTtl(dataset: string) {
     "TaiwanStockFinancialStatements",
     "TaiwanStockBalanceSheet",
     "TaiwanStockCashFlowsStatement",
-  ].includes(dataset)) return 6 * 60 * 60 * 1000;
-  if (dataset === "TaiwanStockMonthRevenue") return 2 * 60 * 60 * 1000;
+  ].includes(dataset)) return 24 * 60 * 60 * 1000;
+  if (dataset === "TaiwanStockMonthRevenue") return 24 * 60 * 60 * 1000;
   return 30 * 60 * 1000;
 }
 
@@ -401,7 +527,15 @@ async function requestFinMindDataset(dataset: string, code: string, timeoutMs = 
   const cacheKey = `${dataset}:${code}`;
   const inflightKey = timeoutMs >= 12000 ? cacheKey : `${cacheKey}:timeout:${timeoutMs}`;
   const now = Date.now();
-  const cached = finMindCache.get(cacheKey);
+  let cached = finMindCache.get(cacheKey);
+  let cacheSource: "memory" | "persistent" = "memory";
+  if (!cached && FINMIND_PERSISTENT_DATASETS.has(dataset)) {
+    cached = await readPersistentFinMindCache(cacheKey).catch(() => null) || undefined;
+    if (cached) {
+      cacheSource = "persistent";
+      finMindCache.set(cacheKey, cached);
+    }
+  }
   const ttl = finMindCacheTtl(dataset);
   if (cached && now - cached.fetchedAt < ttl) {
     if (metrics) metrics.cacheHits += 1;
@@ -410,6 +544,7 @@ async function requestFinMindDataset(dataset: string, code: string, timeoutMs = 
       data: cached.data,
       fetchedAt: new Date(cached.fetchedAt).toISOString(),
       cached: true,
+      cacheSource,
       stale: false,
     };
   }
@@ -496,6 +631,7 @@ async function requestFinMindDataset(dataset: string, code: string, timeoutMs = 
       if (!data) throw lastError;
       const entry = { data, fetchedAt: Date.now() };
       finMindCache.set(cacheKey, entry);
+      await persistFinMindCache(cacheKey, dataset, code, entry);
       return {
         dataset,
         data: entry.data,
@@ -510,6 +646,7 @@ async function requestFinMindDataset(dataset: string, code: string, timeoutMs = 
           data: cached.data,
           fetchedAt: new Date(cached.fetchedAt).toISOString(),
           cached: true,
+          cacheSource,
           stale: true,
           warning: finMindPublicMessage(err),
         };
@@ -1325,7 +1462,7 @@ async function loadEtfProfile(code: string, name: string, options: { fast?: bool
   return profile;
 }
 
-async function loadFundamentals(code: string, options: { fast?: boolean; evidenceMinimum?: boolean; metrics?: ExternalRequestMetrics } = {}) {
+async function loadFundamentals(code: string, options: { fast?: boolean; evidenceMinimum?: boolean; metrics?: ExternalRequestMetrics; companyProfile?: TaiwanCompanyProfile | null } = {}) {
   const authenticated = Boolean(await getFinMindToken());
   let infoResult: FinMindDatasetResult | null = null;
   if (!options.evidenceMinimum) {
@@ -1342,7 +1479,12 @@ async function loadFundamentals(code: string, options: { fast?: boolean; evidenc
   ) || code === "0050";
   const assetType = options.evidenceMinimum ? "stock" : isEtf ? "etf" : "stock";
   const datasets = options.evidenceMinimum
-    ? []
+    ? authenticated
+      ? [
+          "TaiwanStockFinancialStatements",
+          "TaiwanStockCashFlowsStatement",
+        ]
+      : []
     : options.fast
     ? assetType === "etf"
       ? [
@@ -1396,6 +1538,11 @@ async function loadFundamentals(code: string, options: { fast?: boolean; evidenc
   const successful = [...available.values()];
   const staleDatasets = successful.filter(result => result.stale).map(result => result.dataset);
   const cachedDatasets = successful.filter(result => result.cached).map(result => result.dataset);
+  const datasetCacheSources = Object.fromEntries(successful.map(result => [result.dataset, {
+    source: result.cacheSource || (result.cached ? "memory" : "upstream"),
+    fetchedAt: result.fetchedAt,
+    stale: result.stale,
+  }]));
   const fetchedTimes = successful.map(result => Date.parse(result.fetchedAt)).filter(Number.isFinite);
   const etf = assetType === "etf"
     ? await loadEtfProfile(code, stockInfo?.stock_name || FALLBACK_NAMES[code] || code, options)
@@ -1438,7 +1585,7 @@ async function loadFundamentals(code: string, options: { fast?: boolean; evidenc
   }
   if ((!options.fast || options.evidenceMinimum) && assetType === "stock" && !data.revenue) {
     try {
-      officialRevenueFallback = await loadOfficialRevenueFallback(code, options.metrics);
+      officialRevenueFallback = await loadOfficialRevenueFallback(code, options.metrics, options.companyProfile?.type);
       if (officialRevenueFallback?.revenue) {
         data.revenue = officialRevenueFallback.revenue as any;
         const revenueFetchedAt = Date.parse(officialRevenueFallback.fetchedAt);
@@ -1446,7 +1593,7 @@ async function loadFundamentals(code: string, options: { fast?: boolean; evidenc
       }
     } catch (err) {
       errors.push({
-        dataset: "TWSE monthly revenue fallback",
+        dataset: "TWSE/TPEx monthly revenue fallback",
         code: "upstream_error",
         message: err instanceof Error ? err.message : String(err),
       });
@@ -1502,7 +1649,7 @@ async function loadFundamentals(code: string, options: { fast?: boolean; evidenc
       cachedDataStatus.push("TWSE/TPEx MOPS fallback");
     }
     if (officialRevenueFallback?.revenue) {
-      cachedDataStatus.push("TWSE monthly revenue fallback");
+      cachedDataStatus.push("TWSE/TPEx monthly revenue fallback");
     }
     if (officialValuationFallback?.valuation) cachedDataStatus.push("TWSE/TPEx official valuation fallback");
   }
@@ -1534,8 +1681,9 @@ async function loadFundamentals(code: string, options: { fast?: boolean; evidenc
     fetchedAt: fetchedTimes.length ? new Date(Math.max(...fetchedTimes)).toISOString() : null,
     cache: {
       cachedDatasets: cachedDataStatus,
+      datasetSources: datasetCacheSources,
       staleDatasets: staleDataStatus,
-      policy: "\u8CA1\u5831 6 \u5C0F\u6642\u3001\u6708\u71DF\u6536 2 \u5C0F\u6642\u3001\u4F30\u503C\u8207\u7C4C\u78BC 30 \u5206\u9418\uFF1B\u4F86\u6E90\u5931\u6557\u6642\u6700\u591A\u6CBF\u7528 24 \u5C0F\u6642\u820A\u5FEB\u53D6\u3002",
+      policy: "\u8CA1\u5831\u8207\u6708\u71DF\u6536\u4EE5\u6301\u4E45\u5316 24 \u5C0F\u6642\u5FEB\u53D6\u4F9B\u6BCF\u65E5\u6536\u76E4\u5F8C\u6392\u540D\uFF0C\u4F30\u503C\u8207\u7C4C\u78BC 30 \u5206\u9418\uFF1B\u4F86\u6E90\u5931\u6557\u6642\u7684\u820A\u5FEB\u53D6\u6703\u6A19\u793A stale \u4E14\u4E0D\u53EF\u9032\u5165\u6B63\u5F0F\u6392\u540D\u3002",
     },
     data,
     errors,
@@ -1565,6 +1713,7 @@ type ValueScore = {
     latest: QuoteInfo["analysis"]["latest"];
     levels: QuoteInfo["analysis"]["levels"];
     probabilities: QuoteInfo["analysis"]["probabilities"];
+    pattern: QuoteInfo["analysis"]["pattern"];
   };
   source: {
     quote: string;
@@ -1606,6 +1755,7 @@ type ValueScore = {
     cachedDatasets: string[];
     staleDatasets: string[];
     warnings: string[];
+    quoteOutcome?: QuoteInfo["quoteOutcome"];
   };
   professionalRating: {
     total: number | null;
@@ -1667,6 +1817,9 @@ type TaiwanCompanyProfile = {
   liquidityValue?: number | null;
   liquidityDate?: string | null;
   liquiditySource?: string | null;
+  officialQuote?: OfficialDailyQuote | null;
+  officialHistory?: DailyBar[] | null;
+  officialHistorySource?: string | null;
 };
 const OFFICIAL_TAIWAN_COMPANY_UNIVERSE_ENDPOINTS = [
   { type: "twse", source: "TWSE t187ap03_L", url: "https://openapi.twse.com.tw/v1/opendata/t187ap03_L" },
@@ -2208,40 +2361,52 @@ async function loadOfficialFinancialFallback(code: string, metrics?: ExternalReq
   };
 }
 
-let officialMonthlyRevenueCache: { rows: Array<Record<string, string>>; fetchedAt: number } | null = null;
-let officialMonthlyRevenueInflight: Promise<Array<Record<string, string>>> | null = null;
+const OFFICIAL_MONTHLY_REVENUE_ENDPOINTS = {
+  twse: { source: "TWSE OpenAPI monthly revenue", url: "https://openapi.twse.com.tw/v1/opendata/t187ap05_L" },
+  tpex: { source: "TPEx OpenAPI monthly revenue", url: "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap05_O" },
+};
+const officialMonthlyRevenueCache = new Map<TaiwanListedMarket, { rows: Map<string, Record<string, string>>; fetchedAt: number }>();
+const officialMonthlyRevenueInflight = new Map<TaiwanListedMarket, Promise<Map<string, Record<string, string>>>>();
 
-async function requestOfficialMonthlyRevenueRows(metrics?: ExternalRequestMetrics) {
-  if (officialMonthlyRevenueCache && Date.now() - officialMonthlyRevenueCache.fetchedAt < MOPS_HTML_CACHE_TTL_MS) {
+async function requestOfficialMonthlyRevenueRows(market: TaiwanListedMarket, metrics?: ExternalRequestMetrics) {
+  const cached = officialMonthlyRevenueCache.get(market);
+  if (cached && Date.now() - cached.fetchedAt < MOPS_HTML_CACHE_TTL_MS) {
     if (metrics) metrics.cacheHits += 1;
-    return officialMonthlyRevenueCache.rows;
+    return cached.rows;
   }
-  if (officialMonthlyRevenueInflight) {
+  const active = officialMonthlyRevenueInflight.get(market);
+  if (active) {
     if (metrics) metrics.inflightHits += 1;
-    return officialMonthlyRevenueInflight;
+    return active;
   }
-  officialMonthlyRevenueInflight = (async () => {
+  const endpoint = OFFICIAL_MONTHLY_REVENUE_ENDPOINTS[market];
+  const request = (async () => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 7000);
     try {
-      const requestUrl = "https://openapi.twse.com.tw/v1/opendata/t187ap05_L";
-      const res = await measuredFetch(requestUrl, {
+      const res = await measuredFetch(endpoint.url, {
         signal: controller.signal,
         headers: { Accept: "application/json" },
       }, metrics);
       const text = await res.text();
-      recordResponseBytes(metrics, requestUrl, text);
-      if (!res.ok) throw new Error(`TWSE monthly revenue HTTP ${res.status}: ${text.slice(0, 120)}`);
+      recordResponseBytes(metrics, endpoint.url, text);
+      if (!res.ok) throw new Error(`${endpoint.source} HTTP ${res.status}: ${text.slice(0, 120)}`);
       const rows = JSON.parse(text);
-      if (!Array.isArray(rows)) throw new Error("TWSE monthly revenue returned a non-array payload");
-      officialMonthlyRevenueCache = { rows, fetchedAt: Date.now() };
-      return rows as Array<Record<string, string>>;
+      if (!Array.isArray(rows)) throw new Error(`${endpoint.source} returned a non-array payload`);
+      const byCode = new Map<string, Record<string, string>>();
+      rows.forEach((row: Record<string, string>) => {
+        const code = cleanCode(String(row["\u516C\u53F8\u4EE3\u865F"] || row.SecuritiesCompanyCode || ""));
+        if (/^\d{4}$/.test(code)) byCode.set(code, row);
+      });
+      officialMonthlyRevenueCache.set(market, { rows: byCode, fetchedAt: Date.now() });
+      return byCode;
     } finally {
       clearTimeout(timer);
-      officialMonthlyRevenueInflight = null;
+      officialMonthlyRevenueInflight.delete(market);
     }
   })();
-  return officialMonthlyRevenueInflight;
+  officialMonthlyRevenueInflight.set(market, request);
+  return request;
 }
 
 function officialRevenueDate(value: unknown) {
@@ -2252,23 +2417,33 @@ function officialRevenueDate(value: unknown) {
   return `${year}-${month}-01`;
 }
 
-async function loadOfficialRevenueFallback(code: string, metrics?: ExternalRequestMetrics) {
-  const rows = await requestOfficialMonthlyRevenueRows(metrics);
-  const row = rows.find(item => cleanCode(String(item["\u516C\u53F8\u4EE3\u865F"] || "")) === code) || null;
+async function loadOfficialRevenueFallback(code: string, metrics?: ExternalRequestMetrics, marketValue?: unknown) {
+  const normalizedMarket = normalizeListedMarket(marketValue);
+  const markets: TaiwanListedMarket[] = normalizedMarket ? [normalizedMarket] : ["twse", "tpex"];
+  const settled = await Promise.allSettled(markets.map(market => requestOfficialMonthlyRevenueRows(market, metrics)));
+  let row: Record<string, string> | null = null;
+  let selectedMarket: TaiwanListedMarket | null = null;
+  settled.forEach((result, index) => {
+    if (!row && result.status === "fulfilled" && result.value.has(code)) {
+      row = result.value.get(code) || null;
+      selectedMarket = markets[index];
+    }
+  });
   if (!row) return null;
+  const endpoint = OFFICIAL_MONTHLY_REVENUE_ENDPOINTS[selectedMarket || normalizedMarket || "twse"];
   const revenue = parseMopsNumeric(row["\u71DF\u696D\u6536\u5165-\u7576\u6708\u71DF\u6536"]);
   const previousYearRevenue = parseMopsNumeric(row["\u71DF\u696D\u6536\u5165-\u53BB\u5E74\u7576\u6708\u71DF\u6536"]);
   const yoy = parseMopsNumeric(row["\u71DF\u696D\u6536\u5165-\u53BB\u5E74\u540C\u6708\u589E\u6E1B(%)"]);
   if (revenue === null && yoy === null) return null;
   const date = officialRevenueDate(row["\u8CC7\u6599\u5E74\u6708"]);
   return {
-    source: "TWSE OpenAPI monthly revenue",
-    sourceUrl: "https://openapi.twse.com.tw/v1/opendata/t187ap05_L",
+    source: endpoint.source,
+    sourceUrl: endpoint.url,
     fetchedAt: new Date().toISOString(),
     revenue: {
       date,
-      source: "TWSE OpenAPI monthly revenue",
-      sourceUrl: "https://openapi.twse.com.tw/v1/opendata/t187ap05_L",
+      source: endpoint.source,
+      sourceUrl: endpoint.url,
       createTime: row["\u51FA\u8868\u65E5\u671F"] || null,
       revenue,
       yoy,
@@ -3568,6 +3743,7 @@ function buildValueScores(
       latest: quote.analysis.latest,
       levels: quote.analysis.levels,
       probabilities: quote.analysis.probabilities,
+      pattern: quote.analysis.pattern,
     },
     source: {
       quote: quote.source,
@@ -3609,6 +3785,7 @@ function buildValueScores(
       cachedDatasets: fundamentals.cache.cachedDatasets,
       staleDatasets: fundamentals.cache.staleDatasets,
       warnings,
+      quoteOutcome: quote.quoteOutcome,
     },
     professionalRating,
     rating: {
@@ -3640,7 +3817,7 @@ function buildValueScores(
 
 async function loadValueScore(code: string, options: { fast?: boolean; evidenceMinimum?: boolean; companyProfile?: TaiwanCompanyProfile | null; metrics?: ExternalRequestMetrics } = {}) {
   const [quote, fundamentals] = await Promise.all([
-    loadQuote(code, options.metrics),
+    loadQuote(code, options.metrics, options.companyProfile, !options.evidenceMinimum),
     loadFundamentals(code, options),
   ]);
   return buildValueScores(quote, fundamentals, options.companyProfile);
@@ -3660,12 +3837,15 @@ function buildRankingTrust(item: ValueScore) {
   const hasQuoteDate = Boolean(item.quoteDate || item.dataStatus?.quoteDate);
   const staleDatasetCount = Array.isArray(item.dataStatus?.staleDatasets) ? item.dataStatus.staleDatasets.length : 0;
   const hasTotalScore = Number.isFinite(item.professionalRating?.total);
+  const quoteOutcome = item.dataStatus?.quoteOutcome?.category;
+  const quoteUnavailable = quoteOutcome === "suspended_or_halted" || quoteOutcome === "no_quote_for_latest_session";
   const reasons: string[] = [];
   if (!hasTotalScore) reasons.push("total score unavailable");
   if (!hasQuoteDate) reasons.push("quote date unavailable");
   if (coveragePercent < 60) reasons.push(`coverage ${coveragePercent}% is below the 60% ranking minimum`);
   if (staleDatasetCount) reasons.push(`${staleDatasetCount} stale dataset${staleDatasetCount > 1 ? "s" : ""}`);
-  const rankable = hasTotalScore && hasQuoteDate && coveragePercent >= 60 && staleDatasetCount === 0;
+  if (quoteUnavailable) reasons.push(`quote outcome is ${quoteOutcome}`);
+  const rankable = hasTotalScore && hasQuoteDate && coveragePercent >= 60 && staleDatasetCount === 0 && !quoteUnavailable;
   return {
     status: !hasTotalScore ? "unavailable" as const : rankable ? "rankable" as const : "limited" as const,
     quality: !hasTotalScore ? "unavailable" as const : rankable && coveragePercent >= 85 ? "high" as const : rankable ? "standard" as const : "limited" as const,
@@ -4352,8 +4532,8 @@ async function loadWorkbench() {
   return payload;
 }
 
-async function fetchYahooChart(code: string, range: YahooChartRange = "1y", metrics?: ExternalRequestMetrics) {
-  const suffixes = code.includes(".") ? [""] : [".TW", ".TWO"];
+async function fetchYahooChart(code: string, range: YahooChartRange = "1y", metrics?: ExternalRequestMetrics, market?: unknown) {
+  const suffixes = yahooSuffixesFor(code, market);
   const hosts = ["query1.finance.yahoo.com", "query2.finance.yahoo.com"];
   const errors: string[] = [];
 
@@ -4448,8 +4628,13 @@ async function fetchYahooSymbolChart(symbol: string, label: string, range: Yahoo
   };
 }
 
-async function fetchTwseMis(code: string, metrics?: ExternalRequestMetrics) {
-  const channels = [`tse_${code}.tw`, `otc_${code}.tw`].join("|");
+async function fetchTwseMis(code: string, metrics?: ExternalRequestMetrics, market?: unknown) {
+  const normalizedMarket = normalizeListedMarket(market);
+  const channels = normalizedMarket === "twse"
+    ? `tse_${code}.tw`
+    : normalizedMarket === "tpex"
+      ? `otc_${code}.tw`
+      : [`tse_${code}.tw`, `otc_${code}.tw`].join("|");
   const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${encodeURIComponent(channels)}&json=1&delay=0`;
   const data = await fetchJson(url, 7000, metrics);
   const row = data?.msgArray?.find((item: any) => item?.c === code && item?.z && item.z !== "-");
@@ -4470,40 +4655,471 @@ async function fetchTwseMis(code: string, metrics?: ExternalRequestMetrics) {
   };
 }
 
-async function fetchExchangeSnapshot(code: string, metrics?: ExternalRequestMetrics) {
-  const endpoints = [
-    { market: "TWSE", url: "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL" },
-    { market: "OTC", url: "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes" },
-  ];
-  const errors: string[] = [];
+const OFFICIAL_DAILY_QUOTE_ENDPOINTS = [
+  { type: "twse" as const, market: "TWSE", source: "TWSE STOCK_DAY_ALL", url: "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL" },
+  { type: "tpex" as const, market: "OTC", source: "TPEx mainboard quotes", url: "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes" },
+];
+const OFFICIAL_SUSPENSION_ENDPOINTS = [
+  { type: "twse" as const, source: "TWSE suspended securities", url: "https://openapi.twse.com.tw/v1/exchangeReport/TWTAWU" },
+  { type: "tpex" as const, source: "TPEx suspend/resume announcements", url: "https://www.tpex.org.tw/openapi/v1/tpex_spendi_today" },
+];
+const OFFICIAL_HISTORICAL_MARKET_ENDPOINTS = {
+  twse: {
+    source: "TWSE official historical market-day OHLCV",
+    url: (date: string) => `https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX?date=${date.replace(/-/g, "")}&type=ALLBUT0999&response=json`,
+  },
+  tpex: {
+    source: "TPEx official historical market-day OHLCV",
+    url: (date: string) => `https://www.tpex.org.tw/www/zh-tw/afterTrading/dailyQuotes?date=${encodeURIComponent(date.replace(/-/g, "/"))}&id=&response=json`,
+  },
+};
 
-  for (const endpoint of endpoints) {
-    try {
-      const data = await fetchJson(endpoint.url, 9000, metrics);
-      const row = Array.isArray(data) ? data.find((item: any) =>
-        String(item.Code || item.SecuritiesCompanyCode || item.SecuritiesCode || item["\u8B49\u5238\u4EE3\u865F"]) === code
-      ) : null;
-      if (!row) continue;
-      const close = toNumber(row.ClosingPrice || row.Close || row.close || row["\u6536\u76E4\u50F9"]);
-      if (!Number.isFinite(close)) continue;
-      return {
-        name: row.Name || row.CompanyName || row.SecuritiesCompanyName || row["\u8B49\u5238\u540D\u7A31"] || FALLBACK_NAMES[code] || code,
-        market: endpoint.market,
-        close,
-        open: toNumber(row.OpeningPrice || row.Open || row.open || row["\u958B\u76E4\u50F9"]),
-        high: toNumber(row.HighestPrice || row.High || row.high || row["\u6700\u9AD8\u50F9"]),
-        low: toNumber(row.LowestPrice || row.Low || row.low || row["\u6700\u4F4E\u50F9"]),
-        change: toNumber(row.Change || row.PriceChange || row["\u6F32\u8DCC\u50F9\u5DEE"]),
-        volume: toNumber(row.TradeVolume || row.Volume || row.TradingShares || row["\u6210\u4EA4\u80A1\u6578"] || row["\u6210\u4EA4\u91CF"]),
-        date: new Date().toISOString().slice(0, 10),
-        sourceUrl: endpoint.url,
-      };
-    } catch (err) {
-      errors.push(`${endpoint.market}: ${err instanceof Error ? err.message : String(err)}`);
-    }
+type OfficialDailyQuote = {
+  code: string;
+  name: string;
+  marketType: TaiwanListedMarket;
+  market: string;
+  close: number | null;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  change: number | null;
+  volume: number | null;
+  tradeValue: number | null;
+  date: string | null;
+  source: string;
+  sourceUrl: string;
+  statusText: string;
+};
+
+type OfficialDailyQuoteSnapshot = {
+  marketType: TaiwanListedMarket;
+  market: string;
+  source: string;
+  sourceUrl: string;
+  fetchedAt: string;
+  cacheDate: string;
+  latestTradingDate: string | null;
+  rows: Map<string, OfficialDailyQuote>;
+};
+
+type OfficialSuspensionRecord = {
+  code: string;
+  statusText: string;
+  haltDate: string | null;
+  resumeDate: string | null;
+  explicitlyHalted: boolean;
+  explicitlyResumed: boolean;
+};
+
+const officialDailyQuoteCache = new Map<TaiwanListedMarket, OfficialDailyQuoteSnapshot>();
+const officialDailyQuoteInflight = new Map<TaiwanListedMarket, Promise<OfficialDailyQuoteSnapshot>>();
+const officialSuspensionCache = new Map<TaiwanListedMarket, { cacheDate: string; source: string; sourceUrl: string; records: Map<string, OfficialSuspensionRecord> }>();
+const officialSuspensionInflight = new Map<TaiwanListedMarket, Promise<{ cacheDate: string; source: string; sourceUrl: string; records: Map<string, OfficialSuspensionRecord> }>>();
+const officialHistoricalDayCache = new Map<string, { market: TaiwanListedMarket; date: string; source: string; sourceUrl: string; rows: Map<string, DailyBar & { tradeValue: number | null }> }>();
+const officialHistoricalDayInflight = new Map<string, Promise<{ market: TaiwanListedMarket; date: string; source: string; sourceUrl: string; rows: Map<string, DailyBar & { tradeValue: number | null }> }>>();
+
+function taipeiCalendarDate(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function officialRowStatusText(row: any) {
+  return [row.Status, row.TradingStatus, row.Remark, row.Note, row["\u72c0\u614b"], row["\u5099\u8a3b"]]
+    .filter(Boolean)
+    .map(String)
+    .join(" ");
+}
+
+function parseOfficialDailyQuote(row: any, endpoint: typeof OFFICIAL_DAILY_QUOTE_ENDPOINTS[number]): OfficialDailyQuote | null {
+  const code = cleanCode(row.Code || row.SecuritiesCompanyCode || row.SecuritiesCode || row["\u8b49\u5238\u4ee3\u865f"] || "");
+  if (!/^\d{4}$/.test(code)) return null;
+  return {
+    code,
+    name: String(row.Name || row.CompanyName || row.SecuritiesCompanyName || row["\u8b49\u5238\u540d\u7a31"] || FALLBACK_NAMES[code] || code),
+    marketType: endpoint.type,
+    market: endpoint.market,
+    close: finiteOrNull(row.ClosingPrice || row.Close || row.close || row["\u6536\u76e4\u50f9"]),
+    open: finiteOrNull(row.OpeningPrice || row.Open || row.open || row["\u958b\u76e4\u50f9"]),
+    high: finiteOrNull(row.HighestPrice || row.High || row.high || row["\u6700\u9ad8\u50f9"]),
+    low: finiteOrNull(row.LowestPrice || row.Low || row.low || row["\u6700\u4f4e\u50f9"]),
+    change: finiteOrNull(row.Change || row.PriceChange || row["\u6f32\u8dcc\u50f9\u5dee"]),
+    volume: finiteOrNull(row.TradeVolume || row.Volume || row.TradingShares || row.TransactionNumber || row["\u6210\u4ea4\u80a1\u6578"] || row["\u6210\u4ea4\u91cf"]),
+    tradeValue: finiteOrNull(row.TradeValue || row.TransactionAmount || row.TradingValue || row["\u6210\u4ea4\u91d1\u984d"]),
+    date: normalizeLiquidityDate(row.Date || row.TradingDate || row["\u65e5\u671f"]),
+    source: endpoint.source,
+    sourceUrl: endpoint.url,
+    statusText: officialRowStatusText(row),
+  };
+}
+
+function officialMarketNumber(value: unknown) {
+  const normalized = String(value ?? "")
+    .replace(/,/g, "")
+    .replace(/[+]/g, "")
+    .trim();
+  if (!normalized || normalized === "--" || normalized === "---" || normalized === "-") return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseOfficialHistoricalMarketDay(market: TaiwanListedMarket, date: string, payload: any) {
+  if (!payload || !Array.isArray(payload.tables) || !/^(OK|ok)$/.test(String(payload.stat || ""))) {
+    throw new QuoteLoadError("provider_failure", `${market} historical market day ${date} returned an invalid payload`, [String(payload?.stat || "missing stat")]);
   }
+  const table = payload.tables.find((candidate: any) => {
+    const fields = Array.isArray(candidate?.fields) ? candidate.fields.map(String) : [];
+    return fields.some((field: string) => /\u8B49\u5238\u4EE3\u865F|^\u4EE3\u865F$/.test(field))
+      && fields.some((field: string) => /\u6536\u76E4/.test(field));
+  });
+  if (!table || !Array.isArray(table.fields) || !Array.isArray(table.data)) {
+    throw new QuoteLoadError("provider_failure", `${market} historical market day ${date} did not contain a stock quote table`);
+  }
+  const fields = table.fields.map(String);
+  const indexOf = (...patterns: RegExp[]) => fields.findIndex((field: string) => patterns.some(pattern => pattern.test(field)));
+  const indexes = {
+    code: indexOf(/^\u8B49\u5238\u4EE3\u865F$/, /^\u4EE3\u865F$/),
+    open: indexOf(/^\u958B\u76E4\u50F9$/, /^\u958B\u76E4$/),
+    high: indexOf(/^\u6700\u9AD8\u50F9$/, /^\u6700\u9AD8$/),
+    low: indexOf(/^\u6700\u4F4E\u50F9$/, /^\u6700\u4F4E$/),
+    close: indexOf(/^\u6536\u76E4\u50F9$/, /^\u6536\u76E4$/),
+    volume: indexOf(/\u6210\u4EA4\u80A1\u6578/),
+    tradeValue: indexOf(/\u6210\u4EA4\u91D1\u984D/),
+  };
+  if (Object.entries(indexes).some(([key, index]) => key !== "tradeValue" && index < 0)) {
+    throw new QuoteLoadError("provider_failure", `${market} historical market day ${date} changed required OHLCV fields`, fields);
+  }
+  const rows = new Map<string, DailyBar & { tradeValue: number | null }>();
+  table.data.forEach((values: any[]) => {
+    if (!Array.isArray(values)) return;
+    const code = cleanCode(values[indexes.code]);
+    if (!/^\d{4}$/.test(code)) return;
+    const open = officialMarketNumber(values[indexes.open]);
+    const high = officialMarketNumber(values[indexes.high]);
+    const low = officialMarketNumber(values[indexes.low]);
+    const close = officialMarketNumber(values[indexes.close]);
+    const volume = officialMarketNumber(values[indexes.volume]);
+    if (![open, high, low, close, volume].every(value => value !== null)) return;
+    rows.set(code, {
+      date,
+      open: open as number,
+      high: high as number,
+      low: low as number,
+      close: close as number,
+      volume: volume as number,
+      tradeValue: indexes.tradeValue >= 0 ? officialMarketNumber(values[indexes.tradeValue]) : null,
+    });
+  });
+  const minimumRows = market === "twse" ? 700 : 500;
+  if (rows.size < minimumRows) {
+    throw new QuoteLoadError("provider_failure", `${market} historical market day ${date} contained only ${rows.size} valid stock OHLCV rows; minimum is ${minimumRows}`);
+  }
+  return rows;
+}
 
-  throw new Error(errors.join("; "));
+async function loadOfficialHistoricalMarketDay(market: TaiwanListedMarket, date: string, metrics?: ExternalRequestMetrics) {
+  const key = `${market}:${date}`;
+  const cached = officialHistoricalDayCache.get(key);
+  if (cached) {
+    if (metrics) metrics.cacheHits += 1;
+    return cached;
+  }
+  const active = officialHistoricalDayInflight.get(key);
+  if (active) {
+    if (metrics) metrics.inflightHits += 1;
+    return active;
+  }
+  const endpoint = OFFICIAL_HISTORICAL_MARKET_ENDPOINTS[market];
+  const request = (async () => {
+    const sourceUrl = endpoint.url(date);
+    const payload = await fetchJson(sourceUrl, 15000, metrics);
+    const snapshot = { market, date, source: endpoint.source, sourceUrl, rows: parseOfficialHistoricalMarketDay(market, date, payload) };
+    officialHistoricalDayCache.set(key, snapshot);
+    return snapshot;
+  })();
+  officialHistoricalDayInflight.set(key, request);
+  try {
+    return await request;
+  } finally {
+    officialHistoricalDayInflight.delete(key);
+  }
+}
+
+async function readMarketHistoryRegistry() {
+  const records = await listAllDbRecords(MARKET_HISTORY_REGISTRY_TABLE, 2).catch(() => []);
+  return records
+    .filter((record: any) => record?.schemaVersion === MARKET_HISTORY_SCHEMA_VERSION)
+    .sort((a: any, b: any) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))[0] || null;
+}
+
+async function persistOfficialHistoricalMarketDay(snapshot: Awaited<ReturnType<typeof loadOfficialHistoricalMarketDay>>) {
+  const key = `${snapshot.market}:${snapshot.date}`;
+  const registry = await readMarketHistoryRegistry();
+  if (registry?.days?.[key]) return registry.days[key];
+  const record = {
+    schemaVersion: MARKET_HISTORY_SCHEMA_VERSION,
+    market: snapshot.market,
+    date: snapshot.date,
+    source: snapshot.source,
+    sourceUrl: snapshot.sourceUrl,
+    rowEncoding: "code-open-high-low-close-volume",
+    rows: [...snapshot.rows.entries()].map(([code, row]) => [code, row.open, row.high, row.low, row.close, row.volume]),
+    createdAt: new Date().toISOString(),
+  };
+  const [dayId] = await db.add(MARKET_HISTORY_DAY_TABLE, [record]);
+  if (!dayId) throw new Error(`Unable to persist ${key} official market history.`);
+  const nextRecord = {
+    schemaVersion: MARKET_HISTORY_SCHEMA_VERSION,
+    targetSessions: MARKET_HISTORY_TARGET_SESSIONS,
+    days: { ...(registry?.days || {}), [key]: dayId },
+    updatedAt: new Date().toISOString(),
+  };
+  if (registry?.id) {
+    const [updated] = await db.update(MARKET_HISTORY_REGISTRY_TABLE, [{ id: registry.id, record: nextRecord }]);
+    if (!updated) throw new Error("Unable to update the official market history registry.");
+  } else {
+    const [registryId] = await db.add(MARKET_HISTORY_REGISTRY_TABLE, [nextRecord]);
+    if (!registryId) throw new Error("Unable to create the official market history registry.");
+  }
+  return dayId;
+}
+
+async function loadPersistedOfficialHistory(dayIds: string[]) {
+  const records: any[] = [];
+  for (let index = 0; index < dayIds.length; index += 50) {
+    records.push(...(await db.get<any>(MARKET_HISTORY_DAY_TABLE, dayIds.slice(index, index + 50))).filter(Boolean));
+  }
+  const byCode = new Map<string, DailyBar[]>();
+  records.forEach(record => (record.rows || []).forEach((storedRow: any) => {
+    const row = Array.isArray(storedRow)
+      ? { code: storedRow[0], date: record.date, open: storedRow[1], high: storedRow[2], low: storedRow[3], close: storedRow[4], volume: storedRow[5] }
+      : storedRow;
+    if (!/^\d{4}$/.test(String(row?.code || ""))) return;
+    byCode.set(row.code, [...(byCode.get(row.code) || []), {
+      date: String(row.date || record.date),
+      open: Number(row.open),
+      high: Number(row.high),
+      low: Number(row.low),
+      close: Number(row.close),
+      volume: Number(row.volume),
+    }]);
+  }));
+  byCode.forEach((bars, code) => byCode.set(code, bars.sort((a, b) => a.date.localeCompare(b.date)).slice(-MARKET_HISTORY_TARGET_SESSIONS)));
+  return byCode;
+}
+
+function officialHistoryDateCandidates(asOfDate: string, calendarDays = 190) {
+  const end = new Date(`${asOfDate}T12:00:00+08:00`);
+  if (!Number.isFinite(end.getTime())) throw new Error(`Invalid official history as-of date ${asOfDate}`);
+  const dates: string[] = [];
+  for (let offset = 0; offset < calendarDays; offset += 1) {
+    const date = new Date(end);
+    date.setUTCDate(date.getUTCDate() - offset);
+    const weekday = date.getUTCDay();
+    if (weekday === 0 || weekday === 6) continue;
+    dates.push(date.toISOString().slice(0, 10));
+  }
+  return dates;
+}
+
+async function persistOfficialHistoryProfileBatches(jobId: string, companies: TaiwanCompanyProfile[], histories: Map<string, DailyBar[]>) {
+  const records: any[] = [];
+  const codesByRecord: string[][] = [];
+  for (let start = 0; start < companies.length; start += RANKING_JOB_BATCH_SIZE) {
+    const codes = companies.slice(start, start + RANKING_JOB_BATCH_SIZE).map(company => company.code);
+    records.push({
+      schemaVersion: MARKET_HISTORY_SCHEMA_VERSION,
+      jobId,
+      batchKey: `history-${start}`,
+      createdAt: new Date().toISOString(),
+      items: codes.map(code => ({
+        code,
+        barEncoding: "date-open-high-low-close-volume",
+        bars: (histories.get(code) || []).slice(-MARKET_HISTORY_TARGET_SESSIONS)
+          .map(bar => [bar.date, bar.open, bar.high, bar.low, bar.close, bar.volume]),
+      })),
+    });
+    codesByRecord.push(codes);
+  }
+  const ids: string[] = [];
+  for (let index = 0; index < records.length; index += 50) {
+    ids.push(...await db.add(MARKET_HISTORY_PROFILE_BATCH_TABLE, records.slice(index, index + 50)));
+  }
+  if (ids.length !== records.length || ids.some(id => !id)) throw new Error("Unable to persist all official history profile batches.");
+  const byCode: Record<string, string> = {};
+  ids.forEach((id, index) => codesByRecord[index].forEach(code => {
+    byCode[code] = id;
+  }));
+  return byCode;
+}
+
+async function loadOfficialHistoryForCodes(codes: string[], profileBatchByCode: Record<string, string>) {
+  const ids = [...new Set(codes.map(code => profileBatchByCode?.[code]).filter(Boolean))];
+  if (!ids.length) return new Map<string, DailyBar[]>();
+  const records = await db.get<any>(MARKET_HISTORY_PROFILE_BATCH_TABLE, ids);
+  const byCode = new Map<string, DailyBar[]>();
+  records.filter(Boolean).forEach(record => (record.items || []).forEach((item: any) => {
+    if (codes.includes(item.code) && Array.isArray(item.bars)) {
+      byCode.set(item.code, item.bars.map((storedBar: any) => Array.isArray(storedBar)
+        ? { date: String(storedBar[0]), open: Number(storedBar[1]), high: Number(storedBar[2]), low: Number(storedBar[3]), close: Number(storedBar[4]), volume: Number(storedBar[5]) }
+        : storedBar));
+    }
+  }));
+  return byCode;
+}
+
+async function loadOfficialDailyQuoteSnapshot(market: TaiwanListedMarket, metrics?: ExternalRequestMetrics) {
+  const cacheDate = taipeiCalendarDate();
+  const cached = officialDailyQuoteCache.get(market);
+  if (cached?.cacheDate === cacheDate) {
+    if (metrics) metrics.cacheHits += 1;
+    return cached;
+  }
+  const active = officialDailyQuoteInflight.get(market);
+  if (active) {
+    if (metrics) metrics.inflightHits += 1;
+    return active;
+  }
+  const endpoint = OFFICIAL_DAILY_QUOTE_ENDPOINTS.find(item => item.type === market)!;
+  const request = (async () => {
+    const data = await fetchJson(endpoint.url, 12000, metrics);
+    if (!Array.isArray(data)) throw new QuoteLoadError("provider_failure", `${endpoint.source} returned a non-array payload`, [endpoint.url]);
+    const rows = new Map<string, OfficialDailyQuote>();
+    data.forEach((row: any) => {
+      const parsed = parseOfficialDailyQuote(row, endpoint);
+      if (parsed) rows.set(parsed.code, parsed);
+    });
+    const dates = [...rows.values()].map(row => row.date).filter((value): value is string => Boolean(value)).sort();
+    const snapshot: OfficialDailyQuoteSnapshot = {
+      marketType: market,
+      market: endpoint.market,
+      source: endpoint.source,
+      sourceUrl: endpoint.url,
+      fetchedAt: new Date().toISOString(),
+      cacheDate,
+      latestTradingDate: dates.at(-1) || null,
+      rows,
+    };
+    officialDailyQuoteCache.set(market, snapshot);
+    return snapshot;
+  })();
+  officialDailyQuoteInflight.set(market, request);
+  try {
+    return await request;
+  } finally {
+    officialDailyQuoteInflight.delete(market);
+  }
+}
+
+async function loadOfficialSuspensionSnapshot(market: TaiwanListedMarket, metrics?: ExternalRequestMetrics) {
+  const cacheDate = taipeiCalendarDate();
+  const cached = officialSuspensionCache.get(market);
+  if (cached?.cacheDate === cacheDate) {
+    if (metrics) metrics.cacheHits += 1;
+    return cached;
+  }
+  const active = officialSuspensionInflight.get(market);
+  if (active) {
+    if (metrics) metrics.inflightHits += 1;
+    return active;
+  }
+  const endpoint = OFFICIAL_SUSPENSION_ENDPOINTS.find(item => item.type === market)!;
+  const request = (async () => {
+    const data = await fetchJson(endpoint.url, 9000, metrics);
+    if (!Array.isArray(data)) throw new QuoteLoadError("provider_failure", `${endpoint.source} returned a non-array payload`, [endpoint.url]);
+    const records = new Map<string, OfficialSuspensionRecord>();
+    data.forEach((row: any) => {
+      const code = cleanCode(row.Code || row.SecuritiesCompanyCode || row.SecuritiesCode || row.CompanyCode || row.StockCode || row["\u8b49\u5238\u4ee3\u865f"] || row["\u516c\u53f8\u4ee3\u865f"] || "");
+      if (!/^\d{4}$/.test(code)) return;
+      const statusText = Object.values(row).filter(value => value !== null && value !== undefined).map(String).join(" ");
+      const haltValue = row.TradingHaltDate || row.HaltDate || row["\u66ab\u505c\u4ea4\u6613"] || row["\u505c\u6b62\u4ea4\u6613"] || "";
+      const resumeValue = row.TradingResumptionDate || row.ResumeDate || row["\u6062\u5fa9\u4ea4\u6613"] || row["\u6062\u5fa9\u8cb7\u8ce3"] || "";
+      const haltDate = normalizeLiquidityDate(row.TradingHaltDate || row.HaltDate || row.Date || row["\u65e5\u671f"]);
+      const resumeDate = normalizeLiquidityDate(row.TradingResumptionDate || row.ResumeDate || (resumeValue ? row.Date : ""));
+      records.set(code, {
+        code,
+        statusText: statusText || endpoint.source,
+        haltDate,
+        resumeDate,
+        explicitlyHalted: Boolean(haltValue) || /suspend|halt|\u66ab\u505c|\u505c\u6b62\u4ea4\u6613|\u505c\u6b62\u8cb7\u8ce3/i.test(statusText),
+        explicitlyResumed: Boolean(resumeValue) || /resume|\u6062\u5fa9/i.test(statusText),
+      });
+    });
+    const snapshot = { cacheDate, source: endpoint.source, sourceUrl: endpoint.url, records };
+    officialSuspensionCache.set(market, snapshot);
+    return snapshot;
+  })();
+  officialSuspensionInflight.set(market, request);
+  try {
+    return await request;
+  } finally {
+    officialSuspensionInflight.delete(market);
+  }
+}
+
+function isSuspendedOnDate(record: OfficialSuspensionRecord | undefined, effectiveDate: string | null) {
+  if (!record?.explicitlyHalted) return false;
+  if (!effectiveDate) return !record.explicitlyResumed;
+  if (record.haltDate && record.haltDate > effectiveDate) return false;
+  if (record.resumeDate && record.resumeDate <= effectiveDate) return false;
+  return true;
+}
+
+function officialQuoteResult(row: OfficialDailyQuote) {
+  return {
+    name: row.name,
+    market: row.market,
+    close: row.close ?? NaN,
+    open: row.open ?? NaN,
+    high: row.high ?? NaN,
+    low: row.low ?? NaN,
+    change: row.change ?? NaN,
+    volume: row.volume ?? NaN,
+    date: row.date,
+    sourceUrl: row.sourceUrl,
+  };
+}
+
+async function fetchExchangeSnapshot(code: string, metrics?: ExternalRequestMetrics, market?: unknown) {
+  const normalizedMarket = normalizeListedMarket(market);
+  const markets: TaiwanListedMarket[] = normalizedMarket ? [normalizedMarket] : ["twse", "tpex"];
+  const settled = await Promise.allSettled(markets.map(type => loadOfficialDailyQuoteSnapshot(type, metrics)));
+  const providerErrors: string[] = [];
+  const missingEvidence: string[] = [];
+  for (let index = 0; index < settled.length; index += 1) {
+    const result = settled[index];
+    const marketType = markets[index];
+    if (result.status === "rejected") {
+      providerErrors.push(`${marketType}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`);
+      continue;
+    }
+    const row = result.value.rows.get(code);
+    if (row && Number.isFinite(row.close)) return officialQuoteResult(row);
+    if (row && /suspend|halt|\u505c\u6b62\u4ea4\u6613|\u66ab\u505c\u4ea4\u6613|\u505c\u6b62\u8cb7\u8ce3|\u66ab\u505c\u8cb7\u8ce3/i.test(row.statusText)) {
+      throw new QuoteLoadError("suspended_or_halted", `${code} is marked suspended or halted by ${row.source}`, [row.statusText, row.sourceUrl]);
+    }
+    try {
+      const suspension = await loadOfficialSuspensionSnapshot(marketType, metrics);
+      const record = suspension.records.get(code);
+      if (isSuspendedOnDate(record, result.value.latestTradingDate)) {
+        throw new QuoteLoadError("suspended_or_halted", `${code} was suspended on ${result.value.latestTradingDate || "the official source date"} according to ${suspension.source}`, [record!.statusText, suspension.sourceUrl]);
+      }
+    } catch (err) {
+      if (err instanceof QuoteLoadError && err.category === "suspended_or_halted") throw err;
+      providerErrors.push(`${marketType} suspension status: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    missingEvidence.push(`${result.value.source} returned normally for ${result.value.latestTradingDate || "an unspecified trading date"}, but ${code} had no usable closing quote`);
+  }
+  if (missingEvidence.length) {
+    throw new QuoteLoadError("no_quote_for_latest_session", missingEvidence.join("; "), missingEvidence);
+  }
+  throw new QuoteLoadError("provider_failure", providerErrors.join("; ") || "Official daily quote providers returned no usable payload", providerErrors);
 }
 
 function ymd(date: Date) {
@@ -4610,6 +5226,7 @@ async function loadHistoricalQuoteForCalibration(code: string): Promise<QuoteInf
       twseMis: null,
       exchange: null,
     },
+    quoteOutcome: { category: "current", evidence: [chart.sourceUrl] },
     series,
     analysis,
   };
@@ -5555,6 +6172,61 @@ function buildAnalysis(series: DailyBar[], week52High: number, week52Low: number
   if (close > resistanceShort * 0.96) score += 10;
   if (ma20Now > ma60Now && close > ma120Now) score -= 10;
   const pullback = Math.max(15, Math.min(95, Math.round(score)));
+  const recentStart = Math.max(1, series.length - 80);
+  const swingHighs: Array<{ index: number; value: number }> = [];
+  const swingLows: Array<{ index: number; value: number }> = [];
+  for (let index = recentStart; index < series.length - 1; index += 1) {
+    if (highs[index] >= highs[index - 1] && highs[index] > highs[index + 1]) swingHighs.push({ index, value: highs[index] });
+    if (lows[index] <= lows[index - 1] && lows[index] < lows[index + 1]) swingLows.push({ index, value: lows[index] });
+  }
+  const resistancePoints = swingHighs.slice(-2);
+  let trendLinePrice: number | null = null;
+  let trendLineBreakout = false;
+  if (resistancePoints.length === 2 && resistancePoints[1].index > resistancePoints[0].index) {
+    const slope = (resistancePoints[1].value - resistancePoints[0].value) / (resistancePoints[1].index - resistancePoints[0].index);
+    if (slope <= 0) {
+      trendLinePrice = resistancePoints[1].value + slope * ((series.length - 1) - resistancePoints[1].index);
+      trendLineBreakout = trendLinePrice > 0 && close >= trendLinePrice * 1.01;
+    }
+  }
+  let wBottom: { firstLow: number; secondLow: number; neckline: number; firstIndex: number; secondIndex: number } | null = null;
+  for (let right = swingLows.length - 1; right >= 1 && !wBottom; right -= 1) {
+    for (let left = right - 1; left >= 0; left -= 1) {
+      const firstLow = swingLows[left];
+      const secondLow = swingLows[right];
+      if (secondLow.index - firstLow.index < 5
+        || secondLow.value < firstLow.value * 0.95
+        || secondLow.value > firstLow.value * 1.05) continue;
+      const neckline = Math.max(...highs.slice(firstLow.index + 1, secondLow.index));
+      if (!Number.isFinite(neckline) || close < neckline * 1.01) continue;
+      wBottom = { firstLow: firstLow.value, secondLow: secondLow.value, neckline, firstIndex: firstLow.index, secondIndex: secondLow.index };
+      break;
+    }
+  }
+  const priorVolumes = volumes.slice(-21, -1);
+  const priorAverageVolume20 = priorVolumes.length ? priorVolumes.reduce((sum, value) => sum + value, 0) / priorVolumes.length : NaN;
+  const volumeExpansionMultiple = Number.isFinite(priorAverageVolume20) && priorAverageVolume20 > 0
+    ? volumes[volumes.length - 1] / priorAverageVolume20
+    : NaN;
+  const aboveRising20Ma = Number.isFinite(ma20Now) && Number.isFinite(ma20FiveDaysAgo) && close > ma20Now && ma20Now > ma20FiveDaysAgo;
+  const volumeExpansion = Number.isFinite(volumeExpansionMultiple) && volumeExpansionMultiple >= 1.5;
+  const technicalPattern = {
+    historySessions: series.length,
+    aboveRising20Ma,
+    trendLineBreakout,
+    trendLinePrice: trendLinePrice !== null ? round(trendLinePrice) : null,
+    trendLineBreakoutPct: trendLinePrice !== null && trendLinePrice > 0 ? round(((close / trendLinePrice) - 1) * 100, 2) : null,
+    wBottom: Boolean(wBottom),
+    wBottomFirstLow: wBottom ? round(wBottom.firstLow) : null,
+    wBottomSecondLow: wBottom ? round(wBottom.secondLow) : null,
+    wBottomNeckline: wBottom ? round(wBottom.neckline) : null,
+    wBottomBreakoutPct: wBottom && wBottom.neckline > 0 ? round(((close / wBottom.neckline) - 1) * 100, 2) : null,
+    volumeExpansion,
+    latestVolume: volumes[volumes.length - 1],
+    averageVolume20: Number.isFinite(priorAverageVolume20) ? round(priorAverageVolume20, 0) : null,
+    volumeExpansionMultiple: Number.isFinite(volumeExpansionMultiple) ? round(volumeExpansionMultiple, 2) : null,
+    allPassed: series.length >= 60 && aboveRising20Ma && trendLineBreakout && Boolean(wBottom) && volumeExpansion,
+  };
 
   return {
     labels: series.map(row => row.date),
@@ -5572,6 +6244,7 @@ function buildAnalysis(series: DailyBar[], week52High: number, week52Low: number
     rsi14,
     kd: kdData,
     atr14,
+    pattern: technicalPattern,
     levels: {
       supportShort: round(supportShort),
       supportMid: round(supportMid),
@@ -5613,39 +6286,73 @@ function buildAnalysis(series: DailyBar[], week52High: number, week52Low: number
   };
 }
 
-async function loadQuote(code: string, metrics?: ExternalRequestMetrics): Promise<QuoteInfo> {
+async function loadQuote(code: string, metrics?: ExternalRequestMetrics, companyProfile?: TaiwanCompanyProfile | null, allowSyntheticHistory = true): Promise<QuoteInfo> {
   let chart: Awaited<ReturnType<typeof fetchYahooChart>> | null = null;
   let realtime: Awaited<ReturnType<typeof fetchTwseMis>> | null = null;
-  let snapshot: Awaited<ReturnType<typeof fetchExchangeSnapshot>> | null = null;
+  let snapshot: Awaited<ReturnType<typeof fetchExchangeSnapshot>> | null = companyProfile?.officialQuote && Number.isFinite(companyProfile.officialQuote.close)
+    ? officialQuoteResult(companyProfile.officialQuote)
+    : null;
   const sourceNotes: string[] = [];
+  const sourceFailures: unknown[] = [];
+  let officialQuoteFailure: unknown = null;
+  const market = normalizeListedMarket(companyProfile?.type);
+  const officialHistory = (companyProfile?.officialHistory || [])
+    .filter(row => [row.open, row.high, row.low, row.close, row.volume].every(Number.isFinite))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-160);
+  if (snapshot && companyProfile?.officialQuote && metrics) metrics.cacheHits += 1;
 
-  try {
-    chart = await fetchYahooChart(code, "1y", metrics);
-  } catch (err) {
-    sourceNotes.push(`Yahoo daily failed: ${err instanceof Error ? err.message : String(err)}`);
+  if (officialHistory.length < 60) {
+    try {
+      chart = await fetchYahooChart(code, "1y", metrics, market);
+    } catch (err) {
+      sourceFailures.push(err);
+      sourceNotes.push(`Yahoo daily failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
-  if (/^\d+$/.test(code)) {
+  if (/^\d+$/.test(code) && !snapshot) {
     try {
-      realtime = await fetchTwseMis(code, metrics);
+      realtime = await fetchTwseMis(code, metrics, market);
     } catch (err) {
+      sourceFailures.push(err);
       sourceNotes.push(`TWSE MIS failed: ${err instanceof Error ? err.message : String(err)}`);
     }
     if (!realtime) {
       try {
-        snapshot = await fetchExchangeSnapshot(code, metrics);
+        snapshot = snapshot || await fetchExchangeSnapshot(code, metrics, market);
       } catch (err) {
+        officialQuoteFailure = err;
+        sourceFailures.push(err);
         sourceNotes.push(`Exchange snapshot failed: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
   }
 
-  if (!chart && !realtime && !snapshot) {
-    throw new Error(sourceNotes.join("; ") || "No quote source returned data");
+  if (!officialHistory.length && !chart && !realtime && !snapshot) {
+    const categories = sourceFailures.map(classifyQuoteFailure);
+    const category: QuoteFailureCategory = categories.includes("suspended_or_halted")
+      ? "suspended_or_halted"
+      : categories.includes("no_quote_for_latest_session")
+        ? "no_quote_for_latest_session"
+        : categories.includes("provider_failure")
+          ? "provider_failure"
+          : "unresolved";
+    throw new QuoteLoadError(category, sourceNotes.join("; ") || "No quote source returned data", sourceNotes);
   }
 
   const quoteAnchor = realtime || snapshot;
-  const series = chart ? chart.bars.slice(-160) : syntheticSeries(code, quoteAnchor!);
+  if (officialHistory.length < 60 && !chart && !allowSyntheticHistory) {
+    throw new QuoteLoadError("not_rankable", `${code} has no verified 60-session official or provider OHLCV history; synthetic history is forbidden for ranking`, [
+      companyProfile?.officialHistorySource || "official history unavailable",
+      ...sourceNotes,
+    ]);
+  }
+  const series = officialHistory.length >= 60
+    ? officialHistory
+    : chart
+      ? chart.bars.slice(-160)
+      : syntheticSeries(code, quoteAnchor!);
   if (quoteAnchor && Number.isFinite(quoteAnchor.close)) {
     const last = series[series.length - 1];
     last.close = quoteAnchor.close;
@@ -5663,15 +6370,26 @@ async function loadQuote(code: string, metrics?: ExternalRequestMetrics): Promis
   const previousClose = realtime?.previousClose || series[series.length - 2]?.close;
   const change = Number.isFinite(previousClose) && Number.isFinite(close) ? close - previousClose : snapshot?.change ?? null;
 
-  const source = chart && realtime
+  const source = officialHistory.length >= 60 && realtime
+    ? `${companyProfile?.officialHistorySource || "Official TWSE/TPEx historical market-day OHLCV"} + TWSE MIS latest quote`
+    : officialHistory.length >= 60 && snapshot
+      ? `${companyProfile?.officialHistorySource || "Official TWSE/TPEx historical market-day OHLCV"} + official latest quote`
+      : chart && realtime
     ? "Yahoo Finance daily OHLCV + TWSE MIS latest quote"
+    : chart && snapshot
+      ? "Yahoo Finance daily OHLCV + official TWSE/TPEx daily quote cache"
     : chart
       ? "Yahoo Finance daily OHLCV"
       : "Exchange latest quote + reconstructed analysis path";
+  const quoteOutcome = quoteAnchor
+    ? { category: "current" as const, evidence: [realtime?.sourceUrl || snapshot?.sourceUrl || "official quote"] }
+    : officialQuoteFailure
+      ? { category: classifyQuoteFailure(officialQuoteFailure), evidence: officialQuoteFailure instanceof QuoteLoadError ? officialQuoteFailure.evidence : sourceNotes }
+      : { category: "current" as const, evidence: [chart?.sourceUrl || "Yahoo Finance chart"] };
 
   return {
     code,
-    symbol: chart?.symbol || `${code}.TW`,
+    symbol: chart?.symbol || `${code}${market === "tpex" ? ".TWO" : ".TW"}`,
     name: quoteAnchor?.name || chart?.name || FALLBACK_NAMES[code] || code,
     market: quoteAnchor?.market || chart?.market || "TWSE/OTC",
     currency: chart?.currency || "TWD",
@@ -5685,10 +6403,12 @@ async function loadQuote(code: string, metrics?: ExternalRequestMetrics): Promis
     source: sourceNotes.length ? `${source}; fallback notes available` : source,
     sourceUrls: {
       yahoo: chart?.sourceUrl || null,
+      officialHistory: officialHistory.length >= 60 ? companyProfile?.officialHistorySource || OFFICIAL_HISTORICAL_MARKET_ENDPOINTS[market || "twse"].source : null,
       twseMis: realtime?.sourceUrl || null,
       exchange: snapshot?.sourceUrl || null,
       goodinfo: `https://goodinfo.tw/tw/StockDetail.asp?STOCK_ID=${code}`,
     },
+    quoteOutcome,
     series,
     analysis,
   };
@@ -6125,6 +6845,7 @@ function clampScore(value: number, minimum = 0, maximum = 100) {
 
 function marketFeatureMetrics(item: any) {
   const latest = item?.technicalSnapshot?.latest || {};
+  const pattern = item?.technicalSnapshot?.pattern || {};
   const levels = item?.technicalSnapshot?.levels || {};
   const profitability = item?.fundamentals?.data?.profitability || {};
   const revenue = item?.fundamentals?.data?.revenue || {};
@@ -6168,6 +6889,18 @@ function marketFeatureMetrics(item: any) {
     dividendYield: finiteNumber(valuation.dividendYield),
     per: finiteNumber(valuation.per),
     pbr: finiteNumber(valuation.pbr),
+    historySessions: finiteNumber(pattern.historySessions),
+    aboveRising20Ma: pattern.aboveRising20Ma === true,
+    trendLineBreakout: pattern.trendLineBreakout === true,
+    trendLinePrice: finiteNumber(pattern.trendLinePrice),
+    trendLineBreakoutPct: finiteNumber(pattern.trendLineBreakoutPct),
+    wBottom: pattern.wBottom === true,
+    wBottomNeckline: finiteNumber(pattern.wBottomNeckline),
+    wBottomBreakoutPct: finiteNumber(pattern.wBottomBreakoutPct),
+    volumeExpansion: pattern.volumeExpansion === true,
+    averageVolume20: finiteNumber(pattern.averageVolume20),
+    volumeExpansionMultiple: finiteNumber(pattern.volumeExpansionMultiple),
+    technicalPatternAllPassed: pattern.allPassed === true,
     invalidation,
     date: item?.quoteDate || latest.date || item?.generatedAt || null,
     source: [item?.source?.quote, item?.fundamentals?.source].filter(Boolean).join(" + ") || SCORE_SOURCE_NOTE,
@@ -6179,7 +6912,8 @@ function buildFullMarketThemeTables(stockItems: any[], universeMeta: any = {}) {
   const scannedCount = Number(universeMeta.requestedCount || universeMeta.fullMarketCompanyCount || stockItems.length);
   const scoredCount = stockItems.length;
   const scanSuccessRatio = scannedCount > 0 ? scoredCount / scannedCount : 0;
-  const stocks = stockItems.filter(item => item?.professionalRating?.assetModel !== "etf");
+  const stocks = stockItems.filter(item => item?.professionalRating?.assetModel !== "etf"
+    && (item.rankingTrust || buildRankingTrust(item)).status === "rankable");
   const commonRow = (item: any, metrics: any, score: number, reason: string, invalidationCondition: string) => ({
     code: item.code,
     name: item.name,
@@ -6254,16 +6988,34 @@ function buildFullMarketThemeTables(stockItems: any[], universeMeta: any = {}) {
     {
       key: "ma20",
       title: "20MA \u6280\u8853\u5f37\u52e2",
-      required: (m: any) => [m.close, m.ma20, m.ma20FiveDaysAgo, m.ma60, m.volumeRatio].every((value: any) => value !== null),
-      eligible: (m: any) => m.closeVsMa20Pct >= 0 && m.closeVsMa20Pct <= 15 && m.ma20Slope5dPct > 0 && m.ma20 >= m.ma60 && m.volumeRatio >= 0.8,
-      score: (m: any) => clampScore(m.ma20Slope5dPct * 12 + (15 - m.closeVsMa20Pct) * 2 + Math.min(25, m.volumeRatio * 12) + 20),
+      required: (m: any) => [m.close, m.ma20, m.ma20FiveDaysAgo, m.historySessions, m.trendLinePrice, m.wBottomNeckline, m.averageVolume20, m.volumeExpansionMultiple]
+        .every((value: any) => value !== null),
+      eligible: (m: any) => m.historySessions >= 60 && m.technicalPatternAllPassed
+        && m.aboveRising20Ma && m.trendLineBreakout && m.wBottom && m.volumeExpansion,
+      score: (m: any) => clampScore(
+        45
+        + clampScore(m.trendLineBreakoutPct || 0, 0, 10) * 2
+        + clampScore((m.volumeExpansionMultiple || 1.5) - 1.5, 0, 3) * 8
+        + clampScore(m.ma20Slope5dPct || 0, 0, 5) * 3,
+      ),
       row: (item: any, m: any, score: number) => ({
         ...commonRow(item, m, score,
-          `\u6536\u76e4\u9ad8\u65bc 20MA ${round(m.closeVsMa20Pct, 2)}%\u300120MA \u4e94\u65e5\u659c\u7387 ${round(m.ma20Slope5dPct, 2)}%\u3001\u91cf\u6bd4 ${round(m.volumeRatio, 2)}\u3002`,
-          `\u6536\u76e4\u8dcc\u7834 20MA ${round(m.ma20, 2)}\u300120MA \u659c\u7387\u8f49\u8ca0\u6216\u91cf\u6bd4\u4f4e\u65bc 0.8\u3002`),
+          `\u56db\u689d\u4ef6\u5168\u901a\u904e\uff1a\u6536\u76e4\u7ad9\u4e0a\u4e14 20MA \u4e0a\u63da\u3001\u7a81\u7834\u4e0b\u964d\u58d3\u529b\u7dda ${round(m.trendLinePrice, 2)}\u3001W \u5e95\u7a81\u7834\u9838\u7dda ${round(m.wBottomNeckline, 2)}\u3001\u91cf\u80fd\u653e\u5927 ${round(m.volumeExpansionMultiple, 2)} \u500d\u3002`,
+          `\u6536\u76e4\u8dcc\u7834 20MA ${round(m.ma20, 2)}\u3001\u8dcc\u56de\u58d3\u529b\u7dda ${round(m.trendLinePrice, 2)} \u6216 W \u5e95\u9838\u7dda ${round(m.wBottomNeckline, 2)}\uff0c\u6216\u6210\u4ea4\u91cf\u4f4e\u65bc 20 \u65e5\u5e73\u5747\u7684 1.5 \u500d\u3002`),
         ma20: round(m.ma20, 2),
         ma20FiveDaysAgo: round(m.ma20FiveDaysAgo, 2),
         ma20Slope5dPct: round(m.ma20Slope5dPct, 2),
+        historySessions: m.historySessions,
+        aboveRising20Ma: m.aboveRising20Ma,
+        trendLineBreakout: m.trendLineBreakout,
+        trendLinePrice: round(m.trendLinePrice, 2),
+        trendLineBreakoutPct: round(m.trendLineBreakoutPct, 2),
+        wBottom: m.wBottom,
+        wBottomNeckline: round(m.wBottomNeckline, 2),
+        wBottomBreakoutPct: round(m.wBottomBreakoutPct, 2),
+        volumeExpansion: m.volumeExpansion,
+        averageVolume20: round(m.averageVolume20, 0),
+        volumeExpansionMultiple: round(m.volumeExpansionMultiple, 2),
       }),
     },
   ];
@@ -7806,29 +8558,157 @@ function buildSwingSummaryFromStages(codes: string[], valuation: any, deep: any,
   };
 }
 
+const RANKING_MODE_REQUIRED_FIELDS: Record<string, string[]> = {
+  undervalued: ["latest close and quote date", "two official valuation fields", "EPS", "monthly revenue YoY", "operating cash flow", "balance-sheet liability ratio", "60-session technical history"],
+  overvalued: ["latest close and quote date", "two official valuation fields", "EPS", "monthly revenue YoY", "operating cash flow", "balance-sheet liability ratio", "60-session technical history"],
+  active: ["latest close and quote date", "latest volume", "20-day volume ratio", "20MA"],
+  cashflow: ["latest close and quote date", "cash-flow period", "operating cash flow", "free cash flow", "cash change", "ending cash"],
+  growth: ["latest close and quote date", "EPS", "EPS YoY", "financial-statement period", "monthly revenue YoY", "monthly revenue period"],
+  "small-investor": ["latest close and quote date", "latest volume", "ATR14 percent", "20MA", "60MA", "balance-sheet liability ratio"],
+};
+
+function hasRankingNumericEvidence(value: unknown) {
+  return (typeof value === "number" || (typeof value === "string" && value.trim() !== ""))
+    && Number.isFinite(Number(value));
+}
+
+function rankingModeEvidenceContract(mode: string, item: ValueScore) {
+  const missing: string[] = [];
+  const requireFinite = (label: string, value: unknown) => {
+    if (!hasRankingNumericEvidence(value)) missing.push(label);
+  };
+  const requireText = (label: string, value: unknown) => {
+    if (!String(value || "").trim()) missing.push(label);
+  };
+  const fundamentals = (item.fundamentals?.data || {}) as Record<string, any>;
+  const profitability = fundamentals.profitability || {};
+  const revenue = fundamentals.revenue || {};
+  const valuation = fundamentals.valuation || {};
+  const cashFlow = fundamentals.cashFlow || {};
+  const balance = fundamentals.balanceSheet || {};
+  const latest = (item.technicalSnapshot?.latest || {}) as Record<string, any>;
+  requireFinite("latest close", item.close);
+  requireText("quote date", item.quoteDate || item.dataStatus?.quoteDate);
+  if (mode === "undervalued" || mode === "overvalued") {
+    const valuationFields = [valuation.per, valuation.pbr, valuation.dividendYield].filter(hasRankingNumericEvidence).length;
+    if (valuationFields < 2) missing.push("at least two of PER/PBR/dividend yield");
+    requireFinite("EPS", profitability.eps);
+    requireFinite("monthly revenue YoY", revenue.yoy);
+    requireFinite("operating cash flow", cashFlow.operatingCashFlow);
+    requireFinite("balance-sheet liability ratio", balance.liabilityRatio);
+    requireFinite("20MA", latest.ma20);
+    requireFinite("60MA", latest.ma60);
+  } else if (mode === "cashflow") {
+    requireText("cash-flow period", cashFlow.date);
+    requireFinite("operating cash flow", cashFlow.operatingCashFlow);
+    requireFinite("free cash flow", cashFlow.freeCashFlow);
+    requireFinite("cash change", cashFlow.cashChange);
+    requireFinite("ending cash", cashFlow.endingCash);
+  } else if (mode === "growth") {
+    requireText("financial-statement period", profitability.date);
+    requireFinite("EPS", profitability.eps);
+    requireFinite("EPS YoY", profitability.epsYoY);
+    requireText("monthly revenue period", revenue.date);
+    requireFinite("monthly revenue YoY", revenue.yoy);
+  } else if (mode === "active") {
+    requireFinite("latest volume", item.volume);
+    requireFinite("20-day volume ratio", latest.volumeRatio);
+    requireFinite("20MA", latest.ma20);
+  } else if (mode === "small-investor") {
+    requireFinite("latest volume", item.volume);
+    requireFinite("ATR14 percent", latest.atrPct);
+    requireFinite("20MA", latest.ma20);
+    requireFinite("60MA", latest.ma60);
+    requireFinite("balance-sheet liability ratio", balance.liabilityRatio);
+  }
+  return {
+    passed: missing.length === 0,
+    mode,
+    requiredFields: RANKING_MODE_REQUIRED_FIELDS[mode] || RANKING_MODE_REQUIRED_FIELDS.undervalued,
+    missing,
+  };
+}
+
 function rankingItemHasMinimumEvidence(mode: string, item: ValueScore) {
   const trust = item.rankingTrust || buildRankingTrust(item);
   if (!item.ok || !item.code || !Number.isFinite(item.close) || trust.status !== "rankable") return false;
-  if (mode === "overvalued") return Number.isFinite(item.scores.overvalued);
-  if (mode === "cashflow") return Number.isFinite(item.scores.cashFlow?.score);
-  if (mode === "growth") return Number.isFinite(item.scores.growth?.score);
-  if (mode === "active") return Number.isFinite(item.volume) && item.volume > 0;
-  if (mode === "small-investor") return Number.isFinite(item.scores.smallInvestor);
-  return Number.isFinite(item.scores.undervalued);
+  const scoreAvailable = mode === "overvalued" ? Number.isFinite(item.scores.overvalued)
+    : mode === "cashflow" ? Number.isFinite(item.scores.cashFlow?.score)
+      : mode === "growth" ? Number.isFinite(item.scores.growth?.score)
+        : mode === "active" ? Number.isFinite(item.volume) && item.volume > 0
+          : mode === "small-investor" ? Number.isFinite(item.scores.smallInvestor)
+            : Number.isFinite(item.scores.undervalued);
+  return scoreAvailable && rankingModeEvidenceContract(mode, item).passed;
+}
+
+function buildRankingCutoffAudit(mode: string, eligibleItems: ValueScore[]) {
+  const sorted = [...eligibleItems].sort((a, b) => compareRankingItems(a, b, item => screenerSortValue(mode, item)));
+  const deterministic = sorted.every((item, index) => index === 0 || compareRankingItems(sorted[index - 1], item, candidate => screenerSortValue(mode, candidate)) <= 0);
+  const cutoff = sorted[RANKING_OUTPUT_LIMIT - 1] || null;
+  const next = sorted[RANKING_OUTPUT_LIMIT] || null;
+  const cutoffScore = cutoff ? screenerSortValue(mode, cutoff) : null;
+  const nextScore = next ? screenerSortValue(mode, next) : null;
+  return {
+    passed: deterministic && sorted.length >= RANKING_OUTPUT_LIMIT && Number.isFinite(cutoffScore),
+    deterministic,
+    eligibleCount: sorted.length,
+    cutoffRank: RANKING_OUTPUT_LIMIT,
+    cutoffCode: cutoff?.code || null,
+    cutoffScore: Number.isFinite(cutoffScore) ? cutoffScore : null,
+    nextCode: next?.code || null,
+    nextScore: Number.isFinite(nextScore) ? nextScore : null,
+    scoreMargin: Number.isFinite(cutoffScore) && Number.isFinite(nextScore) ? round((cutoffScore as number) - (nextScore as number), 4) : null,
+    auditBand: sorted.slice(49, 90).map((item, index) => ({ rank: index + 50, code: item.code, score: screenerSortValue(mode, item) })),
+    policy: `Ranks 50-90 are retained for cutoff review; publication requires at least ${RANKING_OUTPUT_LIMIT} rows with every mode-specific required field and deterministic score, coverage, quote-date, and code ordering.`,
+  };
+}
+
+function rankingTerminalFailureCounts(job: any) {
+  const counts: Record<QuoteFailureCategory, number> = {
+    suspended_or_halted: 0,
+    no_quote_for_latest_session: 0,
+    provider_failure: 0,
+    not_rankable: 0,
+    unresolved: 0,
+  };
+  const unresolvedCodes = new Set<string>(job?.unresolvedCodes || []);
+  const latestFailureByCode = new Map<string, any>();
+  (job?.errors || []).forEach((entry: any) => {
+    if (unresolvedCodes.has(entry.code)) latestFailureByCode.set(entry.code, entry);
+  });
+  unresolvedCodes.forEach(code => {
+    const category = classifyQuoteFailure(latestFailureByCode.get(code)?.category || latestFailureByCode.get(code)?.message);
+    counts[category] += 1;
+  });
+  return counts;
 }
 
 function applyRankingEvidenceGate(payload: any, mode: string) {
   const requested = Number(payload?.universeMeta?.requestedCount || payload?.universe?.length || 0);
   const scored = Number(payload?.universeMeta?.scoredCount ?? (Array.isArray(payload?.items) ? payload.items.length : 0));
-  const eligible = (payload?.items || []).filter((item: ValueScore) => rankingItemHasMinimumEvidence(mode, item));
+  const allItems: ValueScore[] = payload?.items || [];
+  const eligible = allItems
+    .filter((item: ValueScore) => rankingItemHasMinimumEvidence(mode, item))
+    .sort((a, b) => compareRankingItems(a, b, item => screenerSortValue(mode, item)));
   const highTrustCount = eligible.filter((item: ValueScore) => (item.rankingTrust || buildRankingTrust(item)).quality === "high").length;
   const successRatio = requested > 0 ? scored / requested : 0;
-  const passed = successRatio >= RANKING_MIN_SUCCESS_RATIO && eligible.length > 0;
+  const cutoffAudit = buildRankingCutoffAudit(mode, eligible);
+  const terminalFailures = payload?.terminalFailures || {};
+  const unresolvedSourceFailures = Number(terminalFailures.provider_failure || 0) + Number(terminalFailures.unresolved || 0);
+  const ineligibleReasonCounts: Record<string, number> = {};
+  allItems.filter(item => !rankingItemHasMinimumEvidence(mode, item)).forEach(item => {
+    const contract = rankingModeEvidenceContract(mode, item);
+    const reasons = contract.missing.length ? contract.missing : (item.rankingTrust || buildRankingTrust(item)).reasons || ["mode score unavailable"];
+    reasons.forEach(reason => addMetric(ineligibleReasonCounts, reason));
+  });
+  const passed = successRatio >= RANKING_MIN_SUCCESS_RATIO && cutoffAudit.passed && unresolvedSourceFailures === 0;
   const reasons = [
     successRatio < RANKING_MIN_SUCCESS_RATIO
       ? `Only ${scored} of ${requested} requested stocks were scored; minimum success ratio is ${Math.round(RANKING_MIN_SUCCESS_RATIO * 100)}%.`
       : "",
-    eligible.length === 0 ? `No ranked stock passed score, quote-date, ${RANKING_MIN_ITEM_COVERAGE}% data-coverage, and no-stale-data requirements.` : "",
+    eligible.length < RANKING_OUTPUT_LIMIT ? `Only ${eligible.length} stocks have every ${mode} required field; ${RANKING_OUTPUT_LIMIT} are required before Top ${RANKING_OUTPUT_LIMIT} can be published.` : "",
+    !cutoffAudit.deterministic ? "The Top 64 cutoff ordering was not deterministic." : "",
+    unresolvedSourceFailures > 0 ? `${unresolvedSourceFailures} stocks still have provider_failure or unresolved disposition; formal ranking cannot activate until every source failure is resolved.` : "",
   ].filter(Boolean);
   return {
     ...payload,
@@ -7843,10 +8723,15 @@ function applyRankingEvidenceGate(payload: any, mode: string) {
       successRatio: round(successRatio * 100, 1),
       minimumSuccessRatio: RANKING_MIN_SUCCESS_RATIO * 100,
       minimumItemCoverage: RANKING_MIN_ITEM_COVERAGE,
+      requiredFields: RANKING_MODE_REQUIRED_FIELDS[mode] || [],
+      ineligibleReasonCounts,
+      terminalFailures,
+      unresolvedSourceFailures,
+      cutoffAudit,
       displayed: passed ? Math.min(eligible.length, RANKING_SNAPSHOT_ITEM_LIMIT) : 0,
       displayLimit: RANKING_SNAPSHOT_ITEM_LIMIT,
       reasons,
-      policy: `Each mode independently sorts the complete scoring universe and publishes its own Top ${RANKING_OUTPUT_LIMIT}; every displayed row requires a score, quote date, ${RANKING_MIN_ITEM_COVERAGE}%+ coverage, and no stale datasets.`,
+      policy: `Each mode independently evaluates the complete declared universe. Every displayed row requires its mode-specific fields, a score, quote date, ${RANKING_MIN_ITEM_COVERAGE}%+ general coverage, no stale datasets, zero provider_failure/unresolved dispositions, and a deterministic Top ${RANKING_OUTPUT_LIMIT} cutoff audit.`,
     },
     message: passed ? "" : reasons.join(" ") || "Ranking evidence gate did not pass.",
   };
@@ -8134,6 +9019,8 @@ function compactRankingItem(item: ValueScore) {
         profitability: item.fundamentals?.data?.profitability || null,
         revenue: item.fundamentals?.data?.revenue || null,
         valuation: item.fundamentals?.data?.valuation || null,
+        cashFlow: item.fundamentals?.data?.cashFlow || null,
+        balanceSheet: item.fundamentals?.data?.balanceSheet || null,
         institutional: item.fundamentals?.data?.institutional || null,
       },
     },
@@ -8152,6 +9039,7 @@ function compactRankingItem(item: ValueScore) {
       cachedDatasets: item.dataStatus?.cachedDatasets || [],
       staleDatasets: item.dataStatus?.staleDatasets || [],
       warnings: item.dataStatus?.warnings || [],
+      quoteOutcome: item.dataStatus?.quoteOutcome || null,
     },
     professionalRating: item.professionalRating,
     rankingTrust: item.rankingTrust || buildRankingTrust(item),
@@ -8296,10 +9184,7 @@ function publicRankingRefreshJob(job: any) {
   };
 }
 
-const PILOT_LIQUIDITY_ENDPOINTS = [
-  { type: "twse", source: "TWSE STOCK_DAY_ALL", url: "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL" },
-  { type: "tpex", source: "TPEx mainboard quotes", url: "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes" },
-];
+const PILOT_LIQUIDITY_ENDPOINTS = OFFICIAL_DAILY_QUOTE_ENDPOINTS;
 
 function normalizeLiquidityDate(value: unknown) {
   const digits = String(value || "").replace(/[^0-9]/g, "");
@@ -8313,41 +9198,42 @@ function normalizeLiquidityDate(value: unknown) {
 
 async function loadPilotLiquidityProfiles(metrics?: ExternalRequestMetrics) {
   const settled = await Promise.allSettled(PILOT_LIQUIDITY_ENDPOINTS.map(async endpoint => {
-    const rows = await fetchJson(endpoint.url, 12000, metrics);
-    if (!Array.isArray(rows)) throw new Error(`${endpoint.source} returned a non-array payload`);
-    return { endpoint, rows };
+    const snapshot = await loadOfficialDailyQuoteSnapshot(endpoint.type, metrics);
+    return { endpoint, snapshot };
   }));
   const profiles = new Map<string, TaiwanCompanyProfile>();
   const warnings: string[] = [];
   const dates: string[] = [];
+  const marketDates: Partial<Record<TaiwanListedMarket, string>> = {};
   settled.forEach(result => {
     if (result.status === "rejected") {
       warnings.push(result.reason instanceof Error ? result.reason.message : String(result.reason));
       return;
     }
-    const { endpoint, rows } = result.value;
-    rows.forEach((row: any) => {
-      const code = cleanCode(row.Code || row.SecuritiesCompanyCode || row.SecuritiesCode || row["證券代號"] || "");
-      if (!/^\d{4}$/.test(code)) return;
-      const volume = toNumber(row.TradeVolume || row.Volume || row.TradingShares || row.TransactionNumber || row["成交股數"] || row["成交量"]);
-      const tradeValue = toNumber(row.TradeValue || row.TransactionAmount || row.TradingValue || row["成交金額"]);
-      const close = toNumber(row.ClosingPrice || row.Close || row["收盤價"]);
-      const liquidityValue = Number.isFinite(tradeValue) && tradeValue > 0
-        ? tradeValue
-        : Number.isFinite(volume) && volume > 0
-          ? volume * (Number.isFinite(close) && close > 0 ? close : 1)
+    const { endpoint, snapshot } = result.value;
+    if (snapshot.latestTradingDate) marketDates[endpoint.type] = snapshot.latestTradingDate;
+    snapshot.rows.forEach(row => {
+      const code = row.code;
+      const volume = row.volume;
+      const tradeValue = row.tradeValue;
+      const close = row.close;
+      const liquidityValue = Number.isFinite(tradeValue) && Number(tradeValue) > 0
+        ? Number(tradeValue)
+        : Number.isFinite(volume) && Number(volume) > 0
+          ? Number(volume) * (Number.isFinite(close) && Number(close) > 0 ? Number(close) : 1)
           : null;
-      const date = normalizeLiquidityDate(row.Date || row.TradingDate || row["日期"]);
+      const date = row.date;
       if (date) dates.push(date);
       profiles.set(code, {
         code,
-        name: String(row.Name || row.CompanyName || row.SecuritiesCompanyName || row["證券名稱"] || code),
+        name: row.name,
         type: endpoint.type,
         industry: "",
         liquidityTier: liquidityValue !== null ? "medium" : "unavailable",
         liquidityValue,
         liquidityDate: date,
         liquiditySource: endpoint.source,
+        officialQuote: row,
       });
     });
   });
@@ -8365,6 +9251,8 @@ async function loadPilotLiquidityProfiles(metrics?: ExternalRequestMetrics) {
     generatedAt: new Date().toISOString(),
     oldestDate: dates.sort()[0] || null,
     newestDate: dates.sort().at(-1) || null,
+    marketDates,
+    commonAsOfDate: Object.values(marketDates).length === 2 ? Object.values(marketDates).sort()[0] : null,
     warnings,
     sources: PILOT_LIQUIDITY_ENDPOINTS.map(endpoint => ({ source: endpoint.source, url: endpoint.url })),
   };
@@ -8443,7 +9331,13 @@ async function createRankingRefreshJob(mode: string, options: { pilotSize?: numb
     unresolvedCodes: [],
     retryCodes: [],
     retryIndex: 0,
+    retryableCodes: [],
     featureBatchIds: {},
+    historyDateCandidates: [],
+    historyCursor: 0,
+    historyDayIds: {},
+    historySessionCounts: { twse: 0, tpex: 0 },
+    historyProfileBatchByCode: {},
     companyProfiles: [],
     newsTopicIndex: 0,
     newsEvidence: [],
@@ -8502,22 +9396,24 @@ async function advanceRankingRefreshJob(id: string) {
       const setupStartedAt = Date.now();
       const phaseMetrics = emptyExternalRequestMetrics();
       const marketUniverse: any = await withTimeout(loadTaiwanCompanyUniverse(phaseMetrics), 35000, "Taiwan company universe timed out");
-      const liquidity = job.pilotSize
-        ? await withTimeout(loadPilotLiquidityProfiles(phaseMetrics), 30000, "Taiwan liquidity snapshot timed out")
-        : null;
+      const liquidity = await withTimeout(loadPilotLiquidityProfiles(phaseMetrics), 30000, "Taiwan official quote and liquidity snapshots timed out");
+      if (!liquidity.commonAsOfDate) {
+        throw new Error(`Official TWSE/TPEx quote dates are incomplete: ${JSON.stringify(liquidity.marketDates || {})}`);
+      }
       const listedCompanies: TaiwanCompanyProfile[] = (marketUniverse.companies || [])
         .filter((company: TaiwanCompanyProfile) => company.type === "twse" || company.type === "tpex")
         .filter((company: TaiwanCompanyProfile) => /^\d{4}$/.test(cleanCode(company.code)))
         .map((company: TaiwanCompanyProfile) => {
           const code = cleanCode(company.code);
-          const liquidityProfile = liquidity?.profiles.get(code);
+          const liquidityProfile = liquidity.profiles.get(code);
           return {
             ...company,
             code,
-            liquidityTier: liquidityProfile?.liquidityTier || (job.pilotSize ? "unavailable" : undefined),
+            liquidityTier: liquidityProfile?.liquidityTier || "unavailable",
             liquidityValue: liquidityProfile?.liquidityValue ?? null,
             liquidityDate: liquidityProfile?.liquidityDate || null,
             liquiditySource: liquidityProfile?.liquiditySource || null,
+            officialQuote: liquidityProfile?.officialQuote || null,
           };
         });
       if (!listedCompanies.length) throw new Error("The listed/OTC company directory returned no eligible stocks.");
@@ -8542,7 +9438,12 @@ async function advanceRankingRefreshJob(id: string) {
       };
       job.universe = selectedCompanies.map(company => company.code);
       job.companyProfiles = selectedCompanies;
-      job.phase = "features";
+      job.historyDateCandidates = officialHistoryDateCandidates(liquidity.commonAsOfDate);
+      job.historyCursor = 0;
+      job.historyDayIds = {};
+      job.historySessionCounts = { twse: 0, tpex: 0 };
+      job.historyProfileBatchByCode = {};
+      job.phase = "history";
       job.universeStatus = "ready";
       job.runningBatchAt = null;
       job.status = "queued";
@@ -8557,6 +9458,11 @@ async function advanceRankingRefreshJob(id: string) {
         defaultCount: job.universe.length,
         requestedCount: job.universe.length,
         rankingOutputLimit: RANKING_OUTPUT_LIMIT,
+        sampleFingerprint: job.pilotSize
+          ? stableEvidenceId(["ranking-pilot", job.pilotVersion, ...selectedCompanies.map(company => `${company.type}:${company.code}`)])
+          : null,
+        asOfDate: liquidity.commonAsOfDate,
+        marketQuoteDates: liquidity.marketDates,
         liquidity: liquidity ? {
           methodology: "Within-market terciles based on the latest official daily trading value; volume times close is used only when trading value is unavailable.",
           oldestDate: liquidity.oldestDate,
@@ -8579,8 +9485,8 @@ async function advanceRankingRefreshJob(id: string) {
           : `Full scan scope contains ${job.universe.length} listed/OTC companies. Every ranking mode independently sorts the same complete feature universe and selects its own Top ${RANKING_OUTPUT_LIMIT}. Emerging stocks are excluded because their liquidity and source coverage require a separate model.`,
       };
       job.message = job.pilotSize
-        ? `Loaded a deterministic ${job.universe.length}-stock pilot from the ${listedCompanies.length}-company listed/OTC directory. The next request starts the first persisted scoring batch.`
-        : `Loaded all ${job.universe.length} listed/OTC companies. The next request starts the first persisted scoring batch.`;
+        ? `Loaded a deterministic ${job.universe.length}-stock pilot from the ${listedCompanies.length}-company listed/OTC directory. Official ${MARKET_HISTORY_TARGET_SESSIONS}-session history backfill is next.`
+        : `Loaded all ${job.universe.length} listed/OTC companies. Official ${MARKET_HISTORY_TARGET_SESSIONS}-session history backfill is next.`;
     } catch (err) {
       job.universeStatus = "pending";
       job.runningBatchAt = null;
@@ -8606,6 +9512,83 @@ async function advanceRankingRefreshJob(id: string) {
     await saveRankingRefreshJob(id, job);
     return job;
   };
+
+  if (job.phase === "history") {
+    const dates = Array.isArray(job.historyDateCandidates) ? job.historyDateCandidates : [];
+    const startCursor = Number(job.historyCursor || 0);
+    await beginPhase(`Loading official market-day history from candidate ${startCursor + 1}; ${job.historySessionCounts?.twse || 0}/${MARKET_HISTORY_TARGET_SESSIONS} TWSE and ${job.historySessionCounts?.tpex || 0}/${MARKET_HISTORY_TARGET_SESSIONS} TPEx sessions are persisted.`);
+    try {
+      const registry = await readMarketHistoryRegistry();
+      const counts = {
+        twse: Number(job.historySessionCounts?.twse || 0),
+        tpex: Number(job.historySessionCounts?.tpex || 0),
+      };
+      const dayIds = { ...(job.historyDayIds || {}) };
+      const historyErrors = [...(job.historyErrors || [])];
+      let cursor = startCursor;
+      let examined = 0;
+      while (cursor < dates.length && examined < 5 && (counts.twse < MARKET_HISTORY_TARGET_SESSIONS || counts.tpex < MARKET_HISTORY_TARGET_SESSIONS)) {
+        const date = dates[cursor];
+        for (const market of ["twse", "tpex"] as TaiwanListedMarket[]) {
+          if (counts[market] >= MARKET_HISTORY_TARGET_SESSIONS) continue;
+          const key = `${market}:${date}`;
+          try {
+            const existingId = registry?.days?.[key];
+            const dayId = existingId || await persistOfficialHistoricalMarketDay(await loadOfficialHistoricalMarketDay(market, date, job.performance?.externalRequests));
+            if (dayId && !dayIds[key]) {
+              dayIds[key] = dayId;
+              counts[market] += 1;
+            }
+          } catch (err) {
+            historyErrors.push({ market, date, message: err instanceof Error ? err.message : String(err) });
+          }
+        }
+        cursor += 1;
+        examined += 1;
+      }
+      job.historyCursor = cursor;
+      job.historyDayIds = dayIds;
+      job.historySessionCounts = counts;
+      job.historyErrors = historyErrors.slice(-40);
+      if (counts.twse >= MARKET_HISTORY_TARGET_SESSIONS && counts.tpex >= MARKET_HISTORY_TARGET_SESSIONS) {
+        job.phase = "history_index";
+        return await finishPhase(`Persisted ${counts.twse} TWSE and ${counts.tpex} TPEx official market sessions. The next request builds code-keyed history batches.`);
+      }
+      if (cursor >= dates.length) {
+        job.status = "failed";
+        job.runningBatchAt = null;
+        job.updatedAt = new Date().toISOString();
+        job.message = `Official history coverage is insufficient: TWSE ${counts.twse}/${MARKET_HISTORY_TARGET_SESSIONS}, TPEx ${counts.tpex}/${MARKET_HISTORY_TARGET_SESSIONS}. No synthetic history or ranking snapshot was produced.`;
+        await saveRankingRefreshJob(id, job);
+        return job;
+      }
+      return await finishPhase(`Persisted official history through candidate ${cursor}/${dates.length}; TWSE ${counts.twse}/${MARKET_HISTORY_TARGET_SESSIONS}, TPEx ${counts.tpex}/${MARKET_HISTORY_TARGET_SESSIONS}.`);
+    } catch (err) {
+      job.batchErrors = [...(job.batchErrors || []), { phase: "history", start: startCursor, message: err instanceof Error ? err.message : String(err), at: new Date().toISOString() }].slice(-30);
+      return await finishPhase("Official history batch was not completed; the same candidate window can be retried without publishing.");
+    }
+  }
+
+  if (job.phase === "history_index") {
+    await beginPhase("Building code-keyed 120-session official history batches for exact technical ranking.");
+    try {
+      const histories = await loadPersistedOfficialHistory(Object.values(job.historyDayIds || {}).filter(Boolean) as string[]);
+      const companies: TaiwanCompanyProfile[] = (job.companyProfiles || []).sort((a: TaiwanCompanyProfile, b: TaiwanCompanyProfile) => a.code.localeCompare(b.code));
+      job.historyProfileBatchByCode = await persistOfficialHistoryProfileBatches(id, companies, histories);
+      job.historyCoverage = {
+        targetSessions: MARKET_HISTORY_TARGET_SESSIONS,
+        companies: companies.length,
+        atLeast60: companies.filter(company => (histories.get(company.code) || []).length >= 60).length,
+        complete120: companies.filter(company => (histories.get(company.code) || []).length >= MARKET_HISTORY_TARGET_SESSIONS).length,
+        source: "TWSE/TPEx official historical market-day OHLCV",
+      };
+      job.phase = "features";
+      return await finishPhase(`Built official history batches for ${companies.length} companies; ${job.historyCoverage.atLeast60} have at least 60 sessions and ${job.historyCoverage.complete120} have ${MARKET_HISTORY_TARGET_SESSIONS}.`);
+    } catch (err) {
+      job.batchErrors = [...(job.batchErrors || []), { phase: "history_index", message: err instanceof Error ? err.message : String(err), at: new Date().toISOString() }].slice(-30);
+      return await finishPhase("Official history indexing failed before stock scoring and can be retried without publication.");
+    }
+  }
 
   if (job.phase === "themes") {
     await beginPhase("Reading every persisted market feature batch and independently evaluating all five quantitative themes.");
@@ -8689,6 +9672,7 @@ async function advanceRankingRefreshJob(id: string) {
         generatedAt: new Date().toISOString(),
         items: featureRows,
         errors: job.errors,
+        terminalFailures: rankingTerminalFailureCounts(job),
       };
       const rankingResult = await publishRankingSnapshots(basePayload, job.mode || "undervalued", { activate: !job.pilotSize });
       const attempts = Number(job.performance?.stockAttempts || 0);
@@ -8714,6 +9698,41 @@ async function advanceRankingRefreshJob(id: string) {
       const estimatedFullMarketResponseBytes = Math.round(setupRequests.responseBytes + scoringRequests.responseBytes * projectedScoringFactor);
       const finalFailureCount = Math.max(0, universeCount - featureRows.length);
       const uniqueSuccessRatio = universeCount ? round((featureRows.length / universeCount) * 100, 1) : 0;
+      const unresolvedCodes = new Set<string>(job.unresolvedCodes || []);
+      const latestFailureByCode = new Map<string, any>();
+      (job.errors || []).forEach((entry: any) => {
+        if (unresolvedCodes.has(entry.code)) latestFailureByCode.set(entry.code, entry);
+      });
+      const failureCounts: Record<QuoteFailureCategory, number> = {
+        suspended_or_halted: 0,
+        no_quote_for_latest_session: 0,
+        provider_failure: 0,
+        not_rankable: 0,
+        unresolved: 0,
+      };
+      featureRows.forEach((item: any) => {
+        const quoteCategory = classifyQuoteFailure(item.dataStatus?.quoteOutcome?.category || "unresolved");
+        if (quoteCategory === "suspended_or_halted" || quoteCategory === "no_quote_for_latest_session") {
+          failureCounts[quoteCategory] += 1;
+        } else if ((item.rankingTrust || buildRankingTrust(item)).status !== "rankable") {
+          failureCounts.not_rankable += 1;
+        }
+      });
+      unresolvedCodes.forEach(code => {
+        const category = classifyQuoteFailure(latestFailureByCode.get(code)?.category || latestFailureByCode.get(code)?.message);
+        failureCounts[category === "not_rankable" ? "unresolved" : category] += 1;
+      });
+      const outcomeClassification = {
+        rankable: rankableCount,
+        ...failureCounts,
+        definitions: {
+          suspended_or_halted: "Only an explicit official status or equivalent exchange evidence can assign this category.",
+          no_quote_for_latest_session: "The correct official market snapshot returned normally, but the stock had no usable quote for that source trading date.",
+          provider_failure: "A source timed out, failed transport or HTTP validation, or returned an invalid payload.",
+          not_rankable: `A score row exists but fails the score, quote-date, ${RANKING_MIN_ITEM_COVERAGE}% coverage, or no-stale-data publication gate.`,
+          unresolved: "Available evidence cannot distinguish stock status from a source or parsing gap; no status is guessed.",
+        },
+      };
       job.performance = {
         ...(job.performance || {}),
         completedAt,
@@ -8731,6 +9750,7 @@ async function advanceRankingRefreshJob(id: string) {
         retries: Number(job.performance?.retryAttempts || 0),
         finalFailures: finalFailureCount,
         finalFailureRate: universeCount ? round((finalFailureCount / universeCount) * 100, 1) : 0,
+        outcomeClassification,
         dataCompleteness: {
           scored: featureRows.length,
           requested: universeCount,
@@ -8786,22 +9806,37 @@ async function advanceRankingRefreshJob(id: string) {
   const scoringStartedAt = Date.now();
   try {
     const batchMetrics = emptyExternalRequestMetrics();
-    const companyProfiles = new Map<string, TaiwanCompanyProfile>((job.companyProfiles || []).map((company: TaiwanCompanyProfile) => [company.code, company] as [string, TaiwanCompanyProfile]));
-    const results = await settleWithLimit(batch, 4, code => withTimeout(
+    const officialHistories = await loadOfficialHistoryForCodes(batch, job.historyProfileBatchByCode || {});
+    const companyProfiles = new Map<string, TaiwanCompanyProfile>((job.companyProfiles || []).map((company: TaiwanCompanyProfile) => [company.code, {
+      ...company,
+      officialHistory: officialHistories.get(company.code) || null,
+      officialHistorySource: officialHistories.has(company.code) ? "TWSE/TPEx official historical market-day OHLCV" : null,
+    }] as [string, TaiwanCompanyProfile]));
+    const results = await settleWithLimit(batch, RANKING_JOB_CONCURRENCY, code => withTimeout(
       loadValueScore(code, { fast: true, evidenceMinimum: true, companyProfile: companyProfiles.get(code) || null, metrics: batchMetrics }),
       18000,
       `Stock ${code} scoring timed out and was queued for retry`
     ));
     const completedItems: any[] = [];
     const failedCodes: string[] = [];
+    const retryableFailedCodes: string[] = [];
     results.forEach((result, index) => {
       if (result.status === "fulfilled" && result.value?.ok) completedItems.push(compactRankingItem(result.value));
       else {
         failedCodes.push(batch[index]);
+        const failure = result.status === "rejected" ? result.reason : new Error("The stock analysis returned no usable evidence.");
+        const category = classifyQuoteFailure(failure);
+        if (retryableQuoteFailure(category)) retryableFailedCodes.push(batch[index]);
         const message = result.status === "rejected"
           ? (result.reason instanceof Error ? result.reason.message : String(result.reason))
           : "The stock analysis returned no usable evidence.";
-        job.errors = [...(job.errors || []), { code: batch[index], phase: isRetry ? "retry" : "features", message }].slice(-200);
+        job.errors = [...(job.errors || []), {
+          code: batch[index],
+          phase: isRetry ? "retry" : "features",
+          category,
+          message,
+          evidence: failure instanceof QuoteLoadError ? failure.evidence : [],
+        }].slice(-200);
       }
     });
     const batchKey = `${isRetry ? "retry" : "features"}-${start}`;
@@ -8829,9 +9864,13 @@ async function advanceRankingRefreshJob(id: string) {
       averageBatchMs: Math.round((Number(job.performance?.activeScoringMs || 0) + scoringDurationMs) / (Number(job.performance?.scoringBatches || 0) + 1)),
     };
     const unresolved = new Set<string>(job.unresolvedCodes || []);
+    const retryable = new Set<string>(job.retryableCodes || []);
     completedItems.forEach(item => unresolved.delete(item.code));
+    completedItems.forEach(item => retryable.delete(item.code));
     failedCodes.forEach(code => unresolved.add(code));
+    retryableFailedCodes.forEach(code => retryable.add(code));
     job.unresolvedCodes = [...unresolved];
+    job.retryableCodes = [...retryable];
     if (isRetry) {
       job.scoredCount = Number(job.scoredCount || 0) + completedItems.length;
       job.retryIndex = start + batch.length;
@@ -8840,18 +9879,18 @@ async function advanceRankingRefreshJob(id: string) {
       job.scoredCount = Number(job.scoredCount || 0) + completedItems.length;
       job.currentIndex = start + batch.length;
       if (job.currentIndex >= sourceCodes.length) {
-        job.retryCodes = [...unresolved];
+        job.retryCodes = [...retryable];
         job.retryIndex = 0;
         job.phase = job.retryCodes.length ? "retry" : (job.pilotSize ? "publish" : "themes");
       }
     }
     job.failedCount = unresolved.size;
     const nextMessage = job.phase === "retry"
-      ? `Initial full-market scan completed. Retrying ${job.retryCodes.length} stocks that lacked usable evidence.`
+      ? `Initial full-market scan completed. Retrying ${job.retryCodes.length} provider failures; terminal no-quote, suspension, insufficient-history, and evidence-gate outcomes are not retried.`
       : job.phase === "publish" && job.pilotSize
-        ? `All ${job.universe.length} pilot stocks were attempted and missing evidence was retried. The next request builds six independent Top ${RANKING_OUTPUT_LIMIT} pilot rankings without public activation.`
+        ? `All ${job.universe.length} pilot stocks were attempted and only provider failures were retried. The next request builds six independent Top ${RANKING_OUTPUT_LIMIT} pilot rankings without public activation.`
       : job.phase === "themes"
-        ? `All ${job.universe.length} stocks were attempted and missing evidence was retried. The next request evaluates five independent themes.`
+        ? `All ${job.universe.length} stocks were attempted and only provider failures were retried. The next request evaluates five independent themes.`
         : `Saved ${job.currentIndex} of ${job.universe.length} stock attempts; ${job.scoredCount} currently have persisted common features.`;
     return await finishPhase(nextMessage);
   } catch (err) {

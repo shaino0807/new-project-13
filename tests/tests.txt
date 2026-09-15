@@ -243,3 +243,37 @@ Steps:
 Expected: Every mode independently applies its own score to the same declared universe, filters for score + quote date + at least 60% coverage + no stale dataset, sorts by primary score → coverage → quote date → code, and returns at most its own Top 64. At least two synthetic mode constituent sets differ. No shared temporary candidate pool remains. The 250-stock output is labeled a performance pilot; only a completed 1,985-company scan may be labeled the listed/OTC full-market snapshot. Opening the homepage reads persisted snapshots and performs zero stock rescoring calls. A completed real pilot reports wall and active time, exact upstream request totals by provider, cache/inflight hits, response bytes, retry attempts, final failures, quote-date/coverage/no-stale/rankable completeness, and projected 1,985-stock time and request volume without activating a public full-market snapshot.
 
 Legacy snapshot regression: replace the active snapshot fixture with rows at 55-59% coverage or any stale dataset, then call `GET /api/screener/snapshot` and `GET /api/market-radar`. Expected: persisted rows are revalidated under the current policy; the snapshot returns `snapshotStatus: rejected`, displays zero ranking rows, and the homepage reports that no currently valid completed ranking is available without starting a new scoring job.
+
+## Test 19 - Market-aware quote routing, official daily cache, and terminal outcomes
+Viewport: API contract and local source regression
+Description: Prevents expected wrong-market Yahoo 404s, repeated official bulk downloads, and ambiguous pilot failure totals.
+
+Steps:
+1. Run `node scripts/ranking-v2-pilot.mjs` and confirm the source-contract checks pass.
+2. Confirm a TWSE company profile produces only the Yahoo `.TW` suffix and a TPEx profile produces only `.TWO`; only an unknown market may retain a controlled two-suffix fallback.
+3. Request multiple stocks from the same market during one Taipei calendar day and confirm the official TWSE or TPEx bulk quote payload is fetched once, then served from cache or the shared in-flight request. For a persisted 250-stock pilot, confirm the selected company profiles retain their official quote rows across advance calls and those rows avoid redundant per-stock MIS requests.
+4. Exercise an explicit exchange suspension/halt status, a halt record whose official resumption date precedes the quote date, a normally returned market snapshot with no usable stock quote, an upstream timeout or invalid payload, and a successfully scored row below the publication evidence gate.
+5. Inspect the completed pilot performance summary and sample fingerprint.
+
+Expected: Explicit official halt evidence maps to `suspended_or_halted`, but a historical halt record with a resumption date on or before the quote date does not; a healthy correct-market snapshot without a usable latest-session quote maps to `no_quote_for_latest_session`; transport, HTTP 5xx, timeout, and invalid payload errors map to `provider_failure`; successfully scored rows that fail ranking evidence map to `not_rankable`; insufficient evidence remains `unresolved`. A quote marked suspended or missing for the latest official session is not rankable merely because older Yahoo history exists. The summary reports mutually auditable terminal counts, the fixed selection algorithm emits a sample fingerprint, cache and in-flight hits remain separate from real HTTP request totals, and no pilot result activates a public ranking snapshot.
+
+## Test 20 - Full 1,985-stock precision and runtime contract
+Covers: /api/screener/snapshot evidence rejection; internal ranking contracts and history persistence (local tests only).
+Viewport: local backend/source contract; no deployment
+Description: Verifies the full-market path reduces repeated requests without weakening evidence, disposition, or cutoff rules.
+
+Numeric evidence regression: Run `node scripts/test-ranking-numeric-evidence.mjs`. The production backend contract must reject null, undefined, blank strings, booleans, arrays, objects, and non-finite values for every numeric requirement in all six modes. Zero, negative finite values, and finite numeric strings remain valid evidence. Undervalued and overvalued must require two genuinely numeric valuation fields. This isolated check performs no network requests or persistent writes.
+
+Cache provenance acceptance (internal API diagnostics): After warming 2330 through GET /api/fundamentals?code=2330, repeat after the backend update. Inspect cache.datasetSources: persistent financial datasets must report source=persistent and stale=false, preserving fetchedAt from before the update. source=memory alone does not prove database readback. Missing or stale evidence remains a failed acceptance condition; this check does not authorize advancing ranking jobs.
+
+Steps:
+1. Run `node --experimental-strip-types --check backend/index.ts` and `node scripts/ranking-v2-pilot.mjs` without `--live-universe`.
+2. Confirm the simulation contains exactly 1,985 stocks, uses batches of at most 20 with concurrency 4, and therefore schedules 100 scoring batches rather than one request chain per stock.
+3. Inspect the official-history phase: TWSE and TPEx market-day payloads are persisted by market/date until each market has 120 valid sessions, then transposed into per-20-code history batches. A ranking job must stop if fewer than 60 verified sessions exist and must never substitute generated price history.
+4. Confirm daily quote and monthly revenue routes select TWSE or TPEx directly. Confirm authenticated FinMind financial statement, cash-flow, balance-sheet, and monthly-revenue results have persistent daily cache records; no token is printed or embedded.
+5. For undervalued, overvalued, active, cashflow, growth, and small-investor modes, remove one mandatory field at a time and confirm the row is excluded from that mode. In particular, remove ending cash from cashflow and EPS YoY from growth.
+6. For the 20MA theme, independently fail each of: close above a rising 20MA, downward-resistance trend-line breakout, W-bottom neckline breakout, and volume at least 1.5 times the preceding 20-session average.
+7. Reverse the entire 1,985-row input and compare each mode's ordered eligible set and retained ranks 50-90; inspect rank 64 and rank 65.
+8. Exercise `provider_failure`, `unresolved`, `no_quote_for_latest_session`, `suspended_or_halted`, and `not_rankable` terminal categories.
+
+Expected: All six modes return exactly 64 synthetic rows only when their own required-field contracts pass. Reversing input does not alter deterministic order, and every mode retains a 41-row rank 50-90 boundary audit. Missing mandatory fields and any failed 20MA condition are rejected rather than assigned a plausible-looking rank. Only `provider_failure` is retried; deterministic no-quote, suspension, and evidence failures are not. A formal snapshot cannot activate while any `provider_failure` or `unresolved` disposition remains, even if the numerical 95% scored threshold was reached. This test proves local orchestration and ranking contracts only; it does not claim a live 1,985-stock collection, remote storage-capacity pass, deployment, or public activation.
