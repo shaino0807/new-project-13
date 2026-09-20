@@ -179,7 +179,7 @@ const RANKING_PILOT_VERSION = "ranking-pilot-v3-liquidity-metrics";
 const RANKING_JOB_BATCH_SIZE = 20;
 const RANKING_JOB_CONCURRENCY = 4;
 const RANKING_SNAPSHOT_ITEM_LIMIT = RANKING_OUTPUT_LIMIT;
-const MARKET_FEATURE_SCHEMA_VERSION = "market-features-v6-exact-ranking";
+const MARKET_FEATURE_SCHEMA_VERSION = "market-features-v7-official-universe";
 const MARKET_HISTORY_SCHEMA_VERSION = "official-market-history-v1";
 const MARKET_HISTORY_TARGET_SESSIONS = 120;
 const MARKET_SCAN_MIN_SUCCESS_RATIO = 0.95;
@@ -2634,6 +2634,212 @@ async function loadOfficialTaiwanCompanyUniverseFallback(finMindError: unknown, 
   };
 }
 
+function buildOfficialRankingUniverse(inputs: Array<{ market: string; rows: any[] }>, now = Date.now()) {
+  const companies: TaiwanCompanyProfile[] = [];
+  const seen = new Set<string>();
+  const sourceDates: Record<string, string[]> = {};
+  for (const market of ["twse", "tpex"]) {
+    const input = inputs.find(item => item.market === market);
+    if (!input || !Array.isArray(input.rows) || !input.rows.length) throw new Error(`Missing official ${market} company directory`);
+    const dates = new Set<string>();
+    for (const row of input.rows) {
+      const rawDate = String(row.Date || row["\u51fa\u8868\u65e5\u671f"] || "").trim();
+      const digits = rawDate.replace(/[^0-9]/g, "");
+      const yearLength = digits.length === 7 ? 3 : 4;
+      const year = Number(digits.slice(0, yearLength)) + (yearLength === 3 ? 1911 : 0);
+      const date = `${year}-${digits.slice(yearLength, yearLength + 2)}-${digits.slice(yearLength + 2)}`;
+      const timestamp = Date.parse(`${date}T00:00:00+08:00`);
+      if (![7, 8].includes(digits.length) || !Number.isFinite(timestamp) || timestamp > now
+        || new Date(timestamp + 8 * 3600000).toISOString().slice(0, 10) !== date
+        || now - timestamp > 7 * 86400000) throw new Error(`Stale or invalid official ${market} directory date`);
+      dates.add(date);
+      const code = String(row.SecuritiesCompanyCode || row["\u516c\u53f8\u4ee3\u865f"] || "").trim();
+      const name = String(row.CompanyAbbreviation || row["\u516c\u53f8\u7c21\u7a31"] || "").trim();
+      const industry = String(row.SecuritiesIndustryCode || row["\u7522\u696d\u5225"] || "").trim();
+      if (!/^[1-9]\d{3}$/.test(code) || industry === "91" || /(?:-DR|ETF|ETN|\u53d7\u76ca\u8b49\u5238|\u5b58\u8a17\u6191\u8b49)/i.test(name)) continue;
+      if (!name || !industry) throw new Error(`Incomplete official company profile ${code}`);
+      if (seen.has(code)) throw new Error(`Duplicate official company code ${code}`);
+      seen.add(code);
+      companies.push({ code, name, type: market, industry });
+    }
+    if (dates.size !== 1) throw new Error(`Mixed official ${market} directory dates`);
+    sourceDates[market] = [...dates].sort();
+  }
+  const counts = { twse: companies.filter(item => item.type === "twse").length, tpex: companies.filter(item => item.type === "tpex").length };
+  if (counts.twse < MARKET_UNIVERSE_MIN_TWSE_COUNT || counts.tpex < MARKET_UNIVERSE_MIN_TPEX_COUNT
+    || companies.length < MARKET_UNIVERSE_MIN_LISTED_OTC_COUNT) throw new Error("Incomplete official ranking universe");
+  companies.sort((a, b) => a.code.localeCompare(b.code));
+  return { ok: true, version: "official-active-common-stock-v1", source: "TWSE/TPEx company profile OpenAPI", sourceDates,
+    fetchedAt: new Date(now).toISOString(), stale: false, companies, counts };
+}
+
+async function loadOfficialRankingUniverse(metrics?: ExternalRequestMetrics) {
+  const endpoints = OFFICIAL_TAIWAN_COMPANY_UNIVERSE_ENDPOINTS.filter(endpoint => endpoint.type === "twse" || endpoint.type === "tpex");
+  const inputs = await Promise.all(endpoints.map(async endpoint => ({ market: endpoint.type, rows: await requestOfficialCompanyRows(endpoint, metrics) })));
+  return buildOfficialRankingUniverse(inputs);
+}
+
+function assertRankingJobResumable(job: any, now = Date.now()) {
+  const createdAt = Date.parse(job.createdAt || "");
+  if (job.schemaVersion !== MARKET_FEATURE_SCHEMA_VERSION || !Number.isFinite(createdAt)
+    || createdAt > now || now - createdAt >= 7 * 86400000) {
+    throw new Error("Ranking job is expired or uses an incompatible schema; create a fresh job. Existing evidence is preserved.");
+  }
+}
+
+function knownMarketClosure(date: string) {
+  // Verified 2026 exchange calendar. Unknown dates never become inferred closures.
+  const regular = ['2026-01-01','2026-02-12','2026-02-13','2026-02-16','2026-02-17','2026-02-18','2026-02-19','2026-02-20','2026-02-27','2026-04-03','2026-04-06','2026-05-01','2026-06-19','2026-09-25','2026-09-28','2026-10-09','2026-10-26','2026-12-25'];
+  if (regular.includes(date)) return { date, reason: 'Scheduled exchange closure', source: 'https://www.twse.com.tw/holidaySchedule/holidaySchedule?response=html' };
+  if (date === '2026-07-10') return { date, reason: 'Typhoon closure for both equity markets', source: 'https://www.cna.com.tw/news/afe/202607090360.aspx' };
+  return null;
+}
+
+const RANKING_RECORD_CHUNK_TABLE = "ranking_record_chunks_v1";
+const rankingRecordMemo = new WeakMap<object, Map<string, { text: string; descriptor: any }>>();
+const rankingReadAudit = new WeakMap<object, { headerBytes: number; maxItemBytes: number; chunkCount: number }>();
+
+async function packRankingRecord(record: any) {
+  const { id: _id, ...header } = record;
+  const previous = rankingRecordMemo.get(record);
+  const memo = new Map<string, { text: string; descriptor: any }>();
+  const fields: Record<string, any> = {};
+  for (const [field, value] of Object.entries(header)) {
+    if (value === undefined) continue;
+    const text = JSON.stringify(value);
+    if (field !== "companyProfiles" && new TextEncoder().encode(text).length <= 32 * 1024) continue;
+    if (previous?.get(field)?.text === text) {
+      const saved = previous.get(field)!;
+      fields[field] = saved.descriptor;
+      memo.set(field, saved);
+      delete header[field];
+      continue;
+    }
+    const chunks: any[] = [];
+    // Bound the stored JSON string including escaping and multibyte characters.
+    for (let offset = 0; offset < text.length; offset += 40000) {
+      chunks.push({ field, index: chunks.length, text: text.slice(offset, offset + 40000) });
+    }
+    if (chunks.length > 512) throw new Error("Ranking field exceeds bounded chunk capacity.");
+    const ids: string[] = [];
+    for (const batch of rankingDbWriteBatches(chunks)) {
+      const added = await db.add(RANKING_RECORD_CHUNK_TABLE, batch);
+      if (added.length !== batch.length || added.some(id => !id)) throw new Error("Ranking chunk write incomplete; header not changed.");
+      ids.push(...added as string[]);
+    }
+    const descriptor = { ids, bytes: new TextEncoder().encode(text).length };
+    fields[field] = descriptor;
+    memo.set(field, { text, descriptor });
+    delete header[field];
+  }
+  if (Object.keys(fields).length) header.rankingStorage = { version: 1, fields };
+  if (record.result?.batch?.rejectedModes) header.rejectedModes = record.result.batch.rejectedModes;
+  rankingDbWriteBatches([header]);
+  return { header, memo };
+}
+
+async function unpackRankingRecord(record: any) {
+  if (!record) return record;
+  const headerBytes = new TextEncoder().encode(JSON.stringify(record)).length;
+  const audit = { headerBytes, maxItemBytes: headerBytes, chunkCount: 0 };
+  if (!record.rankingStorage) { rankingReadAudit.set(record, audit); return record; }
+  if (record.rankingStorage.version !== 1) throw new Error("Unsupported ranking storage version.");
+  const { rankingStorage, ...restored } = record;
+  const memo = new Map<string, { text: string; descriptor: any }>();
+  for (const [field, raw] of Object.entries(rankingStorage.fields)) {
+    const descriptor = raw as { ids: string[]; bytes: number };
+    if (!Array.isArray(descriptor.ids) || !descriptor.ids.length || descriptor.ids.length > 512) throw new Error("Invalid ranking chunk manifest.");
+    const pieces: string[] = [];
+    for (let start = 0; start < descriptor.ids.length; start += 20) {
+      const ids = descriptor.ids.slice(start, start + 20);
+      const chunks = await db.get<any>(RANKING_RECORD_CHUNK_TABLE, ids);
+      if (chunks.length !== ids.length) throw new Error("Ranking chunks missing.");
+      chunks.forEach((chunk, index) => {
+        if (!chunk || chunk.field !== field || chunk.index !== start + index || typeof chunk.text !== "string") throw new Error("Ranking chunks missing or out of order.");
+        audit.maxItemBytes = Math.max(audit.maxItemBytes, new TextEncoder().encode(JSON.stringify(chunk)).length);
+        audit.chunkCount += 1;
+        pieces.push(chunk.text);
+      });
+    }
+    const text = pieces.join("");
+    if (new TextEncoder().encode(text).length !== descriptor.bytes) throw new Error("Ranking chunk length mismatch.");
+    restored[field] = JSON.parse(text);
+    memo.set(field, { text, descriptor });
+  }
+  rankingRecordMemo.set(restored, memo);
+  rankingReadAudit.set(restored, audit);
+  return restored;
+}
+
+async function auditRankingStorage(id: string, dayIndex: number) {
+  if (!Number.isInteger(dayIndex) || dayIndex < 0 || dayIndex >= 240) throw new Error("Invalid history audit index (0-239).");
+  const job = await readRankingRefreshJob(id);
+  if (!job) throw new Error("Ranking job not found.");
+  const days = Object.entries(job.historyDayIds || {}).sort(([a], [b]) => a.localeCompare(b));
+  const entry = days[dayIndex];
+  let day: any = null;
+  if (entry) {
+    const [record] = await getRankingRecords(MARKET_HISTORY_DAY_TABLE, [String(entry[1])]);
+    if (!record || `${record.market}:${record.date}` !== entry[0]) throw new Error("History reference identity mismatch.");
+    const rows = record.rows;
+    if (!Array.isArray(rows) || !rows.length) throw new Error("History rows missing.");
+    const seen = new Set<string>();
+    for (const row of rows) {
+      if (!Array.isArray(row) || row.length !== 6 || !String(row[0]) || seen.has(String(row[0]))
+        || row.slice(1).some(value => typeof value !== "number" || !Number.isFinite(value))
+        || row[1] <= 0 || row[2] < Math.max(row[1], row[3], row[4])
+        || row[3] > Math.min(row[1], row[4]) || row[3] <= 0 || row[4] <= 0 || row[5] < 0) {
+        throw new Error("Invalid or duplicate persisted OHLCV row.");
+      }
+      seen.add(String(row[0]));
+    }
+    day = { key: entry[0], rows: rows.length, source: record.source, sourceUrl: record.sourceUrl,
+      fingerprint: stableEvidenceId([JSON.stringify(rows)]), storage: rankingReadAudit.get(record), valid: true };
+  }
+  const storage = rankingReadAudit.get(job);
+  if ((storage?.maxItemBytes || 0) > 256 * 1024 || (day?.storage?.maxItemBytes || 0) > 256 * 1024) throw new Error("Persisted item exceeds SDK size limit.");
+  return { ok: true, jobId: id, schemaVersion: job.schemaVersion, storage, universeMeta: job.universeMeta,
+    historySessionCounts: job.historySessionCounts, historyCoverage: job.historyCoverage || null,
+    dayIndex, totalDays: days.length, nextDayIndex: dayIndex + 1 < days.length ? dayIndex + 1 : null, day };
+}
+
+async function addRankingRecords(table: string, records: any[]) {
+  const headers: any[] = [];
+  for (const record of records) headers.push((await packRankingRecord(record)).header);
+  const ids: string[] = [];
+  for (const batch of rankingDbWriteBatches(headers)) {
+    const added = await db.add(table, batch);
+    if (added.length !== batch.length || added.some(id => !id)) throw new Error("Ranking records incomplete; activation forbidden.");
+    ids.push(...added as string[]);
+  }
+  return ids;
+}
+
+async function getRankingRecords(table: string, ids: string[]) {
+  const records: any[] = [];
+  for (let start = 0; start < ids.length; start += 20) {
+    const chunk = await db.get<any>(table, ids.slice(start, start + 20));
+    if (chunk.length !== Math.min(20, ids.length - start)) throw new Error("Ranking record read incomplete.");
+    for (const record of chunk) records.push(record ? await unpackRankingRecord(record) : null);
+  }
+  return records;
+}
+
+function rankingDbWriteBatches(records: any[]) {
+  const batches: any[][] = [];
+  let batch: any[] = [];
+  for (const record of records) {
+    if (new TextEncoder().encode(JSON.stringify(record)).length > 240 * 1024) throw new Error("Ranking record exceeds safe database item budget; split before persistence.");
+    if (batch.length >= 50 || new TextEncoder().encode(JSON.stringify([...batch, record])).length > 900 * 1024) {
+      batches.push(batch);
+      batch = [];
+    }
+    batch.push(record);
+  }
+  if (batch.length) batches.push(batch);
+  return batches;
+}
+
 async function loadTaiwanCompanyUniverse(metrics?: ExternalRequestMetrics) {
   try {
     const info = await requestFinMindDataset("TaiwanStockInfo", "", 12000, metrics);
@@ -4872,7 +5078,7 @@ async function persistOfficialHistoricalMarketDay(snapshot: Awaited<ReturnType<t
     rows: [...snapshot.rows.entries()].map(([code, row]) => [code, row.open, row.high, row.low, row.close, row.volume]),
     createdAt: new Date().toISOString(),
   };
-  const [dayId] = await db.add(MARKET_HISTORY_DAY_TABLE, [record]);
+  const [dayId] = await addRankingRecords(MARKET_HISTORY_DAY_TABLE, [record]);
   if (!dayId) throw new Error(`Unable to persist ${key} official market history.`);
   const nextRecord = {
     schemaVersion: MARKET_HISTORY_SCHEMA_VERSION,
@@ -4880,6 +5086,7 @@ async function persistOfficialHistoricalMarketDay(snapshot: Awaited<ReturnType<t
     days: { ...(registry?.days || {}), [key]: dayId },
     updatedAt: new Date().toISOString(),
   };
+  rankingDbWriteBatches([nextRecord]);
   if (registry?.id) {
     const [updated] = await db.update(MARKET_HISTORY_REGISTRY_TABLE, [{ id: registry.id, record: nextRecord }]);
     if (!updated) throw new Error("Unable to update the official market history registry.");
@@ -4893,7 +5100,9 @@ async function persistOfficialHistoricalMarketDay(snapshot: Awaited<ReturnType<t
 async function loadPersistedOfficialHistory(dayIds: string[]) {
   const records: any[] = [];
   for (let index = 0; index < dayIds.length; index += 50) {
-    records.push(...(await db.get<any>(MARKET_HISTORY_DAY_TABLE, dayIds.slice(index, index + 50))).filter(Boolean));
+    const chunk = await getRankingRecords(MARKET_HISTORY_DAY_TABLE, dayIds.slice(index, index + 50));
+    if (chunk.some(record => !record)) throw new Error("Official history checkpoint references missing records.");
+    records.push(...chunk);
   }
   const byCode = new Map<string, DailyBar[]>();
   records.forEach(record => (record.rows || []).forEach((storedRow: any) => {
@@ -4948,9 +5157,7 @@ async function persistOfficialHistoryProfileBatches(jobId: string, companies: Ta
     codesByRecord.push(codes);
   }
   const ids: string[] = [];
-  for (let index = 0; index < records.length; index += 50) {
-    ids.push(...await db.add(MARKET_HISTORY_PROFILE_BATCH_TABLE, records.slice(index, index + 50)));
-  }
+  ids.push(...await addRankingRecords(MARKET_HISTORY_PROFILE_BATCH_TABLE, records));
   if (ids.length !== records.length || ids.some(id => !id)) throw new Error("Unable to persist all official history profile batches.");
   const byCode: Record<string, string> = {};
   ids.forEach((id, index) => codesByRecord[index].forEach(code => {
@@ -4962,7 +5169,8 @@ async function persistOfficialHistoryProfileBatches(jobId: string, companies: Ta
 async function loadOfficialHistoryForCodes(codes: string[], profileBatchByCode: Record<string, string>) {
   const ids = [...new Set(codes.map(code => profileBatchByCode?.[code]).filter(Boolean))];
   if (!ids.length) return new Map<string, DailyBar[]>();
-  const records = await db.get<any>(MARKET_HISTORY_PROFILE_BATCH_TABLE, ids);
+  const records = await getRankingRecords(MARKET_HISTORY_PROFILE_BATCH_TABLE, ids);
+  if (records.some(record => !record)) throw new Error("Official history profile batch is missing.");
   const byCode = new Map<string, DailyBar[]>();
   records.filter(Boolean).forEach(record => (record.items || []).forEach((item: any) => {
     if (codes.includes(item.code) && Array.isArray(item.bars)) {
@@ -8762,10 +8970,11 @@ async function readRankingSnapshot(mode: string) {
   const snapshotId = registry?.activeByMode?.[mode];
   if (!snapshotId) {
     const recentJobs = await listAllDbRecords(RANKING_REFRESH_JOB_TABLE, 3).catch(() => []);
-    const rejectedJob = recentJobs
+    const rejectedHeader = recentJobs
       .filter((job: any) => job?.status === "completed" || job?.status === "rejected")
-      .filter((job: any) => job?.result?.batch?.rejectedModes?.includes(mode))
+      .filter((job: any) => (job?.rejectedModes || job?.result?.batch?.rejectedModes || []).includes(mode))
       .sort((a: any, b: any) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))[0];
+    const rejectedJob = rejectedHeader ? await unpackRankingRecord(rejectedHeader) : null;
     if (rejectedJob) {
       const gate = rejectedJob.result?.batch?.rejectedByMode?.[mode] || null;
       return {
@@ -8786,7 +8995,7 @@ async function readRankingSnapshot(mode: string) {
       message: "No completed ranking snapshot is available yet. Use the ranking refresh button to build one.",
     };
   }
-  const [record] = await db.get<any>(RANKING_SNAPSHOT_TABLE, [snapshotId]);
+  const [record] = await getRankingRecords(RANKING_SNAPSHOT_TABLE, [snapshotId]);
   if (!record || record.status !== "complete" || !record.payload) {
     return {
       ok: false,
@@ -8961,7 +9170,7 @@ async function publishRankingSnapshots(basePayload: any, mode: string, options: 
     batchId: stableEvidenceId(["ranking-batch", basePayload.generatedAt, basePayload.universe?.join(",")]),
     payload: payloads[rankingMode],
   }));
-  const snapshotIds = await db.add(RANKING_SNAPSHOT_TABLE, records);
+  const snapshotIds = await addRankingRecords(RANKING_SNAPSHOT_TABLE, records);
   if (snapshotIds.length !== records.length || snapshotIds.some(id => !id)) throw new Error("Unable to persist every completed ranking snapshot.");
   const registry = await activeRankingRegistry();
   const activatedByMode = Object.fromEntries(completeModes.map((rankingMode, index) => [rankingMode, snapshotIds[index]]));
@@ -8970,6 +9179,7 @@ async function publishRankingSnapshots(basePayload: any, mode: string, options: 
     updatedAt: now,
     activeByMode: { ...(registry?.activeByMode || {}), ...activatedByMode },
   };
+  rankingDbWriteBatches([nextRegistry]);
   if (registry?.id) {
     const [updated] = await db.update(RANKING_REGISTRY_TABLE, [{ id: registry.id, record: nextRegistry }]);
     if (!updated) throw new Error("Unable to activate completed ranking snapshot.");
@@ -9049,14 +9259,16 @@ function compactRankingItem(item: ValueScore) {
 }
 
 async function readRankingRefreshJob(id: string) {
-  const [record] = await db.get<any>(RANKING_REFRESH_JOB_TABLE, [id]);
-  return record ? { ...record, id } : null;
+  const [record] = await getRankingRecords(RANKING_REFRESH_JOB_TABLE, [id]);
+  if (record) record.id = id;
+  return record || null;
 }
 
 async function saveRankingRefreshJob(id: string, job: any) {
-  const { id: _id, ...record } = job;
-  const [ok] = await db.update(RANKING_REFRESH_JOB_TABLE, [{ id, record }]);
+  const packed = await packRankingRecord(job);
+  const [ok] = await db.update(RANKING_REFRESH_JOB_TABLE, [{ id, record: packed.header }]);
   if (!ok) throw new Error("Unable to persist ranking refresh progress.");
+  rankingRecordMemo.set(job, packed.memo);
 }
 
 async function persistMarketFeatureBatch(jobId: string, batchKey: string, items: any[], meta: any) {
@@ -9070,7 +9282,7 @@ async function persistMarketFeatureBatch(jobId: string, batchKey: string, items:
     createdAt: new Date().toISOString(),
     items,
   };
-  const [id] = await db.add(MARKET_FEATURE_BATCH_TABLE, [record]);
+  const [id] = await addRankingRecords(MARKET_FEATURE_BATCH_TABLE, [record]);
   if (!id) throw new Error("Unable to persist the completed market feature batch.");
   return id;
 }
@@ -9079,8 +9291,9 @@ async function loadMarketFeatureRows(job: any) {
   const ids = Object.values(job.featureBatchIds || {}).filter(Boolean) as string[];
   const records: any[] = [];
   for (let index = 0; index < ids.length; index += 50) {
-    const chunk = await db.get<any>(MARKET_FEATURE_BATCH_TABLE, ids.slice(index, index + 50));
-    records.push(...chunk.filter(Boolean));
+    const chunk = await getRankingRecords(MARKET_FEATURE_BATCH_TABLE, ids.slice(index, index + 50));
+    if (chunk.some(record => !record)) throw new Error("Market feature checkpoint references missing records.");
+    records.push(...chunk);
   }
   const byCode = new Map<string, any>();
   records
@@ -9120,7 +9333,7 @@ async function publishMarketThemeSnapshot(job: any) {
       ...((job.errors || []).length ? [`${job.errors.length} stock attempts still lacked usable evidence after retry.`] : []),
     ],
   };
-  const [snapshotId] = await db.add(MARKET_THEME_SNAPSHOT_TABLE, [snapshot]);
+  const [snapshotId] = await addRankingRecords(MARKET_THEME_SNAPSHOT_TABLE, [snapshot]);
   if (!snapshotId) throw new Error("Unable to persist the full-market theme snapshot.");
   const registries = await listAllDbRecords(MARKET_THEME_REGISTRY_TABLE, 2).catch(() => []);
   const registryRecord = {
@@ -9128,6 +9341,7 @@ async function publishMarketThemeSnapshot(job: any) {
     schemaVersion: MARKET_FEATURE_SCHEMA_VERSION,
     updatedAt: generatedAt,
   };
+  rankingDbWriteBatches([registryRecord]);
   if (registries[0]?.id) {
     const [updated] = await db.update(MARKET_THEME_REGISTRY_TABLE, [{ id: registries[0].id, record: registryRecord }]);
     if (!updated) throw new Error("Unable to activate the full-market theme snapshot.");
@@ -9144,7 +9358,7 @@ async function readMarketThemeSnapshot() {
     .filter((item: any) => item?.activeSnapshotId && item?.schemaVersion === MARKET_FEATURE_SCHEMA_VERSION)
     .sort((a: any, b: any) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))[0];
   if (!registry?.activeSnapshotId) return null;
-  const [snapshot] = await db.get<any>(MARKET_THEME_SNAPSHOT_TABLE, [registry.activeSnapshotId]);
+  const [snapshot] = await getRankingRecords(MARKET_THEME_SNAPSHOT_TABLE, [registry.activeSnapshotId]);
   return snapshot ? { ...snapshot, id: registry.activeSnapshotId } : null;
 }
 
@@ -9180,6 +9394,12 @@ function publicRankingRefreshJob(job: any) {
       label: `${job.pilotSize}-stock performance pilot; not a public full-market ranking`,
     } : { enabled: false },
     performance: job.performance || null,
+    historySessionCounts: job.historySessionCounts || null,
+    historyCoverage: job.historyCoverage || null,
+    historyErrors: (job.historyErrors || []).filter((entry: any) => !knownMarketClosure(entry.date)),
+    verifiedClosures: (job.historyErrors || []).filter((entry: any) => knownMarketClosure(entry.date)).map((entry: any) => ({ ...entry, closure: knownMarketClosure(entry.date) })),
+    skippedClosures: job.skippedClosures || [],
+    batchErrors: job.batchErrors || [],
     result: done ? job.result || null : null,
   };
 }
@@ -9304,6 +9524,7 @@ async function createRankingRefreshJob(mode: string, options: { pilotSize?: numb
     .filter((item: any) => item?.status === "queued" || item?.status === "running")
     .filter((item: any) => item?.scope === scope)
     .filter((item: any) => item?.schemaVersion === MARKET_FEATURE_SCHEMA_VERSION)
+    .filter((item: any) => { try { assertRankingJobResumable(item); return true; } catch { return false; } })
     .filter((item: any) => !pilotSize || item?.pilotVersion === RANKING_PILOT_VERSION)
     .filter((item: any) => pilotSize || !item?.universe?.length || (
       Number(item?.universeMeta?.fullMarketCounts?.twse || 0) >= MARKET_UNIVERSE_MIN_TWSE_COUNT
@@ -9312,7 +9533,7 @@ async function createRankingRefreshJob(mode: string, options: { pilotSize?: numb
     ))
     .filter((item: any) => Date.now() - Date.parse(item.updatedAt || item.createdAt || 0) < 7 * 24 * 60 * 60 * 1000)
     .sort((a: any, b: any) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))[0];
-  if (reusable?.id) return reusable;
+  if (reusable?.id) return await readRankingRefreshJob(reusable.id);
   const record = {
     status: "queued",
     createdAt: now,
@@ -9383,6 +9604,7 @@ async function createRankingRefreshJob(mode: string, options: { pilotSize?: numb
 async function advanceRankingRefreshJob(id: string) {
   const job = await readRankingRefreshJob(id);
   if (!job || ["completed", "rejected", "failed"].includes(job.status)) return job;
+  assertRankingJobResumable(job);
   const runningAgeMs = Date.now() - Date.parse(job.runningBatchAt || 0);
   if (job.status === "running" && Number.isFinite(runningAgeMs) && runningAgeMs < 60000) return job;
   if (!job.universe?.length && String(job.scope || "").startsWith("twse-tpex-")) {
@@ -9395,7 +9617,7 @@ async function advanceRankingRefreshJob(id: string) {
     try {
       const setupStartedAt = Date.now();
       const phaseMetrics = emptyExternalRequestMetrics();
-      const marketUniverse: any = await withTimeout(loadTaiwanCompanyUniverse(phaseMetrics), 35000, "Taiwan company universe timed out");
+      const marketUniverse: any = await withTimeout(loadOfficialRankingUniverse(phaseMetrics), 35000, "Official ranking universe timed out");
       const liquidity = await withTimeout(loadPilotLiquidityProfiles(phaseMetrics), 30000, "Taiwan official quote and liquidity snapshots timed out");
       if (!liquidity.commonAsOfDate) {
         throw new Error(`Official TWSE/TPEx quote dates are incomplete: ${JSON.stringify(liquidity.marketDates || {})}`);
@@ -9451,6 +9673,8 @@ async function advanceRankingRefreshJob(id: string) {
       job.universeMeta = {
         ...job.universeMeta,
         fullMarketVersion: marketUniverse.version || TAIWAN_COMPANY_UNIVERSE_VERSION,
+        directorySource: marketUniverse.source,
+        directorySourceDates: marketUniverse.sourceDates,
         fullMarketCompanyCount: listedCompanies.length,
         fullMarketCounts: marketUniverse.counts || null,
         fullMarketStatus: "connected",
@@ -9529,6 +9753,13 @@ async function advanceRankingRefreshJob(id: string) {
       let examined = 0;
       while (cursor < dates.length && examined < 5 && (counts.twse < MARKET_HISTORY_TARGET_SESSIONS || counts.tpex < MARKET_HISTORY_TARGET_SESSIONS)) {
         const date = dates[cursor];
+        const closure = knownMarketClosure(date);
+        if (closure) {
+          job.skippedClosures = [...(job.skippedClosures || []).filter((entry: any) => entry.date !== date), closure];
+          cursor += 1;
+          examined += 1;
+          continue;
+        }
         for (const market of ["twse", "tpex"] as TaiwanListedMarket[]) {
           if (counts[market] >= MARKET_HISTORY_TARGET_SESSIONS) continue;
           const key = `${market}:${date}`;
@@ -9541,6 +9772,7 @@ async function advanceRankingRefreshJob(id: string) {
             }
           } catch (err) {
             historyErrors.push({ market, date, message: err instanceof Error ? err.message : String(err) });
+            if (/429|quota|AppDatabaseQuotaExceeded/i.test(String(err))) throw err;
           }
         }
         cursor += 1;
@@ -9894,6 +10126,14 @@ async function advanceRankingRefreshJob(id: string) {
         : `Saved ${job.currentIndex} of ${job.universe.length} stock attempts; ${job.scoredCount} currently have persisted common features.`;
     return await finishPhase(nextMessage);
   } catch (err) {
+    // An interrupted final save may have committed remotely or not at all.
+    // Reload its checkpoint before recording failure, rather than saving local counters twice.
+    const persisted = await readRankingRefreshJob(id);
+    if (!persisted) throw new Error("Ranking checkpoint disappeared; refusing to recreate progress.");
+    Object.keys(job).forEach(key => delete job[key]);
+    Object.assign(job, persisted);
+    const persistedMemo = rankingRecordMemo.get(persisted);
+    if (persistedMemo) rankingRecordMemo.set(job, persistedMemo);
     job.batchErrors = [...(job.batchErrors || []), { phase: isRetry ? "retry" : "features", start, message: err instanceof Error ? err.message : String(err), at: new Date().toISOString() }].slice(-30);
     return await finishPhase(`Batch ${start + 1}-${start + batch.length} was not committed to job progress and can be retried with the same job ID.`);
   }
@@ -11471,6 +11711,11 @@ export const handler = router({
     } catch (err) {
       return json({ ok: false, message: `Unable to read ranking refresh job: ${err instanceof Error ? err.message : String(err)}` }, 502);
     }
+  }],
+
+  "GET /api/screener/refresh/jobs/:id/storage-audit": [async ({ params, query }: any) => {
+    try { return json(await auditRankingStorage(String(params?.id || ""), Number(query?.dayIndex || 0))); }
+    catch (err) { return json({ ok: false, message: err instanceof Error ? err.message : String(err) }, 502); }
   }],
 
   "POST /api/screener/refresh/jobs/:id/advance": [async ({ params }: any) => {
