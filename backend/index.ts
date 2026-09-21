@@ -11754,6 +11754,20 @@ export const handler = router({
     catch (err) { return json({ ok: false, message: err instanceof Error ? err.message : String(err) }, 502); }
   }],
 
+  "GET /api/screener/refresh/jobs/:id/feature-audit": [async ({ params, query }: any) => {
+    try {
+      const job = await readRankingRefreshJob(String(params?.id || ''));
+      const batchKey = String(query?.batchKey || '');
+      if (!/^(features|retry)-\d{1,5}$/.test(batchKey) || !job?.featureBatchIds?.[batchKey]) return error('Unknown feature batch', 404);
+      const [record] = await getRankingRecords(MARKET_FEATURE_BATCH_TABLE, [job.featureBatchIds[batchKey]]);
+      if (!record) throw new Error('Referenced feature batch missing');
+      return json({ ok: true, batchKey, storage: rankingReadAudit.get(record),
+        items: (record.items || []).map((item: any) => ({ code: item.code, quoteDate: item.quoteDate,
+          coverage: item.dataStatus?.coverage, warnings: item.dataStatus?.warnings || [],
+          rankingTrust: item.rankingTrust, cachedDatasets: item.dataStatus?.cachedDatasets || [] })) });
+    } catch (err) { return json({ ok: false, message: err instanceof Error ? err.message : String(err) }, 502); }
+  }],
+
   "POST /api/screener/refresh/jobs/:id/advance": [async ({ params }: any) => {
     const id = String(params?.id || "").trim();
     if (!id) return error("Missing ranking refresh job id", 400);
