@@ -40,12 +40,19 @@ async function auditDays() {
   console.log(JSON.stringify({auditDays:audits.length,maxItemBytes:Math.max(...audits.flatMap(a=>[a.storage.maxItemBytes,a.day?.storage.maxItemBytes||0]))}));
 }
 try {
-  let job=await request(jobPath); validate(job);
-  await auditDays();
+  async function repair(job) {
+    if (!job.historyErrors?.length) return job;
+    assert(!job.historyErrors.some(e=>/quota|429/i.test(e.message)),'Quota failure requires stopping');
+    const repaired=await request(jobPath+'/retry-history','POST');
+    assert(!repaired.historyErrors?.length,'History repair incomplete; stop');
+    return repaired;
+  }
+  let job=await repair(await request(jobPath)); validate(job);
+  if (!process.argv.includes('--audit-at-end')) await auditDays();
   for(let batch=0;batch<180 && !job.done;batch++) {
     assert(Date.now()<deadline,'90-minute limit reached');
     const before=job;
-    job=await request(jobPath+'/advance','POST');
+    job=await repair(await request(jobPath+'/advance','POST'));
     validate(job);
     const readback=await request(jobPath);
     assert.deepEqual(readback,job,'Persisted checkpoint differs');

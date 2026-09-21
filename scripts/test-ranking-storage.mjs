@@ -60,7 +60,7 @@ const code = section('function assertRankingJobResumable(', 'async function load
   + section('async function readRankingRefreshJob(', 'async function publishMarketThemeSnapshot(')
   + section('async function advanceRankingRefreshJob(', 'function normalizeStockSearchText(')
   + section('async function publishRankingSnapshots(', 'function compactRankingItem(');
-const api = runInNewContext(stripTypeScriptTypes(code) + '\n({auditRankingStorage, packRankingRecord, unpackRankingRecord, addRankingRecords, getRankingRecords, readRankingRefreshJob, saveRankingRefreshJob, loadMarketFeatureRows, advanceRankingRefreshJob, publishRankingSnapshots});', context);
+const api = runInNewContext(stripTypeScriptTypes(code) + '\n({retryRankingHistory, auditRankingStorage, packRankingRecord, unpackRankingRecord, addRankingRecords, getRankingRecords, readRankingRefreshJob, saveRankingRefreshJob, loadMarketFeatureRows, advanceRankingRefreshJob, publishRankingSnapshots});', context);
 
 for (const count of [1976, 6000]) {
   const profiles = Array.from({ length: count }, (_, i) => ({ code: String(1000 + i), name: '測試公司😀', officialQuote: { close: 100, source: 'fixture'.repeat(60) } }));
@@ -126,6 +126,18 @@ assert.equal(JSON.stringify(table('registry').get('active')), priorRegistry, 'Pi
 const [legacyId] = await db.add('legacy', [{ items: [{ code: '2330' }] }]);
 assert.equal((await api.getRankingRecords('legacy', [legacyId]))[0].items[0].code, '2330');
 const [auditDay] = await api.addRankingRecords('days', [{market:'twse',date:'2026-09-18',rows:[['2330',100,110,95,105,1000]]}]);
+context.loadOfficialHistoricalMarketDay = async (market,date) => ({market,date,rows:[['2330',100,110,95,105,1000]]});
+context.persistOfficialHistoricalMarketDay = async record => (await api.addRankingRecords('days',[record]))[0];
+const [retryJob] = await api.addRankingRecords('jobs',[{schemaVersion:context.MARKET_FEATURE_SCHEMA_VERSION,createdAt:new Date().toISOString(),phase:'history',status:'queued',historyErrors:[{market:'twse',date:'2026-07-02',message:'terminated'}],historyDayIds:{},historySessionCounts:{twse:0,tpex:0}}]);
+const repaired = await api.retryRankingHistory(retryJob);
+assert.equal(repaired.historySessionCounts.twse,1);
+assert.equal(repaired.resolvedHistoryErrors.length,1);
+assert.equal((await api.retryRankingHistory(retryJob)).historySessionCounts.twse,1);
+const quotaJob = table('jobs').get(retryJob);
+quotaJob.historyErrors=[{market:'twse',date:'2026-07-01',message:'429 quota'}];
+const writesBeforeQuota=writes;
+await assert.rejects(()=>api.retryRankingHistory(retryJob),/Quota/);
+assert.equal(writes,writesBeforeQuota);
 const [auditJob] = await api.addRankingRecords('jobs', [{companyProfiles:[{code:'2330'}],historyDayIds:{'twse:2026-09-18':auditDay}}]);
 const audited = await api.auditRankingStorage(auditJob,0);
 assert.equal(audited.day.valid,true);

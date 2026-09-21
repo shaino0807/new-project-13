@@ -57,6 +57,10 @@ setup 與 history 回應均以另一個 GET 讀回，深層欄位值一致。初
 
 ## 剩餘驗收條件（已授權依門檻執行）
 
+續跑時另修復兩項實際問題：TPEx HTTP 回應中途斷線／逾時，及五日期批次觸發 API 504。新增 `retry-history` 只補抓已記錄的失敗日期，每 key 最多兩次；成功持久化並讀回才解決錯誤，保留 resolvedHistoryErrors，配額失敗不自動重試。歷史批次縮為一個日期、兩市場，每次來源請求上限八秒。已保存 market/date 紀錄重用，測試確認不重複計數。再次使用上限中斷時，工作已保存到 candidate 92、兩市場各 90/120 日，無未解決 historyErrors/batchErrors；沒有殘留本機續跑程序。
+
+第一筆程式提交 `ad0ac75` 已推送 main，GitHub Actions `35522621947` build/deploy 成功；GitHub Pages 與 AppDeploy 都 HTTP 200。後續復原修復及最終 pilot 結果另列後續提交，不將此工作中紀錄當成 Phase D 完成證明。
+
 1. 補足受限的遠端儲存稽核：可觀察母體來源日期／指紋、分片 bytes 與歷史讀回完整性，避免以公開進度計數替代底層驗證。
 2. 再決定是否續跑同一個仍有效的新 pilot；若 schema 或建立時間失效則建立新工作，不續跑舊 schema 工作。
 3. 完整 pilot：每批最多 20 檔、併發 4，最多 90 分鐘；遇配額、容量、schema 或日期異常停止，不無限重試。公開排名不得被 pilot 啟用。

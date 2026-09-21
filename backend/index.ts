@@ -2803,6 +2803,35 @@ async function auditRankingStorage(id: string, dayIndex: number) {
     dayIndex, totalDays: days.length, nextDayIndex: dayIndex + 1 < days.length ? dayIndex + 1 : null, day };
 }
 
+async function retryRankingHistory(id: string) {
+  const job = await readRankingRefreshJob(id);
+  if (!job) throw new Error('Ranking job not found');
+  assertRankingJobResumable(job);
+  if (job.phase !== 'history' || job.status !== 'queued') throw new Error('History retry requires an idle history checkpoint');
+  const failure = (job.historyErrors || []).find((entry: any) => !knownMarketClosure(entry.date));
+  if (!failure) return job;
+  if (/quota|429/i.test(failure.message)) throw new Error('Quota failures must not be retried automatically');
+  const key = `${failure.market}:${failure.date}`;
+  const attempts = Number(job.historyRetryAttempts?.[key] || 0);
+  if (attempts >= 2) throw new Error('History retry budget exhausted');
+  job.historyRetryAttempts = { ...(job.historyRetryAttempts || {}), [key]: attempts + 1 };
+  await saveRankingRefreshJob(id, job);
+  const snapshot = await loadOfficialHistoricalMarketDay(failure.market, failure.date, job.performance?.externalRequests);
+  const dayId = await persistOfficialHistoricalMarketDay(snapshot);
+  const [persisted] = await getRankingRecords(MARKET_HISTORY_DAY_TABLE, [dayId]);
+  if (!persisted || persisted.date !== failure.date || persisted.market !== failure.market) throw new Error('Retry readback mismatch');
+  if (!job.historyDayIds[key]) {
+    job.historyDayIds[key] = dayId;
+    job.historySessionCounts[failure.market] += 1;
+  }
+  job.resolvedHistoryErrors = [...(job.resolvedHistoryErrors || []), { ...failure, resolvedAt: new Date().toISOString(), attempts: attempts + 1 }];
+  job.historyErrors = job.historyErrors.filter((entry: any) => `${entry.market}:${entry.date}` !== key);
+  job.updatedAt = new Date().toISOString();
+  job.message = `Recovered official history ${key} and verified persisted readback.`;
+  await saveRankingRefreshJob(id, job);
+  return job;
+}
+
 async function addRankingRecords(table: string, records: any[]) {
   const headers: any[] = [];
   for (const record of records) headers.push((await packRankingRecord(record)).header);
@@ -5044,7 +5073,7 @@ async function loadOfficialHistoricalMarketDay(market: TaiwanListedMarket, date:
   const endpoint = OFFICIAL_HISTORICAL_MARKET_ENDPOINTS[market];
   const request = (async () => {
     const sourceUrl = endpoint.url(date);
-    const payload = await fetchJson(sourceUrl, 15000, metrics);
+    const payload = await fetchJson(sourceUrl, 8000, metrics);
     const snapshot = { market, date, source: endpoint.source, sourceUrl, rows: parseOfficialHistoricalMarketDay(market, date, payload) };
     officialHistoricalDayCache.set(key, snapshot);
     return snapshot;
@@ -9399,6 +9428,7 @@ function publicRankingRefreshJob(job: any) {
     historyErrors: (job.historyErrors || []).filter((entry: any) => !knownMarketClosure(entry.date)),
     verifiedClosures: (job.historyErrors || []).filter((entry: any) => knownMarketClosure(entry.date)).map((entry: any) => ({ ...entry, closure: knownMarketClosure(entry.date) })),
     skippedClosures: job.skippedClosures || [],
+    resolvedHistoryErrors: job.resolvedHistoryErrors || [],
     batchErrors: job.batchErrors || [],
     result: done ? job.result || null : null,
   };
@@ -9751,7 +9781,8 @@ async function advanceRankingRefreshJob(id: string) {
       const historyErrors = [...(job.historyErrors || [])];
       let cursor = startCursor;
       let examined = 0;
-      while (cursor < dates.length && examined < 5 && (counts.twse < MARKET_HISTORY_TARGET_SESSIONS || counts.tpex < MARKET_HISTORY_TARGET_SESSIONS)) {
+      // Two market requests must fit the API response window, including persistence.
+      while (cursor < dates.length && examined < 1 && (counts.twse < MARKET_HISTORY_TARGET_SESSIONS || counts.tpex < MARKET_HISTORY_TARGET_SESSIONS)) {
         const date = dates[cursor];
         const closure = knownMarketClosure(date);
         if (closure) {
@@ -11715,6 +11746,11 @@ export const handler = router({
 
   "GET /api/screener/refresh/jobs/:id/storage-audit": [async ({ params, query }: any) => {
     try { return json(await auditRankingStorage(String(params?.id || ""), Number(query?.dayIndex || 0))); }
+    catch (err) { return json({ ok: false, message: err instanceof Error ? err.message : String(err) }, 502); }
+  }],
+
+  "POST /api/screener/refresh/jobs/:id/retry-history": [async ({ params }: any) => {
+    try { return json(publicRankingRefreshJob(await retryRankingHistory(String(params?.id || '')))); }
     catch (err) { return json({ ok: false, message: err instanceof Error ? err.message : String(err) }, 502); }
   }],
 
