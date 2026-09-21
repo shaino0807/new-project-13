@@ -219,6 +219,9 @@ type ExternalRequestMetrics = {
   byProvider: Record<string, number>;
   bytesByProvider: Record<string, number>;
   failuresByProvider: Record<string, number>;
+  recoveredFailures?: number;
+  unresolvedFinMind?: number;
+  finMindFailures?: Array<{ dataset: string; code: string; status: number; kind: string; authenticated: boolean }>;
 };
 
 function emptyExternalRequestMetrics(): ExternalRequestMetrics {
@@ -264,6 +267,9 @@ function mergeExternalRequestMetrics(target: ExternalRequestMetrics, incoming: E
   Object.entries(incoming.byProvider).forEach(([key, value]) => addMetric(target.byProvider, key, value));
   Object.entries(incoming.bytesByProvider).forEach(([key, value]) => addMetric(target.bytesByProvider, key, value));
   Object.entries(incoming.failuresByProvider).forEach(([key, value]) => addMetric(target.failuresByProvider, key, value));
+  target.recoveredFailures = Number(target.recoveredFailures || 0) + Number(incoming.recoveredFailures || 0);
+  target.unresolvedFinMind = Number(target.unresolvedFinMind || 0) + Number(incoming.unresolvedFinMind || 0);
+  target.finMindFailures = [...(target.finMindFailures || []), ...(incoming.finMindFailures || [])].slice(-40);
   return target;
 }
 
@@ -451,7 +457,7 @@ async function persistFinMindCache(cacheKey: string, dataset: string, code: stri
 }
 
 async function getFinMindToken() {
-  if (Date.now() < finMindTokenDisabledUntil) return "";
+  if (Date.now() < finMindTokenDisabledUntil) throw new FinMindError('Configured FinMind token was rejected; anonymous downgrade is disabled', 401, 'auth_error');
   if (!finMindTokenPromise) {
     finMindTokenPromise = secrets.readSecret("FINMIND_TOKEN").catch(() => "");
   }
@@ -565,6 +571,7 @@ async function requestFinMindDataset(dataset: string, code: string, timeoutMs = 
     }
     if (code) params.set("data_id", code);
     const token = await getFinMindToken();
+    let failedTransportAttempts = 0;
     const requestUrlFor = (startDate?: string) => {
       const scoped = new URLSearchParams(params);
       if (dataset !== "TaiwanStockInfo" && startDate) scoped.set("start_date", startDate);
@@ -581,7 +588,8 @@ async function requestFinMindDataset(dataset: string, code: string, timeoutMs = 
             Accept: "application/json",
             ...(useToken && token ? { Authorization: `Bearer ${token}` } : {}),
           },
-        }, metrics);
+        }, metrics).catch(err => { failedTransportAttempts += 1; throw err; });
+        if (!res.ok) failedTransportAttempts += 1;
         const text = await res.text();
         recordResponseBytes(metrics, requestUrl, text);
         let payload: any = null;
@@ -599,6 +607,12 @@ async function requestFinMindDataset(dataset: string, code: string, timeoutMs = 
           );
         }
         return payload.data as FinMindRow[];
+      } catch (err) {
+        if (metrics) metrics.finMindFailures = [...(metrics.finMindFailures || []), {
+          dataset, code, status: err instanceof FinMindError ? err.status : 0,
+          kind: err instanceof FinMindError ? err.code : 'transport_error', authenticated: Boolean(useToken && token),
+        }].slice(-40);
+        throw err;
       } finally {
         clearTimeout(timer);
       }
@@ -610,10 +624,9 @@ async function requestFinMindDataset(dataset: string, code: string, timeoutMs = 
         ? [finMindStartDate(dataset), isoDateDaysAgo(120)]
         : [finMindStartDate(dataset)];
       const attempts: Array<{ useToken: boolean; startDate: string }> = [];
-      startDates.forEach(startDate => {
-        attempts.push({ useToken: false, startDate });
-        if (token && dataset !== "TaiwanStockDividend") attempts.push({ useToken: true, startDate });
-      });
+      // Keep the same identity throughout recovery; never evade a quota by switching identities.
+      startDates.forEach(startDate => attempts.push({ useToken: Boolean(token), startDate }));
+      if (attempts.length === 1) attempts.push({ ...attempts[0] });
       for (const attempt of attempts) {
         try {
           data = await fetchDataset(attempt.useToken, attempt.startDate);
@@ -625,13 +638,14 @@ async function requestFinMindDataset(dataset: string, code: string, timeoutMs = 
             finMindTokenDisabledUntil = Date.now() + 30 * 60 * 1000;
             break;
           }
-          if (!(err instanceof FinMindError) || !["quota_exceeded", "auth_error", "upstream_error"].includes(err.code)) break;
+          if (err instanceof FinMindError && err.code !== 'upstream_error') break;
         }
       }
       if (!data) throw lastError;
       const entry = { data, fetchedAt: Date.now() };
       finMindCache.set(cacheKey, entry);
       await persistFinMindCache(cacheKey, dataset, code, entry);
+      if (metrics) metrics.recoveredFailures = Number(metrics.recoveredFailures || 0) + failedTransportAttempts;
       return {
         dataset,
         data: entry.data,
@@ -640,6 +654,7 @@ async function requestFinMindDataset(dataset: string, code: string, timeoutMs = 
         stale: false,
       };
     } catch (err) {
+      if (metrics) metrics.unresolvedFinMind = Number(metrics.unresolvedFinMind || 0) + 1;
       if (cached && now - cached.fetchedAt < 24 * 60 * 60 * 1000) {
         return {
           dataset,
@@ -9251,6 +9266,7 @@ function compactRankingItem(item: ValueScore) {
     technicalSnapshot: item.technicalSnapshot,
     fundamentals: {
       assetType: item.fundamentals?.assetType,
+      errors: item.fundamentals?.errors || [],
       source: item.fundamentals?.source,
       sourceUrl: item.fundamentals?.sourceUrl,
       fallbackSourceUrl: item.fundamentals?.fallbackSourceUrl,
@@ -11763,7 +11779,7 @@ export const handler = router({
       if (!record) throw new Error('Referenced feature batch missing');
       return json({ ok: true, batchKey, storage: rankingReadAudit.get(record),
         items: (record.items || []).map((item: any) => ({ code: item.code, quoteDate: item.quoteDate,
-          coverage: item.dataStatus?.coverage, warnings: item.dataStatus?.warnings || [],
+          coverage: item.dataStatus?.coverage, warnings: item.dataStatus?.warnings || [], sourceErrors: item.fundamentals?.errors || [],
           rankingTrust: item.rankingTrust, cachedDatasets: item.dataStatus?.cachedDatasets || [] })) });
     } catch (err) { return json({ ok: false, message: err instanceof Error ? err.message : String(err) }, 502); }
   }],

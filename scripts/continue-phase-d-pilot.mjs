@@ -24,7 +24,9 @@ function validate(job) {
   assert.equal(job.pilot?.size,250);
   assert(!job.historyErrors?.length,`Historical source errors: ${JSON.stringify(job.historyErrors)}`);
   assert(!job.batchErrors?.length,`Batch errors: ${JSON.stringify(job.batchErrors)}`);
-  assert(!job.performance?.externalRequests?.failed, 'Provider failure encountered; preserve evidence and stop');
+  const metrics = job.performance?.externalRequests || {};
+  assert(!metrics.unresolvedFinMind, 'Unresolved FinMind dataset failure; inspect structured diagnostics');
+  assert(Number(metrics.failed || 0) <= Number(metrics.recoveredFailures || 0), 'Unrecovered or legacy unclassified request failure; inspect evidence before resuming');
 }
 async function auditDays() {
   const audits=[];
