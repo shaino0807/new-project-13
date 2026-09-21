@@ -367,6 +367,7 @@ type FinMindDatasetResult = {
   cached: boolean;
   cacheSource?: "memory" | "persistent" | "upstream";
   stale: boolean;
+  persisted?: boolean;
   warning?: string;
 };
 
@@ -387,6 +388,7 @@ const FINMIND_SOURCE_URL = "https://finmind.github.io/";
 const finMindCache = new Map<string, FinMindCacheEntry>();
 const finMindInflight = new Map<string, Promise<FinMindDatasetResult>>();
 const FINMIND_PERSISTENT_DATASETS = new Set([
+  "TaiwanStockPrice",
   "TaiwanStockFinancialStatements",
   "TaiwanStockBalanceSheet",
   "TaiwanStockCashFlowsStatement",
@@ -420,7 +422,8 @@ async function readPersistentFinMindCache(cacheKey: string) {
 }
 
 async function persistFinMindCache(cacheKey: string, dataset: string, code: string, entry: FinMindCacheEntry) {
-  if (!FINMIND_PERSISTENT_DATASETS.has(dataset)) return;
+  if (!FINMIND_PERSISTENT_DATASETS.has(dataset)) return false;
+  let persisted = false;
   finMindPersistentWriteChain = finMindPersistentWriteChain.then(async () => {
     const registry = await readFinMindPersistentRegistry(dataset);
     const record = {
@@ -452,8 +455,10 @@ async function persistFinMindCache(cacheKey: string, dataset: string, code: stri
       if (!registryId) throw new Error("Unable to create FinMind cache registry.");
       finMindPersistentRegistryCache.set(dataset, { id: registryId, ...nextRegistry });
     }
+    persisted = true;
   }).catch(() => undefined);
   await finMindPersistentWriteChain;
+  return persisted;
 }
 
 async function getFinMindToken() {
@@ -484,6 +489,7 @@ function finMindCacheTtl(dataset: string) {
 
 function finMindStartDate(dataset: string) {
   if (dataset === "TaiwanStockInfo") return isoDateDaysAgo(30);
+  if (dataset === "TaiwanStockPrice") return isoDateDaysAgo(400);
   if ([
     "TaiwanStockFinancialStatements",
     "TaiwanStockBalanceSheet",
@@ -493,6 +499,102 @@ function finMindStartDate(dataset: string) {
   if (dataset === "TaiwanStockDividend") return isoDateDaysAgo(365 * 6 + 30);
   if (dataset === "TaiwanStockPER") return isoDateDaysAgo(365 * 5 + 30);
   return isoDateDaysAgo(90);
+}
+
+const CUSTOMER_DATASETS: Record<string, {
+  dataset: string;
+  label: string;
+  preferredColumns: string[];
+}> = {
+  price: {
+    dataset: "TaiwanStockPrice",
+    label: "\u65E5 K \u8207\u6210\u4EA4\u91CF",
+    preferredColumns: ["date", "stock_id", "open", "max", "min", "close", "spread", "Trading_Volume", "Trading_money", "Trading_turnover"],
+  },
+  revenue: {
+    dataset: "TaiwanStockMonthRevenue",
+    label: "\u6708\u71DF\u6536",
+    preferredColumns: ["date", "stock_id", "country", "revenue", "revenue_month", "revenue_year"],
+  },
+  financials: {
+    dataset: "TaiwanStockFinancialStatements",
+    label: "\u640D\u76CA\u8207\u8CA1\u52D9\u6307\u6A19",
+    preferredColumns: ["date", "stock_id", "type", "value", "origin_name"],
+  },
+  balance: {
+    dataset: "TaiwanStockBalanceSheet",
+    label: "\u8CC7\u7522\u8CA0\u50B5\u8868",
+    preferredColumns: ["date", "stock_id", "type", "value", "origin_name"],
+  },
+  cashflow: {
+    dataset: "TaiwanStockCashFlowsStatement",
+    label: "\u73FE\u91D1\u6D41\u91CF\u8868",
+    preferredColumns: ["date", "stock_id", "type", "value", "origin_name"],
+  },
+  valuation: {
+    dataset: "TaiwanStockPER",
+    label: "\u4F30\u503C",
+    preferredColumns: ["date", "stock_id", "PER", "PBR", "dividend_yield"],
+  },
+};
+
+function strictIsoDate(value: unknown) {
+  const text = String(value || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return "";
+  const parsed = new Date(`${text}T00:00:00Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === text ? text : "";
+}
+
+function customerDatasetColumns(rows: FinMindRow[], preferred: string[]) {
+  const found = new Set<string>();
+  rows.forEach(row => Object.keys(row || {}).forEach(key => found.add(key)));
+  return [
+    ...preferred.filter(key => found.has(key)),
+    ...[...found].filter(key => !preferred.includes(key)).sort(),
+  ];
+}
+
+async function loadCustomerDataset(code: string, key: string, startDate: string, endDate: string) {
+  const definition = CUSTOMER_DATASETS[key];
+  if (!definition) throw new FinMindError("Unsupported customer dataset", 400, "invalid_response");
+  const canonicalStart = finMindStartDate(definition.dataset);
+  const requestOptions = startDate < canonicalStart
+    ? { startDate, endDate, persist: false }
+    : undefined;
+  const result = await requestFinMindDataset(definition.dataset, code, 12000, undefined, requestOptions);
+  const matchingRows = result.data
+    .filter(row => {
+      const date = strictIsoDate(row?.date);
+      return Boolean(date && date >= startDate && date <= endDate);
+    })
+    .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
+  const rows = matchingRows.slice(-1000);
+  const dates = rows.map(row => strictIsoDate(row?.date)).filter(Boolean);
+  return {
+    ok: true,
+    code,
+    datasetKey: key,
+    dataset: definition.dataset,
+    label: definition.label,
+    requestedRange: { startDate, endDate },
+    rowCount: rows.length,
+    matchedRowCount: matchingRows.length,
+    truncated: matchingRows.length > rows.length,
+    columns: customerDatasetColumns(rows, definition.preferredColumns),
+    rows,
+    latestDataDate: dates.length ? dates[dates.length - 1] : null,
+    source: "FinMind",
+    sourceUrl: FINMIND_SOURCE_URL,
+    fetchedAt: result.fetchedAt,
+    cache: {
+      hit: result.cached,
+      source: result.cacheSource || "upstream",
+      stale: result.stale,
+      persisted: Boolean(result.persisted || result.cacheSource === "persistent"),
+      warning: result.warning || null,
+    },
+    generatedAt: new Date().toISOString(),
+  };
 }
 
 function finMindErrorCode(status: number): FinMindError["code"] {
@@ -529,13 +631,23 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
   });
 }
 
-async function requestFinMindDataset(dataset: string, code: string, timeoutMs = 12000, metrics?: ExternalRequestMetrics): Promise<FinMindDatasetResult> {
-  const cacheKey = `${dataset}:${code}`;
+async function requestFinMindDataset(
+  dataset: string,
+  code: string,
+  timeoutMs = 12000,
+  metrics?: ExternalRequestMetrics,
+  options?: { startDate?: string; endDate?: string; persist?: boolean },
+): Promise<FinMindDatasetResult> {
+  const customRange = Boolean(options?.startDate || options?.endDate);
+  const cacheKey = customRange
+    ? `${dataset}:${code}:${options?.startDate || ""}:${options?.endDate || ""}`
+    : `${dataset}:${code}`;
   const inflightKey = timeoutMs >= 12000 ? cacheKey : `${cacheKey}:timeout:${timeoutMs}`;
   const now = Date.now();
   let cached = finMindCache.get(cacheKey);
   let cacheSource: "memory" | "persistent" = "memory";
-  if (!cached && FINMIND_PERSISTENT_DATASETS.has(dataset)) {
+  const persistentCacheEnabled = FINMIND_PERSISTENT_DATASETS.has(dataset) && options?.persist !== false && !customRange;
+  if (!cached && persistentCacheEnabled) {
     cached = await readPersistentFinMindCache(cacheKey).catch(() => null) || undefined;
     if (cached) {
       cacheSource = "persistent";
@@ -552,6 +664,7 @@ async function requestFinMindDataset(dataset: string, code: string, timeoutMs = 
       cached: true,
       cacheSource,
       stale: false,
+      persisted: cacheSource === "persistent",
     };
   }
 
@@ -566,8 +679,8 @@ async function requestFinMindDataset(dataset: string, code: string, timeoutMs = 
       dataset,
     });
     if (dataset !== "TaiwanStockInfo") {
-      params.set("start_date", finMindStartDate(dataset));
-      params.set("end_date", new Date().toISOString().slice(0, 10));
+      params.set("start_date", options?.startDate || finMindStartDate(dataset));
+      params.set("end_date", options?.endDate || new Date().toISOString().slice(0, 10));
     }
     if (code) params.set("data_id", code);
     const token = await getFinMindToken();
@@ -620,7 +733,9 @@ async function requestFinMindDataset(dataset: string, code: string, timeoutMs = 
     try {
       let data: FinMindRow[] | null = null;
       let lastError: unknown = null;
-      const startDates = dataset === "TaiwanStockPER"
+      const startDates = options?.startDate
+        ? [options.startDate]
+        : dataset === "TaiwanStockPER"
         ? [finMindStartDate(dataset), isoDateDaysAgo(120)]
         : [finMindStartDate(dataset)];
       const attempts: Array<{ useToken: boolean; startDate: string }> = [];
@@ -644,7 +759,9 @@ async function requestFinMindDataset(dataset: string, code: string, timeoutMs = 
       if (!data) throw lastError;
       const entry = { data, fetchedAt: Date.now() };
       finMindCache.set(cacheKey, entry);
-      await persistFinMindCache(cacheKey, dataset, code, entry);
+      const persisted = persistentCacheEnabled
+        ? await persistFinMindCache(cacheKey, dataset, code, entry)
+        : false;
       if (metrics) metrics.recoveredFailures = Number(metrics.recoveredFailures || 0) + failedTransportAttempts;
       return {
         dataset,
@@ -652,6 +769,7 @@ async function requestFinMindDataset(dataset: string, code: string, timeoutMs = 
         fetchedAt: new Date(entry.fetchedAt).toISOString(),
         cached: false,
         stale: false,
+        persisted,
       };
     } catch (err) {
       if (metrics) metrics.unresolvedFinMind = Number(metrics.unresolvedFinMind || 0) + 1;
@@ -663,6 +781,7 @@ async function requestFinMindDataset(dataset: string, code: string, timeoutMs = 
           cached: true,
           cacheSource,
           stale: true,
+          persisted: cacheSource === "persistent",
           warning: finMindPublicMessage(err),
         };
       }
@@ -11686,6 +11805,29 @@ export const handler = router({
         message: finMindPublicMessage(err),
         generatedAt: new Date().toISOString(),
       }, 200);
+    }
+  }],
+
+  "GET /api/data-library": [async ({ query }: any) => {
+    const code = cleanCode(query.code);
+    const datasetKey = String(query.dataset || "price").replace(/[^a-z]/g, "").slice(0, 24);
+    const startDate = strictIsoDate(query.start_date);
+    const endDate = strictIsoDate(query.end_date);
+    if (!code || !/^\d{4,6}$/.test(code)) return error("Missing or invalid stock code", 400);
+    if (!CUSTOMER_DATASETS[datasetKey]) return error("Unsupported customer dataset", 400);
+    if (!startDate || !endDate || startDate > endDate) return error("Invalid date range", 400);
+    const rangeDays = Math.round((Date.parse(endDate) - Date.parse(startDate)) / 86400000);
+    if (rangeDays > 366) return error("Date range must be 366 days or less", 400);
+    try {
+      return json(await loadCustomerDataset(code, datasetKey, startDate, endDate), 200);
+    } catch (err) {
+      return json({
+        ok: false,
+        code,
+        datasetKey,
+        message: finMindPublicMessage(err),
+        generatedAt: new Date().toISOString(),
+      }, err instanceof FinMindError && err.status === 400 ? 400 : 502);
     }
   }],
 

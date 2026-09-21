@@ -76,7 +76,7 @@
     .home-decision-card strong { display:block; font-size:1.08rem; line-height:1.25; overflow-wrap:anywhere; }
     .home-decision-card p { color:var(--muted); font-size:12px; line-height:1.55; }
     .home-doorway { border:.5px solid var(--line); border-radius:10px; background:#f8f7f4; padding:.9rem; }
-    .doorway-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.6rem; }
+    .doorway-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.6rem; }
     .doorway-card { border:.5px solid #e7e5e1; border-radius:8px; background:#fff; padding:.75rem; text-align:left; color:var(--ink); min-height:104px; }
     .doorway-card:hover:not(:disabled) { border-color:#168074; background:#f4fbf9; transform:translateY(-1px); }
     .doorway-card b { display:block; font-size:12px; margin-bottom:.24rem; }
@@ -169,6 +169,16 @@
     .control-row { display:flex; flex-wrap:wrap; gap:.65rem; align-items:center; margin-bottom:.7rem; }
     .control-row label { font-size:12px; color:var(--muted); display:flex; align-items:center; gap:.45rem; }
     .control-row input { width:150px; min-height:44px; }
+    .data-query-form { display:grid; grid-template-columns:1.05fr 1.2fr 1fr 1fr auto; gap:.65rem; align-items:end; }
+    .data-query-form label { display:grid; gap:.28rem; color:var(--muted); font-size:12px; font-weight:700; }
+    .data-query-form :is(input,select) { width:100%; min-width:0; min-height:44px; border:1px solid var(--line); border-radius:8px; padding:0 .65rem; background:#fff; color:var(--ink); }
+    .data-query-form button { min-width:96px; }
+    .data-meta-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.6rem; margin:.8rem 0; }
+    .data-meta-card { border:1px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.7rem; min-width:0; }
+    .data-meta-card b { display:block; color:var(--muted); font-size:12px; }
+    .data-meta-card strong { display:block; margin-top:.18rem; overflow-wrap:anywhere; }
+    .data-download-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.65rem; margin:.7rem 0; }
+    .data-download-actions .secondary { background:#fff; color:var(--ink); border:1px solid var(--line); }
     .decision-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.6rem; }
     .decision-card,.horizon-card,.news-item { border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.72rem; min-width:0; }
     .decision-card b,.horizon-card b,.news-item b { display:block; font-size:12px; margin-bottom:.24rem; }
@@ -510,6 +520,9 @@
       .analysis-section-head { display:block; }
       .analysis-section-head p { margin-top:.25rem; }
       .indicator-tabs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .data-query-form { grid-template-columns:1fr 1fr; }
+      .data-query-form button { width:100%; }
+      .data-meta-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .indicator-tab { width:100%; }
       .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem; }
       .value-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -560,7 +573,7 @@
       .note,.status { font-size:13px; }
     }
     @media (max-width:360px) {
-      .metrics,.value-grid { grid-template-columns:1fr; }
+      .metrics,.value-grid,.data-query-form,.data-meta-grid { grid-template-columns:1fr; }
     }
     @media (prefers-reduced-motion:reduce) {
       html { scroll-behavior:auto; }
@@ -594,6 +607,7 @@
           <button type="button" data-market-view="client">&#x81ea;&#x9078;&#x80a1;</button>
           <button type="button" data-market-view="swing">&#x7b56;&#x7565;&#x9078;&#x80a1;</button>
           <button type="button" data-market-view="risk">&#x98a8;&#x96aa;&#x6383;&#x63cf;</button>
+          <button type="button" data-market-view="data">&#x8cc7;&#x6599;&#x4e0b;&#x8f09;</button>
         </nav>
       </div>
       <div hidden>
@@ -665,6 +679,7 @@
         <button class="doorway-card" type="button" data-doorway-view="client"><b>&#x958b;&#x555f;&#x81ea;&#x9078;&#x80a1;&#x8207;&#x6301;&#x80a1;</b><span>&#x67e5;&#x770b;&#x89c0;&#x5bdf;&#x6c60;&#x3001;&#x6301;&#x80a1;&#x98a8;&#x96aa;&#x8207;&#x6392;&#x884c;&#x699c;&#x3002;</span></button>
         <button class="doorway-card" type="button" data-doorway-view="swing"><b>&#x958b;&#x555f; Dino K&#x7dda;&#x9078;&#x80a1;</b><span>&#x5148;&#x770b;&#x5e02;&#x5834;&#x4e3b;&#x984c;&#xff0c;&#x518d;&#x9078;&#x80a1;&#x4e26;&#x9032;&#x5165;&#x5c08;&#x5bb6;&#x5206;&#x6790;&#x3002;</span></button>
         <button class="doorway-card" type="button" data-doorway-view="risk"><b>&#x958b;&#x555f;&#x5b8f;&#x89c0;&#x98a8;&#x96aa;&#x6383;&#x63cf;</b><span>&#x7368;&#x7acb;&#x67e5;&#x770b; 17 &#x9805;&#x77ed;&#x4e2d;&#x9577;&#x671f;&#x6307;&#x6a19;&#x8207; 7 &#x9805;&#x786c;&#x89f8;&#x767c;&#x689d;&#x4ef6;&#x3002;</span></button>
+        <button class="doorway-card" type="button" data-doorway-view="data"><b>&#x958b;&#x555f;&#x8cc7;&#x6599;&#x67e5;&#x8a62;&#x8207;&#x4e0b;&#x8f09;</b><span>&#x67e5;&#x8a62;&#x500b;&#x80a1;&#x65e5; K&#x3001;&#x71df;&#x6536;&#x3001;&#x8ca1;&#x5831;&#x8207;&#x4f30;&#x503c;&#xff0c;&#x4e26;&#x4e0b;&#x8f09; CSV&#x3002;</span></button>
       </div>
     </section>
 
@@ -673,7 +688,7 @@
         <div class="workspace-head">
           <div>
             <h2>&#x6df1;&#x5ea6;&#x529f;&#x80fd;&#x5de5;&#x4f5c;&#x5340;</h2>
-            <p>&#x5728;&#x9019;&#x88e1;&#x5207;&#x63db;&#x80a1;&#x7968;&#x5b8c;&#x6574;&#x5206;&#x6790;&#x3001;&#x81ea;&#x9078;&#x80a1;&#x8207;&#x6301;&#x80a1;&#x3001;Dino K&#x7dda;&#x9078;&#x80a1;&#xff0c;&#x6216;&#x7368;&#x7acb;&#x7684;&#x5b8f;&#x89c0;&#x98a8;&#x96aa;&#x6383;&#x63cf;&#x3002;</p>
+            <p>&#x5728;&#x9019;&#x88e1;&#x5207;&#x63db;&#x80a1;&#x7968;&#x5b8c;&#x6574;&#x5206;&#x6790;&#x3001;&#x81ea;&#x9078;&#x80a1;&#x8207;&#x6301;&#x80a1;&#x3001;Dino K&#x7dda;&#x9078;&#x80a1;&#x3001;&#x5b8f;&#x89c0;&#x98a8;&#x96aa;&#x6383;&#x63cf;&#xff0c;&#x6216;&#x500b;&#x80a1;&#x8cc7;&#x6599;&#x67e5;&#x8a62;&#x8207;&#x4e0b;&#x8f09;&#x3002;</p>
             <div class="workspace-context" id="workspaceContext" role="status" aria-live="polite">&#x76ee;&#x524d;&#x5c1a;&#x672a;&#x9078;&#x64c7;&#x80a1;&#x7968;</div>
           </div>
           <button type="button" class="secondary" id="backHomeBtn">&#x8fd4;&#x56de;&#x9996;&#x9801;</button>
@@ -683,6 +698,7 @@
           <button class="view-tab" type="button" role="tab" id="workspaceTabClient" aria-selected="false" aria-controls="clientPage" tabindex="-1" data-view="client">&#x81ea;&#x9078;&#x80a1;&#x8207;&#x6301;&#x80a1;</button>
           <button class="view-tab" type="button" role="tab" id="workspaceTabSwing" aria-selected="false" aria-controls="swingPage" tabindex="-1" data-view="swing">Dino K&#x7dda;&#x9078;&#x80a1;</button>
           <button class="view-tab" type="button" role="tab" id="workspaceTabRisk" aria-selected="false" aria-controls="riskPage" tabindex="-1" data-view="risk">&#x5b8f;&#x89c0;&#x98a8;&#x96aa;&#x6383;&#x63cf;</button>
+          <button class="view-tab" type="button" role="tab" id="workspaceTabData" aria-selected="false" aria-controls="dataPage" tabindex="-1" data-view="data">&#x8cc7;&#x6599;&#x67e5;&#x8a62;&#x8207;&#x4e0b;&#x8f09;</button>
           <button class="view-tab" type="button" role="tab" id="adminTab" aria-selected="false" aria-controls="adminPage" tabindex="-1" data-view="admin" hidden>&#x5f8c;&#x81fa;&#x8cc7;&#x6599;&#x6aa2;&#x67e5;</button>
         </div>
         <nav class="stock-section-nav" id="stockSectionNav" aria-label="&#x500b;&#x80a1;&#x5206;&#x6790;&#x6bb5;&#x843d;">
@@ -1116,6 +1132,50 @@
       </section>
     </div>
 
+    <div id="dataPage" class="page-view" role="tabpanel" aria-labelledby="workspaceTabData" hidden>
+      <section class="panel" aria-labelledby="customerDataTitle">
+        <h2 id="customerDataTitle">&#x500b;&#x80a1;&#x8cc7;&#x6599;&#x67e5;&#x8a62;&#x8207;&#x4e0b;&#x8f09;</h2>
+        <p class="note">&#x7531;&#x5f8c;&#x7aef;&#x8b80;&#x53d6; FinMind &#x4e26;&#x91cd;&#x7528;&#x5df2;&#x5132;&#x5b58;&#x7684;&#x8cc7;&#x6599;&#x3002;&#x55ae;&#x6b21;&#x6700;&#x591a;&#x67e5;&#x8a62; 366 &#x5929;&#xff1b;&#x8cc7;&#x6599;&#x7f3a;&#x6f0f;&#x6642;&#x6703;&#x76f4;&#x63a5;&#x6a19;&#x793a;&#xff0c;&#x4e0d;&#x6703;&#x88dc;&#x5047;&#x6578;&#x5b57;&#x3002;</p>
+        <form class="data-query-form" id="customerDataForm">
+          <label>&#x80a1;&#x7968;&#x4ee3;&#x78bc;
+            <input id="customerDataCode" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="&#x4f8b;&#xff1a;2330" required>
+          </label>
+          <label>&#x8cc7;&#x6599;&#x96c6;
+            <select id="customerDataDataset">
+              <option value="price">&#x65e5; K &#x8207;&#x6210;&#x4ea4;&#x91cf;</option>
+              <option value="revenue">&#x6708;&#x71df;&#x6536;</option>
+              <option value="financials">&#x640d;&#x76ca;&#x8207;&#x8ca1;&#x52d9;&#x6307;&#x6a19;</option>
+              <option value="balance">&#x8cc7;&#x7522;&#x8ca0;&#x50b5;&#x8868;</option>
+              <option value="cashflow">&#x73fe;&#x91d1;&#x6d41;&#x91cf;&#x8868;</option>
+              <option value="valuation">&#x4f30;&#x503c;</option>
+            </select>
+          </label>
+          <label>&#x958b;&#x59cb;&#x65e5;
+            <input id="customerDataStart" type="date" required>
+          </label>
+          <label>&#x7d50;&#x675f;&#x65e5;
+            <input id="customerDataEnd" type="date" required>
+          </label>
+          <button type="submit" id="customerDataQueryBtn">&#x67e5;&#x8a62;</button>
+        </form>
+        <p class="note" id="customerDataStatus" role="status" aria-live="polite">&#x8acb;&#x9078;&#x64c7;&#x80a1;&#x7968;&#x3001;&#x8cc7;&#x6599;&#x96c6;&#x8207;&#x65e5;&#x671f;&#x3002;</p>
+      </section>
+      <section class="panel" id="customerDataResult" hidden>
+        <div class="data-download-actions">
+          <div><h2 id="customerDataResultTitle">&#x67e5;&#x8a62;&#x7d50;&#x679c;</h2><p class="note" id="customerDataResultNote"></p></div>
+          <button type="button" class="secondary" id="customerDataDownloadBtn" disabled>&#x4e0b;&#x8f09; CSV</button>
+        </div>
+        <div class="data-meta-grid" id="customerDataMeta"></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr id="customerDataHead"></tr></thead>
+            <tbody id="customerDataRows"></tbody>
+          </table>
+        </div>
+        <div class="source-list" id="customerDataSource"></div>
+      </section>
+    </div>
+
     <div id="adminPage" class="page-view" role="tabpanel" aria-labelledby="adminTab" hidden>
       <section class="panel">
         <div class="control-row">
@@ -1180,6 +1240,7 @@
     let stockSuggestionTimer = null;
     let adminUniverse = null;
     let adminScoreV2Workbench = null;
+    let customerDatasetPayload = null;
     let currentIndicator = "volume";
     const adminEnabled = new URLSearchParams(location.search).get("admin") === "1" || location.hash.toLowerCase() === "#admin";
 
@@ -1275,6 +1336,120 @@
       throw new Error(localCode
         ? `\u627e\u4e0d\u5230\u76ee\u524d\u6709\u6548\u7684\u4e0a\u5e02\u3001\u4e0a\u6ac3\u6a19\u7684 ${localCode}\uff0c\u8acb\u78ba\u8a8d\u4ee3\u78bc\u6216\u6539\u7528\u80a1\u7968\u540d\u7a31\u641c\u5c0b\u3002`
         : (result.message || "\u627e\u4e0d\u5230\u7b26\u5408\u7684\u53f0\u80a1\u4ee3\u78bc\u6216\u540d\u7a31\u3002"));
+    }
+
+    function isoInputDate(date) {
+      return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    }
+
+    function setupCustomerDataDates() {
+      const end = new Date();
+      const start = new Date(end);
+      start.setFullYear(start.getFullYear() - 1);
+      $("customerDataStart").value = isoInputDate(start);
+      $("customerDataEnd").value = isoInputDate(end);
+    }
+
+    function customerDataMetaCard(label, value) {
+      return `<div class="data-meta-card"><b>${escapeHtml(label)}</b><strong>${escapeHtml(value)}</strong></div>`;
+    }
+
+    function customerColumnLabel(column) {
+      const labels = {
+        date:"\u8cc7\u6599\u65e5", stock_id:"\u80a1\u7968\u4ee3\u78bc", open:"\u958b\u76e4", max:"\u6700\u9ad8", min:"\u6700\u4f4e", close:"\u6536\u76e4",
+        spread:"\u6f32\u8dcc", Trading_Volume:"\u6210\u4ea4\u80a1\u6578", Trading_money:"\u6210\u4ea4\u91d1\u984d", Trading_turnover:"\u6210\u4ea4\u7b46\u6578",
+        country:"\u5730\u5340", revenue:"\u71df\u6536", revenue_month:"\u71df\u6536\u6708", revenue_year:"\u71df\u6536\u5e74", type:"\u9805\u76ee",
+        value:"\u6578\u503c", origin_name:"\u539f\u59cb\u540d\u7a31", PER:"\u672c\u76ca\u6bd4", PBR:"\u80a1\u50f9\u6de8\u503c\u6bd4", dividend_yield:"\u6b96\u5229\u7387",
+      };
+      return labels[column] ? `${labels[column]} (${column})` : column;
+    }
+
+    function renderCustomerDataset(payload) {
+      customerDatasetPayload = payload;
+      const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+      const columns = Array.isArray(payload?.columns) ? payload.columns : [];
+      const cacheLabels = { persistent:"\u6301\u4e45\u5feb\u53d6", memory:"\u7576\u6b21\u8a18\u61b6\u9ad4\u5feb\u53d6", upstream:"FinMind \u5373\u6642\u53d6\u5f97" };
+      const cacheState = payload.cache?.source === "persistent"
+        ? "\u6301\u4e45\u5feb\u53d6\u8b80\u56de"
+        : `${cacheLabels[payload.cache?.source] || payload.cache?.source || "--"}${payload.cache?.persisted ? "\uff0c\u5df2\u5beb\u5165\u6301\u4e45\u5feb\u53d6" : ""}`;
+      $("customerDataResult").hidden = false;
+      $("customerDataResultTitle").textContent = `${payload.code} | ${payload.label}`;
+      $("customerDataMeta").innerHTML = [
+        customerDataMetaCard("\u8cc7\u6599\u7b46\u6578", `${payload.rowCount || 0} \u7b46`),
+        customerDataMetaCard("\u6700\u65b0\u8cc7\u6599\u65e5", payload.latestDataDate || "\u672c\u5340\u9593\u7121\u8cc7\u6599"),
+        customerDataMetaCard("\u8cc7\u6599\u8b80\u53d6", cacheState),
+        customerDataMetaCard("\u53d6\u5f97\u6642\u9593", payload.fetchedAt ? new Date(payload.fetchedAt).toLocaleString("zh-TW") : "--"),
+      ].join("");
+      $("customerDataHead").innerHTML = columns.map(column => `<th>${escapeHtml(customerColumnLabel(column))}</th>`).join("");
+      $("customerDataRows").innerHTML = rows.length
+        ? rows.slice(0, 100).map(row => `<tr>${columns.map(column => `<td>${escapeHtml(row?.[column] ?? "")}</td>`).join("")}</tr>`).join("")
+        : `<tr><td colspan="${Math.max(1, columns.length)}">\u9019\u500b\u65e5\u671f\u5340\u9593\u6c92\u6709\u53ef\u986f\u793a\u7684\u8cc7\u6599\u3002</td></tr>`;
+      const previewNote = payload.truncated
+        ? `\u7b26\u5408 ${payload.matchedRowCount} \u7b46\uff0c\u4f9d\u56de\u61c9\u4e0a\u9650\u4fdd\u7559\u6700\u65b0 ${rows.length} \u7b46\uff1b\u756b\u9762\u9810\u89bd\u524d 100 \u7b46\u3002`
+        : rows.length > 100
+          ? `\u756b\u9762\u9810\u89bd\u524d 100 \u7b46\uff1bCSV \u5305\u542b\u5168\u90e8 ${rows.length} \u7b46\u3002`
+          : `\u756b\u9762\u8207 CSV \u5171 ${rows.length} \u7b46\u3002`;
+      const cacheWarning = payload.cache?.warning ? ` ${payload.cache.warning}` : "";
+      $("customerDataResultNote").textContent = `${previewNote}${payload.cache?.stale ? " \u6b64\u6b21\u70ba\u904e\u671f\u5feb\u53d6\u3002" : ""}${cacheWarning}`;
+      $("customerDataSource").innerHTML = `<span class="note">\u4f86\u6e90\uff1a</span><a href="${escapeHtml(payload.sourceUrl || "https://finmind.github.io/")}" target="_blank" rel="noreferrer">FinMind ${escapeHtml(payload.dataset || "")}</a>`;
+      $("customerDataDownloadBtn").disabled = rows.length === 0 || columns.length === 0;
+    }
+
+    async function loadCustomerDataset() {
+      const button = $("customerDataQueryBtn");
+      const status = $("customerDataStatus");
+      const startDate = $("customerDataStart").value;
+      const endDate = $("customerDataEnd").value;
+      if (!startDate || !endDate || startDate > endDate) {
+        status.textContent = "\u8acb\u78ba\u8a8d\u958b\u59cb\u65e5\u4e0d\u665a\u65bc\u7d50\u675f\u65e5\u3002";
+        return;
+      }
+      if ((Date.parse(endDate) - Date.parse(startDate)) / 86400000 > 366) {
+        status.textContent = "\u55ae\u6b21\u67e5\u8a62\u7bc4\u570d\u4e0d\u80fd\u8d85\u904e 366 \u5929\u3002";
+        return;
+      }
+      button.disabled = true;
+      $("customerDataDownloadBtn").disabled = true;
+      status.textContent = "\u6b63\u5728\u8b80\u53d6\u5f8c\u7aef\u5feb\u53d6\u8207 FinMind \u8cc7\u6599...";
+      try {
+        const code = await resolveStockInput($("customerDataCode").value || activeCode);
+        $("customerDataCode").value = code;
+        const dataset = $("customerDataDataset").value;
+        const api = await waitForAppApi();
+        const { data } = await api.get(`/api/data-library?code=${encodeURIComponent(code)}&dataset=${encodeURIComponent(dataset)}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`);
+        if (!data?.ok) throw new Error(data?.message || "\u8cc7\u6599\u67e5\u8a62\u5931\u6557\u3002");
+        renderCustomerDataset(data);
+        status.textContent = `${code} ${data.label} \u5df2\u53d6\u5f97 ${data.rowCount || 0} \u7b46\u3002`;
+      } catch (err) {
+        customerDatasetPayload = null;
+        $("customerDataResult").hidden = true;
+        status.textContent = friendlyRequestError(err, "\u8cc7\u6599\u67e5\u8a62\u5931\u6557\uff0c\u8acb\u7a0d\u5f8c\u518d\u8a66\u3002");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    function csvCell(value) {
+      let text = value === null || value === undefined ? "" : String(value);
+      if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+      return `"${text.replace(/"/g, '""')}"`;
+    }
+
+    function downloadCustomerDataset() {
+      const payload = customerDatasetPayload;
+      if (!payload?.rows?.length || !payload?.columns?.length) return;
+      const csv = [
+        payload.columns.map(csvCell).join(","),
+        ...payload.rows.map(row => payload.columns.map(column => csvCell(row?.[column])).join(",")),
+      ].join("\r\n");
+      const blobUrl = URL.createObjectURL(new Blob(["\ufeff", csv], { type:"text/csv;charset=utf-8" }));
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `tw-stock-${payload.code}-${payload.datasetKey}-${payload.requestedRange.startDate}-${payload.requestedRange.endDate}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 0);
     }
 
     function heroFact(text, cls = "neut") {
@@ -4501,7 +4676,7 @@
     }
 
     function switchView(view, updateHistory = false) {
-      const validViews = new Set(["stock", "client", "swing", "risk", "admin"]);
+      const validViews = new Set(["stock", "client", "swing", "risk", "data", "admin"]);
       if (!validViews.has(view)) view = "stock";
       const shell = $("workspaceShell");
       if (shell) {
@@ -4511,11 +4686,13 @@
       const client = view === "client";
       const swing = view === "swing";
       const risk = view === "risk";
+      const data = view === "data";
       const admin = view === "admin";
-      $("stockPage").hidden = client || swing || risk || admin;
+      $("stockPage").hidden = client || swing || risk || data || admin;
       $("clientPage").hidden = !client;
       $("swingPage").hidden = !swing;
       $("riskPage").hidden = !risk;
+      $("dataPage").hidden = !data;
       $("adminPage").hidden = !admin;
       $("stockSectionNav").hidden = view !== "stock";
       $("viewTabs").querySelectorAll("[data-view]").forEach((btn) => {
@@ -4530,6 +4707,7 @@
       if (client) loadClientWorkbench();
       if (swing) loadSwingWorkflow();
       if (risk) loadMacroRiskScan();
+      if (data && activeCode && !$("customerDataCode").value) $("customerDataCode").value = activeCode;
       if (admin) {
         loadAdminUniverse();
         loadAdminScoreV2();
@@ -4541,7 +4719,7 @@
     }
 
     function syncWorkspaceFromLocation() {
-      const match = location.hash.match(/^#workspace-(stock|client|swing|risk|admin)$/);
+      const match = location.hash.match(/^#workspace-(stock|client|swing|risk|data|admin)$/);
       if (match) openWorkspace(match[1], "none");
       else closeWorkspace(false);
     }
@@ -5376,6 +5554,11 @@
     $("refreshWorkbenchBtn").addEventListener("click", () => loadClientWorkbench(true));
     if ($("refreshSwingBtn")) $("refreshSwingBtn").addEventListener("click", () => loadSwingWorkflow(true));
     $("refreshMacroRiskBtn").addEventListener("click", runMacroRiskRefresh);
+    $("customerDataForm").addEventListener("submit", (event) => {
+      event.preventDefault();
+      loadCustomerDataset();
+    });
+    $("customerDataDownloadBtn").addEventListener("click", downloadCustomerDataset);
     if ($("refreshSwingThemesBtn")) $("refreshSwingThemesBtn").addEventListener("click", async () => {
       const button = $("refreshSwingThemesBtn");
       button.disabled = true;
@@ -5459,6 +5642,7 @@
     window.addEventListener("popstate", syncWorkspaceFromLocation);
     setupResponsiveStatusDisclosure();
     setupMarketFilterDisclosure();
+    setupCustomerDataDates();
     setupReveal();
     restoreMarketRadarFilters();
     syncMarketRadarControls();
