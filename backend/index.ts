@@ -12003,6 +12003,10 @@ export const handler = router({
     const id = String(params?.id || "").trim();
     if (!id) return error("Missing ranking refresh job id", 400);
     try {
+      const schedule = await readRankingSchedule();
+      if (schedule?.jobId === id) {
+        return json({ ok: false, message: "This full-market job is owned by the off-peak scheduler. Read its status instead of starting a concurrent batch." }, 409);
+      }
       const job = await advanceRankingRefreshJob(id);
       if (!job) return error("Ranking refresh job not found", 404);
       return json(publicRankingRefreshJob(job), 200);
