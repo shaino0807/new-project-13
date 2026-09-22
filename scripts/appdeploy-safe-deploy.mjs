@@ -128,7 +128,9 @@ async function loadFiles(relativePaths) {
 
 async function inspectRemote(config, deadline) {
   const instructions = await rpc(config, 'get_deploy_instructions', {}, deadline);
-  if (instructions.message !== 'Deploy instructions ready.') throw new Error('AppDeploy deployment instructions were not returned');
+  if (instructions.message !== 'Deploy instructions ready.') {
+    throw new Error(`AppDeploy preflight blocked (${instructions.code || 'instructions_unavailable'}): ${instructions.message || 'Deployment instructions were not returned'}`);
+  }
   const apps = await rpc(config, 'get_apps', {}, deadline);
   const target = apps.apps?.find(app => app.data?.app_id === APP_ID);
   if (!target) throw new Error(`AppDeploy app ${APP_ID} was not found`);
@@ -181,8 +183,8 @@ async function deploy(config, uploadId, deadline) {
     app_type: APP_TYPE,
     app_name: APP_NAME,
     description: APP_DESCRIPTION,
-    features: ['api', 'database', 'secrets'],
-    model: 'gpt-5.6-sol',
+    features: ['api', 'database', 'secrets', 'cron'],
+    model: 'gpt-6',
     intent: 'Use bounded-memory deployment worker with explicit timeouts and terminal status verification',
     initiator: 'user',
     type: 'chore',

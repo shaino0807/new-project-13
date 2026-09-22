@@ -1,5 +1,14 @@
 # Tests
 
+## Test 22 - Missing snapshot and on-demand value score [regression]
+Viewport: desktop
+Description: Check honest empty states and selected-stock score loading.
+
+Steps:
+1. With no accepted ranking snapshot, open the homepage. It must show that the first verified full-market update is pending, without presenting a rejected legacy batch as newly updated.
+2. Analyze 2330, open fundamentals, and click the button to load this stock's fundamentals score.
+Expected: Only the selected stock is scored; real coverage, risk gauge and component bars update. No full-market refresh or raw database download is triggered. Missing inputs remain explicitly unavailable.
+
 ## Test 1 - Homepage waits for user input [sanity]
 Viewport: desktop
 Description: Verifies the public site no longer auto-loads a default stock before the visitor enters a code.
@@ -59,13 +68,13 @@ Description: Verifies the Agent presents the decision immediately after stock se
 
 Steps:
 1. Navigate to the app on a mobile-width viewport.
-2. At both 390 × 844 and 320 × 844, confirm the stock input and the four primary buttons 自選股, 策略選股, 風險掃描, and 資料下載 remain visible and readable.
+2. At both 390 × 844 and 320 × 844, confirm the stock input and the three primary buttons 自選股, 策略選股, and 風險掃描 remain visible and readable.
 3. Open each primary button by touch and return to the homepage; no hamburger-only or desktop-only path may hide them.
 4. Enter 0050 and run analysis. Confirm the successful search opens 股票完整分析 automatically and the five decision cards remain readable without horizontal page overflow.
 5. Use the five-item sticky section navigation.
 6. Return home, open 策略選股, and inspect the candidate list at 390px and 320px widths.
 
-Expected: The mobile homepage keeps all four primary destinations reachable without hiding `.market-header-actions`. A successful search opens full analysis, while a failed search leaves the user on the current page with an actionable message. In full analysis, the five sticky section links remain horizontally usable, 價格／圖表 is reachable directly after 概覽, and one auxiliary chart is visible at a time. Every visible interactive target is at least 44 × 44 CSS pixels, no visible text is below 12 CSS pixels, and the page has no horizontal overflow. General dense tables scroll inside their panels when needed, while Dino candidates render as labeled mobile cards without hiding rank, evidence, invalidation, or selection controls.
+Expected: The mobile homepage keeps all three primary destinations reachable without hiding `.market-header-actions`. A successful search opens full analysis, while a failed search leaves the user on the current page with an actionable message. In full analysis, the five sticky section links remain horizontally usable, 價格／圖表 is reachable directly after 概覽, and one auxiliary chart is visible at a time. Every visible interactive target is at least 44 × 44 CSS pixels, no visible text is below 12 CSS pixels, and the page has no horizontal overflow. General dense tables scroll inside their panels when needed, while Dino candidates render as labeled mobile cards without hiding rank, evidence, invalidation, or selection controls.
 
 ## Test 6 - Macro news degrades without fabrication
 Viewport: desktop
@@ -286,19 +295,5 @@ Phase D recovery: retry only a recorded failed history date, at most twice per k
 Phase D runtime budget: history advances at most one candidate day (two markets), with an eight-second timeout per history source. Existing saved days are reused after an interrupted response; no duplicate session counts.
 Phase D diagnostics: feature-audit reads only the job-referenced named feature batch, never fetches upstream or writes data, returns bounded existing public evidence warnings, and rejects unknown batch keys.
 FinMind recovery regression: run node scripts/test-finmind-recovery.mjs. The configured token is used on the first request and is never downgraded to anonymous after rejection. 402/429 and 401/403 stop without identity switching; transient errors retry at most once. Recovered attempts do not block the runner; unresolved dataset failures do, including logical errors in HTTP 200 payloads. Structured diagnostics contain no token or raw response body.
-
-## Test 21 - Customer data query and CSV download
-Viewport: desktop and mobile
-Description: Verifies customers can query a bounded FinMind dataset through the backend and download the exact returned rows without exposing credentials.
-
-Local regression: run `node scripts/test-customer-data-library.mjs` before deployment.
-
-Steps:
-1. Open 資料查詢與下載 from the homepage or workspace tabs.
-2. Query 2330 日 K with a valid date range of no more than 366 days.
-3. Confirm the result shows row count, latest data date, cache source, retrieval time, source link, and a preview table.
-4. Download CSV and confirm its filename contains code, dataset, start date, and end date.
-5. Repeat with 月營收, 損益與財務指標, 資產負債表, 現金流量表, and 估值.
-6. Try an invalid stock code, reversed dates, and a range longer than 366 days.
-
-Expected: Valid queries call `/api/data-library` and return only the selected stock, dataset, and date range. The backend uses the existing FinMind credential and cache path; no token appears in HTML, JSON, CSV, logs, or URLs. Empty periods show zero rows without invented values. Invalid input is rejected with a readable status. The preview is bounded to 100 rows while CSV contains every returned row, and spreadsheet-formula prefixes are neutralized. All controls remain at least 44 CSS pixels high and the table scrolls within its panel on narrow screens.
+Test 21: Visual analysis dashboards and backend-only FinMind
+Open stock, portfolio, swing, and macro risk tabs at desktop, 390px and 320px widths. Verify gauge labels, numeric scales, readable bars, no horizontal document overflow, and keyboard access. With missing values, gauges must show unavailable and no needle; a real zero must remain zero. With reduced-motion enabled, needles and bars must not animate. Query 2330 and verify the stock sparkline uses the returned closes and the RSI gauge matches the textual RSI. Portfolio charts must reflect entered weights and must not invent profit/loss. Confirm there is no data-download tab, CSV button or /api/data-library route. FinMind credentials and raw dataset downloads must not appear in the browser.

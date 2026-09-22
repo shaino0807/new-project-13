@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import {stripTypeScriptTypes} from 'node:module';
+const source=fs.readFileSync('backend/index.ts','utf8');
+const fn=source.slice(source.indexOf('function finMindDailyBars('),source.indexOf('async function loadQuote('));
+const bars=vm.runInNewContext(stripTypeScriptTypes(fn)+';finMindDailyBars',{toNumber:v=>v==null?NaN:Number(v)});
+const row={date:'2026-09-18',stock_id:'2330',open:100,max:110,min:90,close:105,Trading_Volume:5000};
+const result=bars([row,{...row,close:106},{...row,date:'2026-09-17'},{...row,stock_id:'2317'},{...row,date:'2026-09-16',min:120},{...row,date:'2026-09-15',close:null}], '2330');
+assert.equal(result.length,2);
+assert.equal(result[0].date,'2026-09-17');
+assert.equal(result[1].close,106);
+assert.equal(result[1].volume,5000);
+assert.equal(bars([{...row,date:'2026-02-30'},{...row,date:'2999-01-01'}],'2330').length,0);
+assert(source.includes('allowSyntheticHistory = false'));
+assert(source.includes('loadQuote(code, options.metrics, options.companyProfile, false)'));
+console.log('PASS: FinMind OHLCV mapping, stock isolation, ordering, duplicate revisions, invalid data rejection and no synthetic default');

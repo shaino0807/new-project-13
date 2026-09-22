@@ -1,0 +1,8 @@
+[
+  {
+    "name": "ranking-offpeak",
+    "cron": "*/5 0-7,18-23 * * *",
+    "handler": "rankingDailyHandler",
+    "timezone": "Asia/Taipei"
+  }
+]

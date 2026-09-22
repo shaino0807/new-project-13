@@ -1,0 +1,35 @@
+# Phase D 與儀表板交接
+
+更新：2026-09-22（Asia/Taipei）。既有授權涵蓋 FinMind 後端資料、移除客戶下載、儀表板視覺、Phase D、提交推送及既有網站發布。
+
+## 已完成與證據
+
+- 新 pilot `9219a741-c1fe-47e7-ac7f-a3bcd73b6ce8` 完成 250 家、保存 249 家（99.6%），六榜證據門檻全部通過，沒有發布試跑為正式排名。官方母體當次為 1,976 家，不固定宣稱 1,985 或 1,986。
+- 235 家可排名、14 家無最新交易日報價、1 家屬無足夠證據可排名；證據閘門 provider_failure／unresolved 為零。修復績效摘要將 not_rankable 計入 unresolved 的分類問題；舊 pilot 原始紀錄保留。
+- 官方歷史兩市場各 120 日，240 份讀回稽核通過，最大單筆 47,199 bytes。新 job 使用 finmind-auth-first-v1，不重用沒有診斷標記的舊工作。
+- 客戶下載分頁、CSV 與 /api/data-library 已移除；正式路由 2026-09-22 回應 404。
+- FinMind 日線接入後端真實 OHLCV 計算及持久快取，七日重疊增量更新保留修訂，維持 400 日窗口。一般評分及排名均不允許合成歷史。
+- 正式 2330 HTTP 200，行情日 2026-09-22、收盤 2,460，日線回報 source=upstream、persisted=true；第二次為記憶體命中。這兩次本身不是冷啟動資料庫讀回證明；冷讀與增量另有本機測試。
+- 首頁、個股、基本面、持股、波段、宏觀新增指針、數字、進度條或趨勢圖。空值不冒充零分，支援減少動態。個股新增明確載入基本面評分入口，只查選定股票。
+- 首頁 fallback 僅接受完成且通過的快照，保留原始資料時間；不將拒絕的舊 64 家批次標成今天的新資料。
+- AppDeploy 後端、前端及 cron 已發布。最近部署 ready，frontend/backend/QA 錯誤陣列空；平台 E2E null，不能寫成通過。
+
+## 全市場與每日更新的界線
+
+- cron.json 的 ranking-offpeak 已由平台回報 enabled，Asia/Taipei，每五分鐘一次，18:00–07:55；首次安排 2026-09-22 18:00。
+- 每次只推進一個 checkpoint，驗證 pilot 後建立或續跑全市場工作。官方歷史快取最多一次 20 日期參照，需下載最多一日期。
+- 讀取 FinMind 官方 user_info 的 user_count／api_request_limit，剩餘不足 180 請求等待。沒有 Token、計數不可讀、來源／儲存失敗或中斷，停止並保留證據。
+- 每個夜間週期最多 150 進度批次，隔天續跑未完成 job；正式排名保留六榜證據閘門。
+- 工作次數上限不是 AppDeploy 点數保證。平台未提供可用即時剩餘點數介面；免費平台能否承擔每日全市場仍未實證。2026-09-21 曾因日額度導致整站 API 402，隔日恢復；沒有購買額度。
+- 本文件更新時未到首次離峰時間，/api/screener/schedule 為 awaiting-first-offpeak-run、jobId null。**全市場與下一個每日週期尚未完成驗收，Phase D 整體未結案。**
+- 排程測試涵蓋跨日、pilot gate、一次一批、同 invocation 重複、額度等待、失敗停止、日間跳過及中斷停機；不是分散式並行鎖的證明。不要同時手動推進 cron 所屬 job。
+
+## 驗證與接續
+
+本機通過：語法、Pages build、720 數值案例與 2 快取案例、1,976／6,000 家分片規則、Phase D 前置規則、FinMind 八種錯誤恢復情境、日線清理與增量、UI 空值與快照 fallback、排程控制。分片替身最大單筆 119,623 bytes、請求 888,036 bytes。
+
+實際瀏覽器確認 2330 RSI、60 筆走勢及財報可呈現、持股空白狀態可讀。發布後分別核對 repo SHA、Actions、Pages、AppDeploy，不用其中一項替代其他項目。
+
+接續先讀 /api/screener/schedule，取得 jobId 後 GET 工作及稽核；若 blocked，先檢查來源、平台額度及 checkpoint，不自動重送或清掉失敗。全市場完成後核對六榜發布、資料日期、95% 建檔率與零未解決來源失敗，再驗證下一個每日週期。
+
+大型證據留 outputs/phase-d-verified/，不加入 Git。保留 AGENTS.md、三個 project-skills 修改與其他未追蹤檔案；沒有 git add .、新 repo、Obsidian 寫入或憑證修改。

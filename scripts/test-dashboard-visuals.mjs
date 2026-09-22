@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+const html=fs.readFileSync('index.html','utf8');
+const start=html.indexOf('    function visualNumber(');
+const end=html.indexOf('    function valueCard(',start);
+assert(start>0 && end>start);
+const api=vm.runInNewContext(html.slice(start,end)+';({visualNumber,visualGauge,visualBars,visualTrend})',{escapeHtml:s=>String(s).replaceAll('<','&lt;').replaceAll('"','&quot;')});
+for(const value of [null,undefined,'',false,NaN,Infinity]) {
+ assert.equal(api.visualNumber(value),null);
+ assert(!api.visualGauge('RSI',value,'test').includes('<g class="visual-needle"'));
+}
+assert.equal(api.visualNumber(0),0);
+assert(api.visualGauge('RSI',0,'test').includes('--needle-angle:-90deg'));
+assert(api.visualGauge('RSI',100,'test').includes('--needle-angle:90deg'));
+assert(api.visualGauge('RSI',150,'test').includes('stroke-dasharray="100 100"'));
+assert(!api.visualTrend([1,null,3]).includes('polyline'));
+assert(api.visualTrend([100,100,100]).includes('polyline'));
+assert(!api.visualTrend([100,100,100]).includes('NaN'));
+assert(api.visualBars([['<script>',20]]).includes('&lt;script>'));
+assert(!html.includes('customerDataDownloadBtn'));
+assert(!html.includes('/api/data-library'));
+assert(!fs.readFileSync('backend/index.ts','utf8').includes('GET /api/data-library'));
+assert(html.includes('prefers-reduced-motion:reduce'));
+for(const id of ['stockVisuals','valueVisuals','portfolioVisuals','swingVisuals','riskVisuals'])assert.equal(html.split('id="'+id+'"').length-1,1);
+console.log('PASS: missing vs zero, bounded gauges, broken/flat series, escaping, removed downloads, reduced motion and unique panels');
+const fallback=vm.runInNewContext(html.slice(html.indexOf('    async function buildWorkbenchFallback('),html.indexOf('    function analyze(code, quote)'))+';buildWorkbenchFallback',{normalizeWorkbenchItem:x=>x});
+const missing=await fallback({get:async()=>({data:{ok:false,snapshotStatus:'rejected',generatedAt:'old',universeMeta:{scoredCount:64},items:[{code:'2330'}]}})});
+assert.equal(missing.snapshotStatus,'missing');assert.equal(missing.generatedAt,null);assert.equal(missing.universeMeta.scoredCount,0);assert.equal(missing.ranked.observationPool.length,0);
+const complete=await fallback({get:async()=>({data:{ok:true,snapshotStatus:'complete',snapshotGeneratedAt:'2026-09-21T10:00:00Z',items:[]}})});
+assert.equal(complete.generatedAt,'2026-09-21T10:00:00Z');
+console.log('PASS: rejected snapshots never become fresh homepage data; original snapshot timestamp preserved');

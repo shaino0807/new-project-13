@@ -14,6 +14,14 @@ async function request(route,method='GET') {
   const res=await fetch(base+route,{method,headers:{Accept:'application/json'},signal:AbortSignal.timeout(70000)});
   const text=await res.text();
   await writeFile(path.join(out,`${String(++sequence).padStart(3,'0')}-${method}.json`),text);
+  // Gateway response loss is not evidence that the mutation failed. Read its checkpoint;
+  // never replay a POST automatically or clear provider/storage errors.
+  if ([502,504].includes(res.status) && method==='POST' && route.endsWith('/advance')) {
+    await new Promise(resolve=>setTimeout(resolve,1200));
+    const checkpoint=await request(jobPath);
+    assert(['queued','completed'].includes(checkpoint.status),'Gateway recovery: job is still running; stop instead of replaying');
+    return checkpoint;
+  }
   let value; try {value=JSON.parse(text);} catch {throw Error(`Non-JSON HTTP ${res.status}`);}
   assert(res.ok && value.ok!==false,`HTTP ${res.status}: ${value.message}`);
   return value;

@@ -76,7 +76,7 @@
     .home-decision-card strong { display:block; font-size:1.08rem; line-height:1.25; overflow-wrap:anywhere; }
     .home-decision-card p { color:var(--muted); font-size:12px; line-height:1.55; }
     .home-doorway { border:.5px solid var(--line); border-radius:10px; background:#f8f7f4; padding:.9rem; }
-    .doorway-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.6rem; }
+    .doorway-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.6rem; }
     .doorway-card { border:.5px solid #e7e5e1; border-radius:8px; background:#fff; padding:.75rem; text-align:left; color:var(--ink); min-height:104px; }
     .doorway-card:hover:not(:disabled) { border-color:#168074; background:#f4fbf9; transform:translateY(-1px); }
     .doorway-card b { display:block; font-size:12px; margin-bottom:.24rem; }
@@ -169,16 +169,6 @@
     .control-row { display:flex; flex-wrap:wrap; gap:.65rem; align-items:center; margin-bottom:.7rem; }
     .control-row label { font-size:12px; color:var(--muted); display:flex; align-items:center; gap:.45rem; }
     .control-row input { width:150px; min-height:44px; }
-    .data-query-form { display:grid; grid-template-columns:1.05fr 1.2fr 1fr 1fr auto; gap:.65rem; align-items:end; }
-    .data-query-form label { display:grid; gap:.28rem; color:var(--muted); font-size:12px; font-weight:700; }
-    .data-query-form :is(input,select) { width:100%; min-width:0; min-height:44px; border:1px solid var(--line); border-radius:8px; padding:0 .65rem; background:#fff; color:var(--ink); }
-    .data-query-form button { min-width:96px; }
-    .data-meta-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.6rem; margin:.8rem 0; }
-    .data-meta-card { border:1px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.7rem; min-width:0; }
-    .data-meta-card b { display:block; color:var(--muted); font-size:12px; }
-    .data-meta-card strong { display:block; margin-top:.18rem; overflow-wrap:anywhere; }
-    .data-download-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.65rem; margin:.7rem 0; }
-    .data-download-actions .secondary { background:#fff; color:var(--ink); border:1px solid var(--line); }
     .decision-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.6rem; }
     .decision-card,.horizon-card,.news-item { border:.5px solid #e7e5e1; border-radius:8px; background:#fbfaf8; padding:.72rem; min-width:0; }
     .decision-card b,.horizon-card b,.news-item b { display:block; font-size:12px; margin-bottom:.24rem; }
@@ -520,9 +510,6 @@
       .analysis-section-head { display:block; }
       .analysis-section-head p { margin-top:.25rem; }
       .indicator-tabs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .data-query-form { grid-template-columns:1fr 1fr; }
-      .data-query-form button { width:100%; }
-      .data-meta-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .indicator-tab { width:100%; }
       .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem; }
       .value-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -573,7 +560,7 @@
       .note,.status { font-size:13px; }
     }
     @media (max-width:360px) {
-      .metrics,.value-grid,.data-query-form,.data-meta-grid { grid-template-columns:1fr; }
+      .metrics,.value-grid { grid-template-columns:1fr; }
     }
     @media (prefers-reduced-motion:reduce) {
       html { scroll-behavior:auto; }
@@ -585,6 +572,61 @@
       button,input,select,textarea,.panel,.doorway-card,.home-decision-card { border-width:2px; }
       :where(a,button,input,select,textarea,summary,[role="tab"]):focus-visible { outline-width:4px; }
     }
+    /* dashboard-visuals-v1 */
+    :root { --bg:#f2f6f8; --ink:#183244; --muted:#586e7e; --line:#dce6ec; --teal:#147d74; }
+    body { background:radial-gradient(ellipse at top right,#e2efee 0,transparent 45%),var(--bg); }
+    .page { max-width:1280px; padding:24px; }
+    .panel,.market-radar-home { border:1px solid var(--line); border-radius:20px; box-shadow:0 6px 24px #17384d06; padding:24px; }
+    .panel { margin-bottom:22px; }
+    .panel h2,.market-section-head h2 { font-size:19px; letter-spacing:.02em; }
+    .note { line-height:1.7; }
+    .view-tabs { gap:8px; padding:10px; border-radius:16px; background:#e8eff2; }
+    .view-tab { border:0; border-radius:10px; padding:13px 18px; font-weight:650; }
+    .view-tab.active { background:#183c50; color:white; box-shadow:0 4px 12px #183c5020; }
+    .value-card,.data-status-card,.market-summary-item,.risk-horizon,.risk-trigger { border-radius:14px; border-color:var(--line); }
+    .value-card strong,.market-summary-item strong,.metric strong { font-variant-numeric:tabular-nums; letter-spacing:-.04em; }
+    table { border-collapse:separate; border-spacing:0; }
+    th { background:#edf3f6; color:#435e70; font-size:12px; letter-spacing:.03em; }
+    td { padding:14px 12px; }
+    tbody tr:hover { background:#f2f8f8; }
+    button { border-radius:10px; min-height:44px; }
+    .visual-section { margin:0 0 24px; padding:24px; background:#fff; border:1px solid var(--line); border-radius:20px; box-shadow:0 8px 28px #17384d08; }
+    .visual-section-title { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:22px; }
+    .visual-section-title h2 { font-size:24px; margin:5px 0; letter-spacing:-.03em; }
+    .visual-section-title p { font-size:13px; color:var(--muted); }
+    .visual-eyebrow { color:#147d74; font-size:10px; font-weight:750; letter-spacing:.18em; }
+    .visual-icon { display:grid; place-items:center; width:46px; height:46px; border-radius:14px; color:#147d74; background:#e9f5f2; font-size:28px; flex-shrink:0; }
+    .visual-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
+    .visual-card { min-width:0; padding:20px; border-radius:16px; background:#f8fafb; border:1px solid #e6edf1; }
+    .visual-wide { grid-column:span 2; }
+    .visual-label { display:block; font-size:12px; font-weight:650; color:#526d7e; margin-bottom:12px; }
+    .visual-card p { color:#586e7e; font-size:12px; line-height:1.65; }
+    .visual-gauge { display:block; width:100%; max-width:205px; margin:0 auto; overflow:visible; }
+    .visual-gauge-number { font-size:25px; font-weight:750; fill:#183244; font-variant-numeric:tabular-nums; }
+    .visual-needle { transform-origin:100px 98px; transform:rotate(var(--needle-angle)); animation:needle-arrive .8s ease-out; }
+    @keyframes needle-arrive { from { transform:rotate(-90deg); } to { transform:rotate(var(--needle-angle)); } }
+    .visual-scale { display:flex; justify-content:space-between; color:#657c8b; font-size:11px; margin:2px 0 12px; }
+    .visual-number { display:block; font-size:42px; line-height:1.25; letter-spacing:-.045em; font-variant-numeric:tabular-nums; color:#183c50; }
+    .visual-number small { font-size:12px; letter-spacing:0; color:#6b7d89; }
+    .visual-trend { width:100%; max-height:105px; margin-top:8px; }
+    .visual-bars { display:grid; gap:15px; }
+    .visual-bar-row > div:first-child { display:flex; justify-content:space-between; gap:12px; font-size:12px; margin-bottom:7px; }
+    .visual-track { height:7px; background:#e3ecef; border-radius:5px; overflow:hidden; }
+    .visual-track i { display:block; height:100%; border-radius:5px; background:linear-gradient(90deg,#75b9ac,#168478); animation:bar-arrive .7s ease-out; }
+    @keyframes bar-arrive { from { transform:scaleX(0); transform-origin:left; } to { transform:scaleX(1); transform-origin:left; } }
+    .visual-levels { margin:0; }
+    .visual-levels div { display:flex; justify-content:space-between; gap:12px; padding:14px 0; border-bottom:1px dashed #dae5ea; }
+    .visual-levels dt { font-size:12px; color:#647b8b; }
+    .visual-levels dd { margin:0; font-weight:750; font-variant-numeric:tabular-nums; }
+    .visual-empty { min-height:90px; display:grid; place-items:center; text-align:center; }
+    @media(max-width:900px) { .visual-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media(max-width:520px) { .page { padding:12px; } .panel,.visual-section,.market-radar-home { padding:16px; border-radius:16px; } .visual-section-title h2 { font-size:21px; } .visual-grid { gap:10px; } .visual-card { padding:14px; } .visual-number { font-size:32px; } .visual-grid > .visual-wide { grid-column:1/-1; } .visual-section-title { align-items:flex-start; } .visual-icon { width:34px; height:34px; font-size:22px; } }
+    @media(prefers-reduced-motion:reduce) { .visual-needle,.visual-track i { animation:none; transition:none; } }
+
+    #portfolioVisuals .visual-wide { grid-column:span 3; }
+    details.visual-details > summary { cursor:pointer; font-weight:700; padding:4px 0 12px; min-height:44px; }
+    @media(max-width:900px) { #portfolioVisuals .visual-wide { grid-column:span 2; } }
+    @media(max-width:520px) { #stockVisuals .visual-wide { order:3; } }
   </style>
 </head>
 <body>
@@ -607,7 +649,6 @@
           <button type="button" data-market-view="client">&#x81ea;&#x9078;&#x80a1;</button>
           <button type="button" data-market-view="swing">&#x7b56;&#x7565;&#x9078;&#x80a1;</button>
           <button type="button" data-market-view="risk">&#x98a8;&#x96aa;&#x6383;&#x63cf;</button>
-          <button type="button" data-market-view="data">&#x8cc7;&#x6599;&#x4e0b;&#x8f09;</button>
         </nav>
       </div>
       <div hidden>
@@ -629,6 +670,7 @@
         <div><h1>&#x4eca;&#x5929;&#x5e02;&#x5834;&#x54ea;&#x88e1;&#x503c;&#x5f97;&#x9032;&#x4e00;&#x6b65;&#x7814;&#x7a76;&#xff1f;</h1><p>&#x5148;&#x770b;&#x7522;&#x696d;&#x8207;&#x8cc7;&#x6599;&#x54c1;&#x8cea;&#xff0c;&#x518d;&#x7528;&#x5de6;&#x5074;&#x6216;&#x53f3;&#x5074;&#x504f;&#x597d;&#x7e2e;&#x5c0f;&#x7814;&#x7a76;&#x7bc4;&#x570d;&#x3002;&#x7d50;&#x679c;&#x662f;&#x7814;&#x7a76;&#x9806;&#x5e8f;&#xff0c;&#x4e0d;&#x662f;&#x8cb7;&#x8ce3;&#x6307;&#x4ee4;&#x3002;</p></div>
         <span class="market-data-state" id="marketRadarState">&#x8b80;&#x53d6;&#x6700;&#x8fd1;&#x5b8c;&#x6574;&#x5feb;&#x7167;</span>
       </div>
+      <section class="visual-section" id="homeVisuals"></section>
       <div class="market-summary-strip" id="marketRadarSummary" aria-live="polite">
         <div class="market-summary-item"><b>&#x89c0;&#x5bdf;&#x6279;&#x6b21;</b><strong>--</strong><span>&#x6b63;&#x5728;&#x8b80;&#x53d6;</span></div>
         <div class="market-summary-item"><b>&#x53ef;&#x5217;&#x5165;&#x6392;&#x540d;</b><strong>--</strong><span>&#x8cc7;&#x6599;&#x9580;&#x6abb;&#x6aa2;&#x67e5;</span></div>
@@ -679,7 +721,6 @@
         <button class="doorway-card" type="button" data-doorway-view="client"><b>&#x958b;&#x555f;&#x81ea;&#x9078;&#x80a1;&#x8207;&#x6301;&#x80a1;</b><span>&#x67e5;&#x770b;&#x89c0;&#x5bdf;&#x6c60;&#x3001;&#x6301;&#x80a1;&#x98a8;&#x96aa;&#x8207;&#x6392;&#x884c;&#x699c;&#x3002;</span></button>
         <button class="doorway-card" type="button" data-doorway-view="swing"><b>&#x958b;&#x555f; Dino K&#x7dda;&#x9078;&#x80a1;</b><span>&#x5148;&#x770b;&#x5e02;&#x5834;&#x4e3b;&#x984c;&#xff0c;&#x518d;&#x9078;&#x80a1;&#x4e26;&#x9032;&#x5165;&#x5c08;&#x5bb6;&#x5206;&#x6790;&#x3002;</span></button>
         <button class="doorway-card" type="button" data-doorway-view="risk"><b>&#x958b;&#x555f;&#x5b8f;&#x89c0;&#x98a8;&#x96aa;&#x6383;&#x63cf;</b><span>&#x7368;&#x7acb;&#x67e5;&#x770b; 17 &#x9805;&#x77ed;&#x4e2d;&#x9577;&#x671f;&#x6307;&#x6a19;&#x8207; 7 &#x9805;&#x786c;&#x89f8;&#x767c;&#x689d;&#x4ef6;&#x3002;</span></button>
-        <button class="doorway-card" type="button" data-doorway-view="data"><b>&#x958b;&#x555f;&#x8cc7;&#x6599;&#x67e5;&#x8a62;&#x8207;&#x4e0b;&#x8f09;</b><span>&#x67e5;&#x8a62;&#x500b;&#x80a1;&#x65e5; K&#x3001;&#x71df;&#x6536;&#x3001;&#x8ca1;&#x5831;&#x8207;&#x4f30;&#x503c;&#xff0c;&#x4e26;&#x4e0b;&#x8f09; CSV&#x3002;</span></button>
       </div>
     </section>
 
@@ -688,7 +729,7 @@
         <div class="workspace-head">
           <div>
             <h2>&#x6df1;&#x5ea6;&#x529f;&#x80fd;&#x5de5;&#x4f5c;&#x5340;</h2>
-            <p>&#x5728;&#x9019;&#x88e1;&#x5207;&#x63db;&#x80a1;&#x7968;&#x5b8c;&#x6574;&#x5206;&#x6790;&#x3001;&#x81ea;&#x9078;&#x80a1;&#x8207;&#x6301;&#x80a1;&#x3001;Dino K&#x7dda;&#x9078;&#x80a1;&#x3001;&#x5b8f;&#x89c0;&#x98a8;&#x96aa;&#x6383;&#x63cf;&#xff0c;&#x6216;&#x500b;&#x80a1;&#x8cc7;&#x6599;&#x67e5;&#x8a62;&#x8207;&#x4e0b;&#x8f09;&#x3002;</p>
+            <p>&#x5728;&#x9019;&#x88e1;&#x5207;&#x63db;&#x80a1;&#x7968;&#x5b8c;&#x6574;&#x5206;&#x6790;&#x3001;&#x81ea;&#x9078;&#x80a1;&#x8207;&#x6301;&#x80a1;&#x3001;Dino K&#x7dda;&#x9078;&#x80a1;&#xff0c;&#x6216;&#x7368;&#x7acb;&#x7684;&#x5b8f;&#x89c0;&#x98a8;&#x96aa;&#x6383;&#x63cf;&#x3002;</p>
             <div class="workspace-context" id="workspaceContext" role="status" aria-live="polite">&#x76ee;&#x524d;&#x5c1a;&#x672a;&#x9078;&#x64c7;&#x80a1;&#x7968;</div>
           </div>
           <button type="button" class="secondary" id="backHomeBtn">&#x8fd4;&#x56de;&#x9996;&#x9801;</button>
@@ -698,7 +739,6 @@
           <button class="view-tab" type="button" role="tab" id="workspaceTabClient" aria-selected="false" aria-controls="clientPage" tabindex="-1" data-view="client">&#x81ea;&#x9078;&#x80a1;&#x8207;&#x6301;&#x80a1;</button>
           <button class="view-tab" type="button" role="tab" id="workspaceTabSwing" aria-selected="false" aria-controls="swingPage" tabindex="-1" data-view="swing">Dino K&#x7dda;&#x9078;&#x80a1;</button>
           <button class="view-tab" type="button" role="tab" id="workspaceTabRisk" aria-selected="false" aria-controls="riskPage" tabindex="-1" data-view="risk">&#x5b8f;&#x89c0;&#x98a8;&#x96aa;&#x6383;&#x63cf;</button>
-          <button class="view-tab" type="button" role="tab" id="workspaceTabData" aria-selected="false" aria-controls="dataPage" tabindex="-1" data-view="data">&#x8cc7;&#x6599;&#x67e5;&#x8a62;&#x8207;&#x4e0b;&#x8f09;</button>
           <button class="view-tab" type="button" role="tab" id="adminTab" aria-selected="false" aria-controls="adminPage" tabindex="-1" data-view="admin" hidden>&#x5f8c;&#x81fa;&#x8cc7;&#x6599;&#x6aa2;&#x67e5;</button>
         </div>
         <nav class="stock-section-nav" id="stockSectionNav" aria-label="&#x500b;&#x80a1;&#x5206;&#x6790;&#x6bb5;&#x843d;">
@@ -711,6 +751,7 @@
       </div>
       <div class="workspace-body">
     <div id="stockPage" class="page-view" role="tabpanel" aria-labelledby="workspaceTabStock">
+      <section class="visual-section" id="stockVisuals"></section>
       <section class="analysis-section" id="stock-overview" aria-labelledby="stockOverviewTitle">
         <div class="analysis-section-head">
           <div>
@@ -837,6 +878,8 @@
         <section class="panel">
           <h2>&#x5c0f;&#x8cc7;&#x50f9;&#x503c;&#x96f7;&#x9054;</h2>
           <p class="note">&#x53ea;&#x4f7f;&#x7528;&#x73fe;&#x6709;&#x516c;&#x958b;&#x5831;&#x50f9;&#x8207; FinMind &#x53ef;&#x53d6;&#x5f97;&#x8cc7;&#x6599;&#xff1b;&#x7f3a;&#x8cc7;&#x6599;&#x6642;&#x6703;&#x76f4;&#x63a5;&#x6a19;&#x793a;&#xff0c;&#x4e0d;&#x7528;&#x5047;&#x6578;&#x5b57;&#x88dc;&#x5206;&#x3002;</p>
+          <section class="visual-section" id="valueVisuals"></section>
+          <button class="btn" type="button" id="loadValueScoreBtn">&#x8f09;&#x5165;&#x672c;&#x6a94;&#x57fa;&#x672c;&#x9762;&#x8a55;&#x5206;</button>
           <div class="value-grid" id="valueScoreCards"></div>
           <div id="valueDataStatus"></div>
           <div id="chaseRiskPanel"></div>
@@ -930,6 +973,7 @@
     </div>
 
     <div id="clientPage" class="page-view" role="tabpanel" aria-labelledby="workspaceTabClient" hidden>
+      <section class="visual-section" id="portfolioVisuals"></section>
       <section class="panel">
         <div class="control-row">
           <h2>&#x5ba2;&#x6236;&#x6295;&#x8cc7;&#x5de5;&#x4f5c;&#x53f0;</h2>
@@ -938,8 +982,8 @@
         <p class="note">&#x9019;&#x500b;&#x5206;&#x9801;&#x4fdd;&#x7559;&#x539f;&#x672c;&#x80a1;&#x7968;&#x6df1;&#x5ea6;&#x9801;&#xff0c;&#x53e6;&#x5916;&#x96c6;&#x4e2d;&#x986f;&#x793a;&#x6301;&#x80a1;&#x98a8;&#x96aa;&#x3001;&#x89c0;&#x5bdf;&#x6e05;&#x55ae;&#x3001;&#x6392;&#x884c;&#x699c;&#x3001;&#x56de;&#x6e2c;&#x5be6;&#x9a57;&#x5ba4;&#x8207; AI &#x7406;&#x8ca1;&#x8ca1;&#x52d9;&#x9577;&#x3002;</p>
         <div class="client-grid" id="clientSummary"></div>
       </section>
-      <section class="panel">
-        <h2>&#x8a55;&#x7d1a;&#x6a19;&#x6e96;&#x8207;&#x6392;&#x884c;&#x699c;&#x7bc4;&#x570d;</h2>
+      <details class="panel visual-details">
+        <summary>&#x8a55;&#x7d1a;&#x6a19;&#x6e96;&#x8207;&#x6392;&#x884c;&#x699c;&#x7bc4;&#x570d;</summary>
         <div class="table-wrap">
           <table>
             <thead><tr><th>&#x500b;&#x80a1;&#x6a21;&#x7d44;</th><th>&#x6b0a;&#x91cd;</th><th>&#x4f7f;&#x7528;&#x8cc7;&#x6599;</th></tr></thead>
@@ -972,7 +1016,7 @@
           <div class="scope-item"><b>ETF &#x7368;&#x7acb;&#x699c;</b><p>ETF &#x4f7f;&#x7528;&#x7368;&#x7acb;&#x6a21;&#x578b;&#xff0c;&#x4e0d;&#x8207;&#x500b;&#x80a1;&#x8ca1;&#x5831;&#x6a21;&#x578b;&#x6df7;&#x6392;&#x3002;</p></div>
         </div>
         <p class="note">&#x80fd;&#x7b97;&#x7684;&#x624d;&#x7d66;&#x5206;&#xff1b;&#x4e0d;&#x80fd;&#x7b97;&#x7684;&#x986f;&#x793a;&#x8cc7;&#x6599;&#x4e0d;&#x8db3;&#x3002;&#x7b2c;&#x4e09;&#x65b9;&#x7db2;&#x7ad9;&#x53ea;&#x7576;&#x4ecb;&#x9762;&#x8207;&#x6a19;&#x6e96;&#x53c3;&#x8003;&#xff0c;&#x4e0d;&#x5047;&#x88dd;&#x6211;&#x5011;&#x6709;&#x540c;&#x7b49;&#x5c08;&#x6709;&#x8cc7;&#x6599;&#x3002;</p>
-      </section>
+      </details>
       <section class="grid two">
         <section class="panel"><h2>&#x5e02;&#x5834;&#x72c0;&#x614b;</h2><div id="marketStatePanel"></div></section>
         <section class="panel"><h2>AI &#x7406;&#x8ca1;&#x8ca1;&#x52d9;&#x9577;</h2><div id="clientCfoPanel"></div></section>
@@ -981,7 +1025,7 @@
         <h2>&#x6211;&#x7684;&#x6301;&#x80a1;&#x98a8;&#x96aa;</h2>
         <div class="client-form">
           <label>&#x6301;&#x80a1;&#x6e05;&#x55ae;
-            <textarea id="clientPortfolioInput" aria-label="&#x5ba2;&#x6236;&#x6301;&#x80a1;&#x6e05;&#x55ae;">0050 40%, 2330 30%, 2454 10%, cash 20%</textarea>
+            <textarea id="clientPortfolioInput" aria-label="&#x5ba2;&#x6236;&#x6301;&#x80a1;&#x6e05;&#x55ae;" placeholder="2330 30%, cash 70%"></textarea>
           </label>
           <button type="button" id="analyzeClientPortfolioBtn">&#x5206;&#x6790;&#x6301;&#x80a1;</button>
         </div>
@@ -1043,6 +1087,7 @@
     </div>
 
     <div id="swingPage" class="page-view" role="tabpanel" aria-labelledby="workspaceTabSwing" hidden>
+      <section class="visual-section" id="swingVisuals"></section>
       <div class="flow-steps" id="swingFlowSteps" aria-label="Dino K&#x7dda;&#x9078;&#x80a1;&#x6d41;&#x7a0b;"></div>
       <section class="panel" id="swingStepMacro">
         <h2>1. &#x7e3d;&#x7d93;&#x8207;&#x6700;&#x65b0;&#x65b0;&#x805e;</h2>
@@ -1092,6 +1137,7 @@
     </div>
 
     <div id="riskPage" class="page-view" role="tabpanel" aria-labelledby="workspaceTabRisk" hidden>
+      <section class="visual-section" id="riskVisuals"></section>
       <section class="risk-page-head" aria-labelledby="macroRiskTitle">
         <div>
           <h2 id="macroRiskTitle">&#x5b8f;&#x89c0;&#x98a8;&#x96aa;&#x6383;&#x63cf;</h2>
@@ -1129,50 +1175,6 @@
         <details class="risk-details"><summary>&#x7d50;&#x8ad6;&#x8207;&#x61c9;&#x7528;&#x65b9;&#x5f0f;</summary><div class="risk-details-body" id="macroRiskConclusion"></div></details>
         <details class="risk-details"><summary>&#x672c;&#x671f;&#x6700;&#x9700;&#x8ffd;&#x8e64;&#x7684;&#x6307;&#x6a19;</summary><div class="risk-details-body" id="macroRiskFocus"></div></details>
         <details class="risk-details risk-limit"><summary>&#x8cc7;&#x6599;&#x9650;&#x5236;&#x3001;&#x6388;&#x6b0a;&#x8207;&#x5224;&#x5b9a;&#x539f;&#x5247;</summary><div class="risk-details-body" id="macroRiskLimitations"></div></details>
-      </section>
-    </div>
-
-    <div id="dataPage" class="page-view" role="tabpanel" aria-labelledby="workspaceTabData" hidden>
-      <section class="panel" aria-labelledby="customerDataTitle">
-        <h2 id="customerDataTitle">&#x500b;&#x80a1;&#x8cc7;&#x6599;&#x67e5;&#x8a62;&#x8207;&#x4e0b;&#x8f09;</h2>
-        <p class="note">&#x7531;&#x5f8c;&#x7aef;&#x8b80;&#x53d6; FinMind &#x4e26;&#x91cd;&#x7528;&#x5df2;&#x5132;&#x5b58;&#x7684;&#x8cc7;&#x6599;&#x3002;&#x55ae;&#x6b21;&#x6700;&#x591a;&#x67e5;&#x8a62; 366 &#x5929;&#xff1b;&#x8cc7;&#x6599;&#x7f3a;&#x6f0f;&#x6642;&#x6703;&#x76f4;&#x63a5;&#x6a19;&#x793a;&#xff0c;&#x4e0d;&#x6703;&#x88dc;&#x5047;&#x6578;&#x5b57;&#x3002;</p>
-        <form class="data-query-form" id="customerDataForm">
-          <label>&#x80a1;&#x7968;&#x4ee3;&#x78bc;
-            <input id="customerDataCode" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="&#x4f8b;&#xff1a;2330" required>
-          </label>
-          <label>&#x8cc7;&#x6599;&#x96c6;
-            <select id="customerDataDataset">
-              <option value="price">&#x65e5; K &#x8207;&#x6210;&#x4ea4;&#x91cf;</option>
-              <option value="revenue">&#x6708;&#x71df;&#x6536;</option>
-              <option value="financials">&#x640d;&#x76ca;&#x8207;&#x8ca1;&#x52d9;&#x6307;&#x6a19;</option>
-              <option value="balance">&#x8cc7;&#x7522;&#x8ca0;&#x50b5;&#x8868;</option>
-              <option value="cashflow">&#x73fe;&#x91d1;&#x6d41;&#x91cf;&#x8868;</option>
-              <option value="valuation">&#x4f30;&#x503c;</option>
-            </select>
-          </label>
-          <label>&#x958b;&#x59cb;&#x65e5;
-            <input id="customerDataStart" type="date" required>
-          </label>
-          <label>&#x7d50;&#x675f;&#x65e5;
-            <input id="customerDataEnd" type="date" required>
-          </label>
-          <button type="submit" id="customerDataQueryBtn">&#x67e5;&#x8a62;</button>
-        </form>
-        <p class="note" id="customerDataStatus" role="status" aria-live="polite">&#x8acb;&#x9078;&#x64c7;&#x80a1;&#x7968;&#x3001;&#x8cc7;&#x6599;&#x96c6;&#x8207;&#x65e5;&#x671f;&#x3002;</p>
-      </section>
-      <section class="panel" id="customerDataResult" hidden>
-        <div class="data-download-actions">
-          <div><h2 id="customerDataResultTitle">&#x67e5;&#x8a62;&#x7d50;&#x679c;</h2><p class="note" id="customerDataResultNote"></p></div>
-          <button type="button" class="secondary" id="customerDataDownloadBtn" disabled>&#x4e0b;&#x8f09; CSV</button>
-        </div>
-        <div class="data-meta-grid" id="customerDataMeta"></div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr id="customerDataHead"></tr></thead>
-            <tbody id="customerDataRows"></tbody>
-          </table>
-        </div>
-        <div class="source-list" id="customerDataSource"></div>
       </section>
     </div>
 
@@ -1240,7 +1242,6 @@
     let stockSuggestionTimer = null;
     let adminUniverse = null;
     let adminScoreV2Workbench = null;
-    let customerDatasetPayload = null;
     let currentIndicator = "volume";
     const adminEnabled = new URLSearchParams(location.search).get("admin") === "1" || location.hash.toLowerCase() === "#admin";
 
@@ -1336,120 +1337,6 @@
       throw new Error(localCode
         ? `\u627e\u4e0d\u5230\u76ee\u524d\u6709\u6548\u7684\u4e0a\u5e02\u3001\u4e0a\u6ac3\u6a19\u7684 ${localCode}\uff0c\u8acb\u78ba\u8a8d\u4ee3\u78bc\u6216\u6539\u7528\u80a1\u7968\u540d\u7a31\u641c\u5c0b\u3002`
         : (result.message || "\u627e\u4e0d\u5230\u7b26\u5408\u7684\u53f0\u80a1\u4ee3\u78bc\u6216\u540d\u7a31\u3002"));
-    }
-
-    function isoInputDate(date) {
-      return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-    }
-
-    function setupCustomerDataDates() {
-      const end = new Date();
-      const start = new Date(end);
-      start.setFullYear(start.getFullYear() - 1);
-      $("customerDataStart").value = isoInputDate(start);
-      $("customerDataEnd").value = isoInputDate(end);
-    }
-
-    function customerDataMetaCard(label, value) {
-      return `<div class="data-meta-card"><b>${escapeHtml(label)}</b><strong>${escapeHtml(value)}</strong></div>`;
-    }
-
-    function customerColumnLabel(column) {
-      const labels = {
-        date:"\u8cc7\u6599\u65e5", stock_id:"\u80a1\u7968\u4ee3\u78bc", open:"\u958b\u76e4", max:"\u6700\u9ad8", min:"\u6700\u4f4e", close:"\u6536\u76e4",
-        spread:"\u6f32\u8dcc", Trading_Volume:"\u6210\u4ea4\u80a1\u6578", Trading_money:"\u6210\u4ea4\u91d1\u984d", Trading_turnover:"\u6210\u4ea4\u7b46\u6578",
-        country:"\u5730\u5340", revenue:"\u71df\u6536", revenue_month:"\u71df\u6536\u6708", revenue_year:"\u71df\u6536\u5e74", type:"\u9805\u76ee",
-        value:"\u6578\u503c", origin_name:"\u539f\u59cb\u540d\u7a31", PER:"\u672c\u76ca\u6bd4", PBR:"\u80a1\u50f9\u6de8\u503c\u6bd4", dividend_yield:"\u6b96\u5229\u7387",
-      };
-      return labels[column] ? `${labels[column]} (${column})` : column;
-    }
-
-    function renderCustomerDataset(payload) {
-      customerDatasetPayload = payload;
-      const rows = Array.isArray(payload?.rows) ? payload.rows : [];
-      const columns = Array.isArray(payload?.columns) ? payload.columns : [];
-      const cacheLabels = { persistent:"\u6301\u4e45\u5feb\u53d6", memory:"\u7576\u6b21\u8a18\u61b6\u9ad4\u5feb\u53d6", upstream:"FinMind \u5373\u6642\u53d6\u5f97" };
-      const cacheState = payload.cache?.source === "persistent"
-        ? "\u6301\u4e45\u5feb\u53d6\u8b80\u56de"
-        : `${cacheLabels[payload.cache?.source] || payload.cache?.source || "--"}${payload.cache?.persisted ? "\uff0c\u5df2\u5beb\u5165\u6301\u4e45\u5feb\u53d6" : ""}`;
-      $("customerDataResult").hidden = false;
-      $("customerDataResultTitle").textContent = `${payload.code} | ${payload.label}`;
-      $("customerDataMeta").innerHTML = [
-        customerDataMetaCard("\u8cc7\u6599\u7b46\u6578", `${payload.rowCount || 0} \u7b46`),
-        customerDataMetaCard("\u6700\u65b0\u8cc7\u6599\u65e5", payload.latestDataDate || "\u672c\u5340\u9593\u7121\u8cc7\u6599"),
-        customerDataMetaCard("\u8cc7\u6599\u8b80\u53d6", cacheState),
-        customerDataMetaCard("\u53d6\u5f97\u6642\u9593", payload.fetchedAt ? new Date(payload.fetchedAt).toLocaleString("zh-TW") : "--"),
-      ].join("");
-      $("customerDataHead").innerHTML = columns.map(column => `<th>${escapeHtml(customerColumnLabel(column))}</th>`).join("");
-      $("customerDataRows").innerHTML = rows.length
-        ? rows.slice(0, 100).map(row => `<tr>${columns.map(column => `<td>${escapeHtml(row?.[column] ?? "")}</td>`).join("")}</tr>`).join("")
-        : `<tr><td colspan="${Math.max(1, columns.length)}">\u9019\u500b\u65e5\u671f\u5340\u9593\u6c92\u6709\u53ef\u986f\u793a\u7684\u8cc7\u6599\u3002</td></tr>`;
-      const previewNote = payload.truncated
-        ? `\u7b26\u5408 ${payload.matchedRowCount} \u7b46\uff0c\u4f9d\u56de\u61c9\u4e0a\u9650\u4fdd\u7559\u6700\u65b0 ${rows.length} \u7b46\uff1b\u756b\u9762\u9810\u89bd\u524d 100 \u7b46\u3002`
-        : rows.length > 100
-          ? `\u756b\u9762\u9810\u89bd\u524d 100 \u7b46\uff1bCSV \u5305\u542b\u5168\u90e8 ${rows.length} \u7b46\u3002`
-          : `\u756b\u9762\u8207 CSV \u5171 ${rows.length} \u7b46\u3002`;
-      const cacheWarning = payload.cache?.warning ? ` ${payload.cache.warning}` : "";
-      $("customerDataResultNote").textContent = `${previewNote}${payload.cache?.stale ? " \u6b64\u6b21\u70ba\u904e\u671f\u5feb\u53d6\u3002" : ""}${cacheWarning}`;
-      $("customerDataSource").innerHTML = `<span class="note">\u4f86\u6e90\uff1a</span><a href="${escapeHtml(payload.sourceUrl || "https://finmind.github.io/")}" target="_blank" rel="noreferrer">FinMind ${escapeHtml(payload.dataset || "")}</a>`;
-      $("customerDataDownloadBtn").disabled = rows.length === 0 || columns.length === 0;
-    }
-
-    async function loadCustomerDataset() {
-      const button = $("customerDataQueryBtn");
-      const status = $("customerDataStatus");
-      const startDate = $("customerDataStart").value;
-      const endDate = $("customerDataEnd").value;
-      if (!startDate || !endDate || startDate > endDate) {
-        status.textContent = "\u8acb\u78ba\u8a8d\u958b\u59cb\u65e5\u4e0d\u665a\u65bc\u7d50\u675f\u65e5\u3002";
-        return;
-      }
-      if ((Date.parse(endDate) - Date.parse(startDate)) / 86400000 > 366) {
-        status.textContent = "\u55ae\u6b21\u67e5\u8a62\u7bc4\u570d\u4e0d\u80fd\u8d85\u904e 366 \u5929\u3002";
-        return;
-      }
-      button.disabled = true;
-      $("customerDataDownloadBtn").disabled = true;
-      status.textContent = "\u6b63\u5728\u8b80\u53d6\u5f8c\u7aef\u5feb\u53d6\u8207 FinMind \u8cc7\u6599...";
-      try {
-        const code = await resolveStockInput($("customerDataCode").value || activeCode);
-        $("customerDataCode").value = code;
-        const dataset = $("customerDataDataset").value;
-        const api = await waitForAppApi();
-        const { data } = await api.get(`/api/data-library?code=${encodeURIComponent(code)}&dataset=${encodeURIComponent(dataset)}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`);
-        if (!data?.ok) throw new Error(data?.message || "\u8cc7\u6599\u67e5\u8a62\u5931\u6557\u3002");
-        renderCustomerDataset(data);
-        status.textContent = `${code} ${data.label} \u5df2\u53d6\u5f97 ${data.rowCount || 0} \u7b46\u3002`;
-      } catch (err) {
-        customerDatasetPayload = null;
-        $("customerDataResult").hidden = true;
-        status.textContent = friendlyRequestError(err, "\u8cc7\u6599\u67e5\u8a62\u5931\u6557\uff0c\u8acb\u7a0d\u5f8c\u518d\u8a66\u3002");
-      } finally {
-        button.disabled = false;
-      }
-    }
-
-    function csvCell(value) {
-      let text = value === null || value === undefined ? "" : String(value);
-      if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
-      return `"${text.replace(/"/g, '""')}"`;
-    }
-
-    function downloadCustomerDataset() {
-      const payload = customerDatasetPayload;
-      if (!payload?.rows?.length || !payload?.columns?.length) return;
-      const csv = [
-        payload.columns.map(csvCell).join(","),
-        ...payload.rows.map(row => payload.columns.map(column => csvCell(row?.[column])).join(",")),
-      ].join("\r\n");
-      const blobUrl = URL.createObjectURL(new Blob(["\ufeff", csv], { type:"text/csv;charset=utf-8" }));
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = `tw-stock-${payload.code}-${payload.datasetKey}-${payload.requestedRange.startDate}-${payload.requestedRange.endDate}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 0);
     }
 
     function heroFact(text, cls = "neut") {
@@ -2089,8 +1976,9 @@
     async function buildWorkbenchFallback(api, reason) {
       const modes = ["undervalued", "overvalued", "cashflow", "growth", "small-investor"];
       const results = await Promise.allSettled(modes.map(mode => api.get(`/api/screener/snapshot?mode=${encodeURIComponent(mode)}`)));
-      const payloads = results.map(result => result.status === "fulfilled" ? result.value.data : null).filter(Boolean);
-      if (!payloads.length) throw reason instanceof Error ? reason : new Error("\u5de5\u4f5c\u53f0\u8cc7\u6599\u8f09\u5165\u5931\u6557");
+      const responses = results.map(result => result.status === "fulfilled" ? result.value.data : null).filter(Boolean);
+      if (!responses.length) throw reason instanceof Error ? reason : new Error("\u5de5\u4f5c\u53f0\u8cc7\u6599\u8f09\u5165\u5931\u6557");
+      const payloads = responses.filter(payload => payload.ok && payload.snapshotStatus === "complete");
       const first = payloads[0] || {};
       const byCode = new Map();
       payloads.flatMap(payload => payload.items || []).forEach(item => {
@@ -2102,7 +1990,8 @@
       const avgScore = allItems.length ? Math.round(allItems.reduce((sum, item) => sum + (item.professionalRating?.total || 0), 0) / allItems.length) : null;
       return {
         ok: true,
-        generatedAt: new Date().toISOString(),
+        generatedAt: first.snapshotGeneratedAt || first.generatedAt || first.refreshedAt || null,
+        snapshotStatus: payloads.length ? "complete" : "missing",
         source: "\u516c\u958b\u6392\u884c\u699c\u5feb\u7167 fallback",
         universeMeta: first.universeMeta || { name:"\u53f0\u80a1\u6279\u6b21\u8a55\u5206", version:"public-fallback", requestedCount:allItems.length, scoredCount:allItems.length },
         finmind: { status:"snapshot", note:"\u5df2\u8b80\u53d6\u5b8c\u6210\u5feb\u7167\uff1b\u9996\u9801\u4e0d\u6703\u89f8\u767c\u500b\u80a1\u91cd\u65b0\u8a55\u5206\u3002" },
@@ -2939,11 +2828,11 @@
     }
 
     function scoreText(value) {
-      return Number.isFinite(Number(value)) ? `${Math.round(Number(value))}` : "--";
+      return visualNumber(value) !== null ? `${Math.round(Number(value))}` : "--";
     }
 
     function scoreTone(value, highIsRisk = false) {
-      if (!Number.isFinite(Number(value))) return "neut";
+      if (visualNumber(value) === null) return "neut";
       const score = Number(value);
       if (highIsRisk) {
         if (score >= 72) return "bear";
@@ -2953,6 +2842,70 @@
       if (score >= 72) return "bull";
       if (score >= 50) return "warn";
       return "bear";
+    }
+
+    // dashboard-visuals-v1: values come from the existing analysis payloads.
+    function visualNumber(value) {
+      return value === null || value === undefined || value === '' || typeof value === 'boolean' || !Number.isFinite(Number(value)) ? null : Number(value);
+    }
+    function visualGauge(label, value, detail, max = 100) {
+      const number = visualNumber(value);
+      const ratio = number === null ? 0 : Math.max(0, Math.min(1, number / max));
+      const angle = -90 + ratio * 180;
+      return `<article class="visual-card"><span class="visual-label">${escapeHtml(label)}</span><svg class="visual-gauge" viewBox="0 0 200 145" role="img" aria-label="${escapeHtml(label)} ${number === null ? '\u8cc7\u6599\u4e0d\u8db3' : number.toFixed(1) + ' / ' + max}"><path d="M 22 98 A 78 78 0 0 1 178 98" fill="none" stroke="#e6edf0" stroke-width="13" stroke-linecap="round"/><path d="M 22 98 A 78 78 0 0 1 178 98" fill="none" stroke="${number === null ? '#c0cbd2' : '#178477'}" stroke-width="13" pathLength="100" stroke-dasharray="${ratio*100} 100" stroke-linecap="round"/>${number === null ? '' : `<g class="visual-needle" style="--needle-angle:${angle}deg"><path d="M 96 98 L 100 35 L 104 98 Z" fill="#203c50"/><circle cx="100" cy="98" r="7" fill="#203c50"/></g>`}<text x="100" y="132" text-anchor="middle" class="visual-gauge-number">${number === null ? '\u2014' : Number(number.toFixed(1))}</text></svg><div class="visual-scale"><span>0</span><span>${max}</span></div><p>${escapeHtml(number === null ? '\u8cc7\u6599\u4e0d\u8db3\uff0c\u66ab\u4e0d\u5224\u5b9a' : detail)}</p></article>`;
+    }
+    function visualBars(rows, max = 100) {
+      return `<div class="visual-bars">${rows.map(row => {
+        const n = visualNumber(row[1]);
+        return `<div class="visual-bar-row"><div><span>${escapeHtml(row[0])}</span><strong>${n === null ? '\u8cc7\u6599\u4e0d\u8db3' : Number(n.toFixed(1)) + (row[2] || '')}</strong></div><div class="visual-track" role="img" aria-label="${escapeHtml(row[0])} ${n === null ? '\u8cc7\u6599\u4e0d\u8db3' : n + (row[2] || '')}"><i style="width:${n === null ? 0 : Math.max(0,Math.min(100,n/max*100))}%"></i></div></div>`;
+      }).join('')}</div>`;
+    }
+    function visualTrend(values) {
+      const raw = Array.isArray(values) ? values.slice(-60) : [];
+      const numbers = raw.map(visualNumber);
+      if(numbers.length < 2 || numbers.some(n=>n===null)) return '<p class="visual-empty">\u5c1a\u7121\u8db3\u5920\u7684\u9023\u7e8c\u884c\u60c5</p>';
+      const lo=Math.min(...numbers), hi=Math.max(...numbers), range=hi-lo || 1;
+      const points=numbers.map((n,i)=>`${8+i/(numbers.length-1)*284},${74-(n-lo)/range*62}`).join(' ');
+      return `<svg class="visual-trend" viewBox="0 0 300 90" role="img" aria-label="\u6700\u8fd1 ${numbers.length} \u7b46\u6536\u76e4\u8d70\u52e2\uff0c\u6700\u4f4e ${lo}\u3001\u6700\u9ad8 ${hi}"><path d="M8 75H292" stroke="#dce7eb"/><polyline points="${points}" fill="none" stroke="#178477" stroke-width="3" stroke-linejoin="round"/></svg><div class="visual-scale"><span>\u4f4e ${lo.toFixed(2)}</span><span>\u9ad8 ${hi.toFixed(2)}</span></div>`;
+    }
+    function visualSection(id, title, subtitle, content) {
+      const el=document.getElementById(id);
+      if(el) el.innerHTML=`<div class="visual-section-title"><div><span class="visual-eyebrow">MARKET OBSERVATORY</span><h2>${escapeHtml(title)}</h2><p>${escapeHtml(subtitle)}</p></div><span class="visual-icon" aria-hidden="true">\u2197</span></div><div class="visual-grid">${content}</div>`;
+    }
+    function renderStockVisuals(data) {
+      visualSection('stockVisuals','\u500b\u80a1\u89c0\u5bdf\u5100\u8868','\u6280\u8853\u6307\u6a19\u5354\u52a9\u5224\u8b80\u4f4d\u7f6e\uff1b\u8a55\u5206\u4e0d\u4ee3\u8868\u7372\u5229\u6a5f\u7387\u3002',
+        visualGauge('RSI \u52d5\u80fd\u4f4d\u7f6e',data?.rsiNow,'70 \u4ee5\u4e0a\u504f\u71b1\uff1b30 \u4ee5\u4e0b\u504f\u51b7')+
+        `<article class="visual-card visual-wide"><span class="visual-label">\u6536\u76e4\u8d70\u52e2 \u00b7 \u6700\u8fd1 60 \u7b46</span><strong class="visual-number">${visualNumber(data?.close)===null?'\u2014':fmt(data.close)} <small>TWD</small></strong>${visualTrend(data?.closes)}<p>\u8cc7\u6599\u65e5 ${escapeHtml(data?.quote?.quoteDate || data?.dates?.at(-1) || '\u5f85\u78ba\u8a8d')}</p></article>`+
+        `<article class="visual-card"><span class="visual-label">\u95dc\u9375\u50f9\u4f4d</span><dl class="visual-levels"><div><dt>\u58d3\u529b</dt><dd>${fmt(data?.resistance)}</dd></div><div><dt>\u6536\u76e4</dt><dd>${fmt(data?.close)}</dd></div><div><dt>\u652f\u6490</dt><dd>${fmt(data?.support)}</dd></div></dl><p>\u7a81\u7834\u6216\u8dcc\u7834\u5f8c\uff0c\u642d\u914d\u6210\u4ea4\u91cf\u78ba\u8a8d</p></article>`);
+    }
+    function renderValueVisuals(score) {
+      const s=score?.scores || {};
+      visualSection('valueVisuals','\u57fa\u672c\u9762\u8207\u98a8\u96aa','\u5f8c\u7aef\u6574\u7406 FinMind \u8ca1\u5831\u53ca\u884c\u60c5\uff0c\u518d\u5448\u73fe\u53ef\u89e3\u91cb\u7684\u5206\u6790\u3002',
+        visualGauge('\u8cc7\u6599\u5b8c\u6574\u5ea6',score?.dataStatus?.coverage?.percent,'\u53ef\u7528\u6b04\u4f4d\u5360\u5fc5\u8981\u6b04\u4f4d\u7684\u6bd4\u4f8b')+
+        visualGauge('\u8ffd\u9ad8\u98a8\u96aa\u8a55\u5206',s.chaseRisk?.score,'\u5206\u6578\u8d8a\u9ad8\uff0c\u8d8a\u9700\u8981\u7559\u610f\u8ffd\u50f9\u98a8\u96aa')+
+        `<article class="visual-card visual-wide"><span class="visual-label">\u5206\u6790\u69cb\u6210 \u00b7 0\u2013100 \u5206</span>${visualBars([['\u73fe\u91d1\u6d41',s.cashFlow?.score],['\u6210\u9577',s.growth?.score],['\u5e02\u5834\u4fe1\u5fc3',s.marketConfidence?.score],['\u4f4e\u4f30\u8a55\u5206',s.undervalued]])}</article>`);
+    }
+    function renderPortfolioVisuals(entries) {
+      const total=entries.reduce((sum,item)=>sum+item.weight,0);
+      const rows=entries.map(item=>[item.code==='cash'?'\u73fe\u91d1':item.code,item.isPct?item.weight:(total>0?item.weight/total*100:null),'%']);
+      const largest=rows.length?Math.max(...rows.map(r=>r[1] || 0)):null;
+      visualSection('portfolioVisuals','\u638c\u63e1\u4f60\u7684\u914d\u7f6e','\u4f9d\u4f60\u8f38\u5165\u7684\u6301\u80a1\u6bd4\u91cd\u8a08\u7b97\uff1b\u672a\u63d0\u4f9b\u6210\u672c\u6642\u4e0d\u63a8\u7b97\u640d\u76ca\u3002',visualGauge('\u6700\u5927\u55ae\u9805\u914d\u7f6e',largest,'\u96c6\u4e2d\u5ea6\u8d8a\u9ad8\uff0c\u55ae\u4e00\u90e8\u4f4d\u7684\u5f71\u97ff\u8d8a\u5927')+`<article class="visual-card visual-wide"><span class="visual-label">\u8cc7\u7522\u914d\u7f6e</span>${rows.length?visualBars(rows):'<p class="visual-empty">\u8f38\u5165\u6301\u80a1\u8207\u6bd4\u91cd\u5f8c\uff0c\u9019\u88e1\u6703\u986f\u793a\u914d\u7f6e\u5716\u3002</p>'}</article>`);
+    }
+    function renderSwingVisuals(payload) {
+      const rows=payload?.text?.ranking || payload?.ranking || [];
+      const meta=payload?.universeMeta || {};
+      visualSection('swingVisuals','\u6ce2\u6bb5\u7814\u7a76\u5c0e\u822a','\u5148\u770b\u8cc7\u6599\uff0c\u518d\u6bd4\u8f03\u5019\u9078\uff1b\u6df1\u5165\u7814\u7a76\u4ecd\u7531\u4f60\u9078\u64c7\u80a1\u7968\u3002',
+        `<article class="visual-card"><span class="visual-label">\u53ef\u7528\u5019\u9078</span><strong class="visual-number">${rows.length}</strong><p>\u901a\u904e\u672c\u6b21\u7be9\u9078\u7684\u89c0\u5bdf\u540d\u55ae</p></article>`+
+        `<article class="visual-card visual-wide"><span class="visual-label">\u5019\u9078\u6bd4\u8f03 \u00b7 \u524d 5 \u6a94 / 0\u2013100 \u5206</span>${rows.length?visualBars(rows.slice(0,5).map(r=>[`${r.code} ${r.name || ''}`,r.swingScore])):'<p class="visual-empty">\u5c1a\u7121\u901a\u904e\u9a57\u6536\u7684\u5019\u9078\uff0c\u7b49\u5f85\u5b8c\u6574\u8cc7\u6599\u3002</p>'}</article>`+
+        visualGauge('\u5efa\u6a94\u8986\u84cb\u7387',Number(meta.requestedCount)>0?Number(meta.scoredCount||0)/Number(meta.requestedCount)*100:null,'\u4ee5\u672c\u6b21\u5617\u8a66\u7684\u80a1\u7968\u6578\u70ba\u5206\u6bcd'));
+    }
+    function renderRiskVisuals(view) {
+      const snapshot=view?.snapshot;
+      const s=snapshot?.summary;
+      visualSection('riskVisuals','\u5e02\u5834\u98a8\u96aa\u89c0\u5bdf','\u5448\u73fe\u5df2\u53d6\u5f97\u7684\u8b49\u64da\uff1b\u672a\u77e5\u9805\u76ee\u4e0d\u8996\u70ba\u5b89\u5168\u3002',
+        visualGauge('\u5df2\u89f8\u767c\u689d\u4ef6',s?.triggeredCount,'7 \u9805\u6761\u4ef6\u4e2d\uff0c3 \u9805\u70ba\u65e2\u6709\u884c\u52d5\u9580\u6abb',7)+
+        visualGauge('\u6307\u6a19\u8986\u84cb\u7387',s?Number(s.availableCount||0)/17*100:null,'17 \u9805\u98a8\u96aa\u6307\u6a19\u7684\u8cc7\u6599\u53ef\u7528\u6bd4\u4f8b')+
+        `<article class="visual-card visual-wide"><span class="visual-label">\u98a8\u96aa\u8a0a\u865f\u5206\u5e03 \u00b7 \u9805</span>${visualBars([['\u98a8\u96aa',s?.redCount],['\u8b66\u6212',s?.yellowCount],['\u672a\u77e5',s?.unknownCount]],17)}<p>\u8cc7\u6599\u66f4\u65b0\u6642\u9593 ${escapeHtml(snapshot?.generatedAt?new Date(snapshot.generatedAt).toLocaleString('zh-TW'):'\u5c1a\u7121\u5b8c\u6210\u5feb\u7167')}</p></article>`);
     }
 
     function valueCard(label, value, detail, tone = "neut") {
@@ -3114,6 +3067,7 @@
     }
 
     function renderValueScore(score) {
+      renderValueVisuals(score);
       score = normalizeWorkbenchItem(score);
       activeValueScore = score;
       const s = score?.scores || {};
@@ -3421,7 +3375,11 @@
         ["\u5831\u50f9\u65e5", statusDate(snapshot.newestQuoteDate || quoteDates[quoteDates.length - 1]), snapshot.oldestQuoteDate ? `\u7bc4\u570d ${statusDate(snapshot.oldestQuoteDate)}\u2013${statusDate(snapshot.newestQuoteDate)}` : "\u6700\u65b0\u53ef\u7528\u65e5"],
         ["\u66f4\u65b0\u6642\u9593", statusDate(generatedAt), "\u6700\u8fd1\u5b8c\u6574\u5feb\u7167"],
       ].map(([label, value, note]) => `<div class="market-summary-item"><b>${escapeHtml(label)}</b><strong>${escapeHtml(value)}</strong><span>${escapeHtml(note)}</span></div>`).join("");
-      $("marketRadarState").textContent = `${statusDate(generatedAt)} \u00b7 \u516c\u958b\u8cc7\u6599\u6279\u6b21`;
+      $("marketRadarState").textContent = payload.snapshotStatus === "missing" ? "\u7b49\u5f85\u9996\u6b21\u5168\u5e02\u5834\u66f4\u65b0\u901a\u904e\u9a57\u8b49" : `${statusDate(generatedAt)} \u00b7 \u516c\u958b\u8cc7\u6599\u6279\u6b21`;
+      visualSection('homeVisuals','\u5e02\u5834\u8cc7\u6599\u5100\u8868','\u53ea\u5448\u73fe\u76ee\u524d\u5b8c\u6210\u6279\u6b21\u7684\u8cc7\u6599\uff0c\u4e0d\u628a\u7f3a\u6f0f\u7576\u6210\u5e02\u5834\u8a0a\u865f\u3002',
+        visualGauge('\u53ef\u6392\u540d\u6bd4\u4f8b',rows.length ? rankable.length/rows.length*100 : null,'\u901a\u904e\u8b49\u64da\u9580\u6abb\u7684\u80a1\u7968\u5360\u672c\u6279\u6b21\u6bd4\u4f8b')+
+        '<article class="visual-card visual-wide"><span class="visual-label">\u7814\u7a76\u8cc7\u6599\u5206\u5e03 \u00b7 \u6a94</span>'+visualBars([['\u53ef\u6392\u540d',rankable.length],['\u8cc7\u6599\u53d7\u9650',rows.length-rankable.length]],Math.max(1,rows.length))+'</article>'+
+        '<article class="visual-card"><span class="visual-label">\u672c\u6279\u6b21\u89c0\u5bdf</span><strong class="visual-number">'+rows.length+'</strong><p>\u6392\u540d\u50c5\u4f9b\u5b89\u6392\u7814\u7a76\u9806\u5e8f</p></article>');
       renderMarketHeatmap(rows);
       const filtered = rows.filter((item) => {
         const trust = clientRankingTrust(item);
@@ -3484,6 +3442,7 @@
     function renderClientPortfolio() {
       if (!$("clientPortfolioSummary") || !$("clientHoldingScores")) return;
       const entries = parseClientPortfolio();
+      renderPortfolioVisuals(entries);
       const scoreMap = new Map(allWorkbenchItems().map(item => [item.code, item]));
       if (!entries.length) {
         $("clientPortfolioSummary").innerHTML = valueCard("\u6301\u80a1\u8cc7\u6599", "\u672a\u8f38\u5165", "\u8f38\u5165\u6301\u80a1\u8207\u6bd4\u91cd\u5f8c\u624d\u6703\u6aa2\u67e5\u3002", "warn");
@@ -4148,6 +4107,7 @@
     }
 
     function renderSwingCandidates(payload) {
+      renderSwingVisuals(payload);
       const textPayload = decodeTree(payload?.text || {});
       const rows = textPayload.ranking || payload?.ranking || [];
       $("swingCandidateRows").innerHTML = rows.length ? rows.map((item, index) => `
@@ -4552,6 +4512,7 @@
     }
 
     function renderMacroRiskScan(view) {
+      renderRiskVisuals(view);
       macroRiskView = view;
       const contract = Array.isArray(view?.contract) ? view.contract : [];
       const snapshot = view?.snapshot || null;
@@ -4676,7 +4637,10 @@
     }
 
     function switchView(view, updateHistory = false) {
-      const validViews = new Set(["stock", "client", "swing", "risk", "data", "admin"]);
+      if(view === 'client' && !document.getElementById('portfolioVisuals').innerHTML) renderPortfolioVisuals([]);
+      if(view === 'swing' && !document.getElementById('swingVisuals').innerHTML) renderSwingVisuals(null);
+      if(view === 'risk' && !document.getElementById('riskVisuals').innerHTML) renderRiskVisuals(null);
+      const validViews = new Set(["stock", "client", "swing", "risk", "admin"]);
       if (!validViews.has(view)) view = "stock";
       const shell = $("workspaceShell");
       if (shell) {
@@ -4686,13 +4650,11 @@
       const client = view === "client";
       const swing = view === "swing";
       const risk = view === "risk";
-      const data = view === "data";
       const admin = view === "admin";
-      $("stockPage").hidden = client || swing || risk || data || admin;
+      $("stockPage").hidden = client || swing || risk || admin;
       $("clientPage").hidden = !client;
       $("swingPage").hidden = !swing;
       $("riskPage").hidden = !risk;
-      $("dataPage").hidden = !data;
       $("adminPage").hidden = !admin;
       $("stockSectionNav").hidden = view !== "stock";
       $("viewTabs").querySelectorAll("[data-view]").forEach((btn) => {
@@ -4707,7 +4669,6 @@
       if (client) loadClientWorkbench();
       if (swing) loadSwingWorkflow();
       if (risk) loadMacroRiskScan();
-      if (data && activeCode && !$("customerDataCode").value) $("customerDataCode").value = activeCode;
       if (admin) {
         loadAdminUniverse();
         loadAdminScoreV2();
@@ -4719,7 +4680,7 @@
     }
 
     function syncWorkspaceFromLocation() {
-      const match = location.hash.match(/^#workspace-(stock|client|swing|risk|data|admin)$/);
+      const match = location.hash.match(/^#workspace-(stock|client|swing|risk|admin)$/);
       if (match) openWorkspace(match[1], "none");
       else closeWorkspace(false);
     }
@@ -4816,7 +4777,7 @@
       setHomeStatus("value", "\u5f85\u8f09\u5165", "\u5df2\u53d6\u5f97\u5831\u50f9\uff0c\u7b49\u5f85\u50f9\u503c\u8a55\u5206", "warn");
       $("valueRadarHeroBadge").innerHTML = [heroFact("\u50f9\u503c\u96f7\u9054 \u5f85\u8f09\u5165", "neut")].join("");
       const pending = entityText("&#x5f85;&#x8f09;&#x5165;");
-      const pendingDetail = entityText("&#x9ede;&#x9078;&#x6392;&#x884c;&#x699c;&#x5f8c;&#x8f09;&#x5165;&#x516c;&#x958b;&#x8cc7;&#x6599;&#x8a55;&#x5206;&#x3002;");
+      const pendingDetail = "\u9ede\u9078\u300c\u8f09\u5165\u672c\u6a94\u57fa\u672c\u9762\u8a55\u5206\u300d\u67e5\u770b\u5206\u6790\u3002";
       $("valueScoreCards").innerHTML = [
         valueCard(entityText("&#x5c0f;&#x8cc7;&#x53cb;&#x5584;&#x5206;&#x6578;"), pending, pendingDetail, "neut"),
         valueCard(entityText("&#x4f4e;&#x4f30;&#x5206;&#x6578;"), pending, pendingDetail, "neut"),
@@ -5183,6 +5144,7 @@
     }
 
     function render(data) {
+      renderStockVisuals(data);
       destroyCharts();
       const q = data.quote || {};
       const name = q.name || fallbackNames[data.code] || `\u80a1\u7968 ${data.code}`;
@@ -5331,6 +5293,8 @@
     }
 
     function renderEmptyStockState() {
+      renderStockVisuals(null);
+      renderValueVisuals(null);
       destroyCharts();
       activeData = null;
       activeValueScore = null;
@@ -5538,6 +5502,22 @@
       renderAllocationGuide();
     });
     $("riskProfile").addEventListener("change", renderAllocationGuide);
+    $("loadValueScoreBtn").addEventListener("click", async () => {
+      const code = activeData?.code;
+      if (!code) return;
+      const button = $("loadValueScoreBtn");
+      button.disabled = true;
+      button.textContent = "\u8f09\u5165\u4e2d\u2026";
+      try {
+        const score = await getValueScore(code);
+        if (activeData?.code === code) renderValueScore(score);
+      } catch (err) {
+        if (activeData?.code === code) $("valueDataStatus").textContent = err.message || "\u8a55\u5206\u66ab\u6642\u4e0d\u53ef\u7528";
+      } finally {
+        button.disabled = false;
+        button.textContent = "\u8f09\u5165\u672c\u6a94\u57fa\u672c\u9762\u8a55\u5206";
+      }
+    });
     $("portfolioCheckBtn").addEventListener("click", renderPortfolioHealth);
     $("portfolioInput").addEventListener("input", renderPortfolioHealth);
     $("screenerTabs").addEventListener("click", (e) => {
@@ -5554,11 +5534,6 @@
     $("refreshWorkbenchBtn").addEventListener("click", () => loadClientWorkbench(true));
     if ($("refreshSwingBtn")) $("refreshSwingBtn").addEventListener("click", () => loadSwingWorkflow(true));
     $("refreshMacroRiskBtn").addEventListener("click", runMacroRiskRefresh);
-    $("customerDataForm").addEventListener("submit", (event) => {
-      event.preventDefault();
-      loadCustomerDataset();
-    });
-    $("customerDataDownloadBtn").addEventListener("click", downloadCustomerDataset);
     if ($("refreshSwingThemesBtn")) $("refreshSwingThemesBtn").addEventListener("click", async () => {
       const button = $("refreshSwingThemesBtn");
       button.disabled = true;
@@ -5642,7 +5617,6 @@
     window.addEventListener("popstate", syncWorkspaceFromLocation);
     setupResponsiveStatusDisclosure();
     setupMarketFilterDisclosure();
-    setupCustomerDataDates();
     setupReveal();
     restoreMarketRadarFilters();
     syncMarketRadarControls();

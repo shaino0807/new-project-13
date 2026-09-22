@@ -24,6 +24,7 @@ type QuoteInfo = {
   volume: number;
   source: string;
   sourceUrls: Record<string, string | null>;
+  historyCache?: { source: string; persisted: boolean; fetchedAt: string } | null;
   quoteOutcome: {
     category: "current" | QuoteFailureCategory;
     evidence: string[];
@@ -501,102 +502,6 @@ function finMindStartDate(dataset: string) {
   return isoDateDaysAgo(90);
 }
 
-const CUSTOMER_DATASETS: Record<string, {
-  dataset: string;
-  label: string;
-  preferredColumns: string[];
-}> = {
-  price: {
-    dataset: "TaiwanStockPrice",
-    label: "\u65E5 K \u8207\u6210\u4EA4\u91CF",
-    preferredColumns: ["date", "stock_id", "open", "max", "min", "close", "spread", "Trading_Volume", "Trading_money", "Trading_turnover"],
-  },
-  revenue: {
-    dataset: "TaiwanStockMonthRevenue",
-    label: "\u6708\u71DF\u6536",
-    preferredColumns: ["date", "stock_id", "country", "revenue", "revenue_month", "revenue_year"],
-  },
-  financials: {
-    dataset: "TaiwanStockFinancialStatements",
-    label: "\u640D\u76CA\u8207\u8CA1\u52D9\u6307\u6A19",
-    preferredColumns: ["date", "stock_id", "type", "value", "origin_name"],
-  },
-  balance: {
-    dataset: "TaiwanStockBalanceSheet",
-    label: "\u8CC7\u7522\u8CA0\u50B5\u8868",
-    preferredColumns: ["date", "stock_id", "type", "value", "origin_name"],
-  },
-  cashflow: {
-    dataset: "TaiwanStockCashFlowsStatement",
-    label: "\u73FE\u91D1\u6D41\u91CF\u8868",
-    preferredColumns: ["date", "stock_id", "type", "value", "origin_name"],
-  },
-  valuation: {
-    dataset: "TaiwanStockPER",
-    label: "\u4F30\u503C",
-    preferredColumns: ["date", "stock_id", "PER", "PBR", "dividend_yield"],
-  },
-};
-
-function strictIsoDate(value: unknown) {
-  const text = String(value || "");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return "";
-  const parsed = new Date(`${text}T00:00:00Z`);
-  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === text ? text : "";
-}
-
-function customerDatasetColumns(rows: FinMindRow[], preferred: string[]) {
-  const found = new Set<string>();
-  rows.forEach(row => Object.keys(row || {}).forEach(key => found.add(key)));
-  return [
-    ...preferred.filter(key => found.has(key)),
-    ...[...found].filter(key => !preferred.includes(key)).sort(),
-  ];
-}
-
-async function loadCustomerDataset(code: string, key: string, startDate: string, endDate: string) {
-  const definition = CUSTOMER_DATASETS[key];
-  if (!definition) throw new FinMindError("Unsupported customer dataset", 400, "invalid_response");
-  const canonicalStart = finMindStartDate(definition.dataset);
-  const requestOptions = startDate < canonicalStart
-    ? { startDate, endDate, persist: false }
-    : undefined;
-  const result = await requestFinMindDataset(definition.dataset, code, 12000, undefined, requestOptions);
-  const matchingRows = result.data
-    .filter(row => {
-      const date = strictIsoDate(row?.date);
-      return Boolean(date && date >= startDate && date <= endDate);
-    })
-    .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
-  const rows = matchingRows.slice(-1000);
-  const dates = rows.map(row => strictIsoDate(row?.date)).filter(Boolean);
-  return {
-    ok: true,
-    code,
-    datasetKey: key,
-    dataset: definition.dataset,
-    label: definition.label,
-    requestedRange: { startDate, endDate },
-    rowCount: rows.length,
-    matchedRowCount: matchingRows.length,
-    truncated: matchingRows.length > rows.length,
-    columns: customerDatasetColumns(rows, definition.preferredColumns),
-    rows,
-    latestDataDate: dates.length ? dates[dates.length - 1] : null,
-    source: "FinMind",
-    sourceUrl: FINMIND_SOURCE_URL,
-    fetchedAt: result.fetchedAt,
-    cache: {
-      hit: result.cached,
-      source: result.cacheSource || "upstream",
-      stale: result.stale,
-      persisted: Boolean(result.persisted || result.cacheSource === "persistent"),
-      warning: result.warning || null,
-    },
-    generatedAt: new Date().toISOString(),
-  };
-}
-
 function finMindErrorCode(status: number): FinMindError["code"] {
   if (status === 402 || status === 429) return "quota_exceeded";
   if (status === 401 || status === 403) return "auth_error";
@@ -675,6 +580,14 @@ async function requestFinMindDataset(
   }
 
   const request = (async () => {
+    // Daily history refreshes overlap seven days for revisions; older persisted rows
+    // are retained inside the canonical window. Financial statements refresh in full.
+    const previousPriceDates = dataset === "TaiwanStockPrice" && !customRange
+      ? (cached?.data || []).map(row=>String(row.date || "")).filter(date=>/^\d{4}-\d{2}-\d{2}$/.test(date)).sort()
+      : [];
+    const priceRefreshStart = previousPriceDates.length
+      ? new Date(Date.parse(previousPriceDates.at(-1)!) - 7 * 86400000).toISOString().slice(0,10)
+      : null;
     const params = new URLSearchParams({
       dataset,
     });
@@ -735,6 +648,8 @@ async function requestFinMindDataset(
       let lastError: unknown = null;
       const startDates = options?.startDate
         ? [options.startDate]
+        : priceRefreshStart
+        ? [priceRefreshStart > finMindStartDate(dataset) ? priceRefreshStart : finMindStartDate(dataset)]
         : dataset === "TaiwanStockPER"
         ? [finMindStartDate(dataset), isoDateDaysAgo(120)]
         : [finMindStartDate(dataset)];
@@ -757,6 +672,13 @@ async function requestFinMindDataset(
         }
       }
       if (!data) throw lastError;
+      if (priceRefreshStart && cached) {
+        const rows = new Map<string, FinMindRow>();
+        [...cached.data,...data].forEach(row=>{
+          if (String(row.stock_id) === code && String(row.date) >= finMindStartDate(dataset)) rows.set(String(row.date),row);
+        });
+        data = [...rows.values()].sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+      }
       const entry = { data, fetchedAt: Date.now() };
       finMindCache.set(cacheKey, entry);
       const persisted = persistentCacheEnabled
@@ -4186,7 +4108,7 @@ function buildValueScores(
 
 async function loadValueScore(code: string, options: { fast?: boolean; evidenceMinimum?: boolean; companyProfile?: TaiwanCompanyProfile | null; metrics?: ExternalRequestMetrics } = {}) {
   const [quote, fundamentals] = await Promise.all([
-    loadQuote(code, options.metrics, options.companyProfile, !options.evidenceMinimum),
+    loadQuote(code, options.metrics, options.companyProfile, false),
     loadFundamentals(code, options),
   ]);
   return buildValueScores(quote, fundamentals, options.companyProfile);
@@ -6657,7 +6579,20 @@ function buildAnalysis(series: DailyBar[], week52High: number, week52Low: number
   };
 }
 
-async function loadQuote(code: string, metrics?: ExternalRequestMetrics, companyProfile?: TaiwanCompanyProfile | null, allowSyntheticHistory = true): Promise<QuoteInfo> {
+function finMindDailyBars(rows: FinMindRow[], code: string): DailyBar[] {
+  const byDate = new Map<string, DailyBar>();
+  for (const row of rows) {
+    if (String(row.stock_id) !== code || !/^\d{4}-\d{2}-\d{2}$/.test(String(row.date))) continue;
+    const time = Date.parse(`${row.date}T00:00:00Z`);
+    if (!Number.isFinite(time) || new Date(time).toISOString().slice(0,10) !== row.date || time > Date.now()) continue;
+    const bar = { date: String(row.date), open: toNumber(row.open), high: toNumber(row.max), low: toNumber(row.min), close: toNumber(row.close), volume: toNumber(row.Trading_Volume) };
+    if (![bar.open,bar.high,bar.low,bar.close,bar.volume].every(Number.isFinite) || bar.low <= 0 || bar.volume < 0 || bar.high < Math.max(bar.open,bar.close) || bar.low > Math.min(bar.open,bar.close)) continue;
+    byDate.set(bar.date,bar);
+  }
+  return [...byDate.values()].sort((a,b)=>a.date.localeCompare(b.date));
+}
+
+async function loadQuote(code: string, metrics?: ExternalRequestMetrics, companyProfile?: TaiwanCompanyProfile | null, allowSyntheticHistory = false): Promise<QuoteInfo> {
   let chart: Awaited<ReturnType<typeof fetchYahooChart>> | null = null;
   let realtime: Awaited<ReturnType<typeof fetchTwseMis>> | null = null;
   let snapshot: Awaited<ReturnType<typeof fetchExchangeSnapshot>> | null = companyProfile?.officialQuote && Number.isFinite(companyProfile.officialQuote.close)
@@ -6673,7 +6608,22 @@ async function loadQuote(code: string, metrics?: ExternalRequestMetrics, company
     .slice(-160);
   if (snapshot && companyProfile?.officialQuote && metrics) metrics.cacheHits += 1;
 
-  if (officialHistory.length < 60) {
+  let chartProvider = "Yahoo Finance";
+  let historyCache: QuoteInfo["historyCache"] = null;
+  if (officialHistory.length < 60 && /^\d{4,6}$/.test(code)) {
+    try {
+      const result = await requestFinMindDataset("TaiwanStockPrice",code,12000,metrics);
+      const bars = finMindDailyBars(result.data,code);
+      if (!result.stale && bars.length >= 80) {
+        chart = { symbol:code, market:market === "tpex" ? "OTC" : "TWSE/OTC", currency:"TWD", name:companyProfile?.name || FALLBACK_NAMES[code] || code,
+          bars, week52High:Math.max(...bars.slice(-252).map(row=>row.high)), week52Low:Math.min(...bars.slice(-252).map(row=>row.low)), sourceUrl:FINMIND_SOURCE_URL };
+        chartProvider = "FinMind";
+        historyCache = { source:result.cacheSource || "upstream", persisted:Boolean(result.persisted), fetchedAt:result.fetchedAt };
+        sourceNotes.push(`FinMind daily history: ${result.cacheSource || "upstream"}; persisted=${Boolean(result.persisted)}; fetchedAt=${result.fetchedAt}`);
+      }
+    } catch (err) { sourceFailures.push(err); sourceNotes.push(finMindPublicMessage(err)); }
+  }
+  if (officialHistory.length < 60 && !chart) {
     try {
       chart = await fetchYahooChart(code, "1y", metrics, market);
     } catch (err) {
@@ -6746,11 +6696,11 @@ async function loadQuote(code: string, metrics?: ExternalRequestMetrics, company
     : officialHistory.length >= 60 && snapshot
       ? `${companyProfile?.officialHistorySource || "Official TWSE/TPEx historical market-day OHLCV"} + official latest quote`
       : chart && realtime
-    ? "Yahoo Finance daily OHLCV + TWSE MIS latest quote"
+    ? `${chartProvider} daily OHLCV + TWSE MIS latest quote`
     : chart && snapshot
-      ? "Yahoo Finance daily OHLCV + official TWSE/TPEx daily quote cache"
+      ? `${chartProvider} daily OHLCV + official TWSE/TPEx daily quote cache`
     : chart
-      ? "Yahoo Finance daily OHLCV"
+      ? `${chartProvider} daily OHLCV`
       : "Exchange latest quote + reconstructed analysis path";
   const quoteOutcome = quoteAnchor
     ? { category: "current" as const, evidence: [realtime?.sourceUrl || snapshot?.sourceUrl || "official quote"] }
@@ -6773,12 +6723,14 @@ async function loadQuote(code: string, metrics?: ExternalRequestMetrics, company
     volume: series[series.length - 1].volume,
     source: sourceNotes.length ? `${source}; fallback notes available` : source,
     sourceUrls: {
-      yahoo: chart?.sourceUrl || null,
+      yahoo: chartProvider === "Yahoo Finance" ? chart?.sourceUrl || null : null,
+      finmind: chartProvider === "FinMind" ? chart?.sourceUrl || null : null,
       officialHistory: officialHistory.length >= 60 ? companyProfile?.officialHistorySource || OFFICIAL_HISTORICAL_MARKET_ENDPOINTS[market || "twse"].source : null,
       twseMis: realtime?.sourceUrl || null,
       exchange: snapshot?.sourceUrl || null,
       goodinfo: `https://goodinfo.tw/tw/StockDetail.asp?STOCK_ID=${code}`,
     },
+    historyCache,
     quoteOutcome,
     series,
     analysis,
@@ -9689,6 +9641,8 @@ async function createRankingRefreshJob(mode: string, options: { pilotSize?: numb
     .filter((item: any) => item?.status === "queued" || item?.status === "running")
     .filter((item: any) => item?.scope === scope)
     .filter((item: any) => item?.schemaVersion === MARKET_FEATURE_SCHEMA_VERSION)
+    // Legacy attempts lack HTTP diagnostics. Preserve them, but start a verifiable run.
+    .filter((item: any) => item?.requestPolicyVersion === "finmind-auth-first-v1")
     .filter((item: any) => { try { assertRankingJobResumable(item); return true; } catch { return false; } })
     .filter((item: any) => !pilotSize || item?.pilotVersion === RANKING_PILOT_VERSION)
     .filter((item: any) => pilotSize || !item?.universe?.length || (
@@ -9707,6 +9661,7 @@ async function createRankingRefreshJob(mode: string, options: { pilotSize?: numb
     pilotSize,
     pilotVersion: pilotSize ? RANKING_PILOT_VERSION : null,
     schemaVersion: MARKET_FEATURE_SCHEMA_VERSION,
+    requestPolicyVersion: "finmind-auth-first-v1",
     phase: "universe",
     scope,
     universeStatus: "pending",
@@ -9917,8 +9872,12 @@ async function advanceRankingRefreshJob(id: string) {
       let cursor = startCursor;
       let examined = 0;
       // Two market requests must fit the API response window, including persistence.
-      while (cursor < dates.length && examined < 1 && (counts.twse < MARKET_HISTORY_TARGET_SESSIONS || counts.tpex < MARKET_HISTORY_TARGET_SESSIONS)) {
+      while (cursor < dates.length && examined < 20 && (counts.twse < MARKET_HISTORY_TARGET_SESSIONS || counts.tpex < MARKET_HISTORY_TARGET_SESSIONS)) {
         const date = dates[cursor];
+        // Reuse lightweight registry references in one checkpoint; allow only one
+        // uncached day per request so upstream calls stay inside the runtime window.
+        const cachedDay = ["twse","tpex"].every(market => counts[market as TaiwanListedMarket] >= MARKET_HISTORY_TARGET_SESSIONS || Boolean(registry?.days?.[`${market}:${date}`]));
+        if (examined > 0 && !cachedDay && !knownMarketClosure(date)) break;
         const closure = knownMarketClosure(date);
         if (closure) {
           job.skippedClosures = [...(job.skippedClosures || []).filter((entry: any) => entry.date !== date), closure];
@@ -9943,6 +9902,7 @@ async function advanceRankingRefreshJob(id: string) {
         }
         cursor += 1;
         examined += 1;
+        if (!cachedDay) break;
       }
       job.historyCursor = cursor;
       job.historyDayIds = dayIds;
@@ -10118,7 +10078,7 @@ async function advanceRankingRefreshJob(id: string) {
       });
       unresolvedCodes.forEach(code => {
         const category = classifyQuoteFailure(latestFailureByCode.get(code)?.category || latestFailureByCode.get(code)?.message);
-        failureCounts[category === "not_rankable" ? "unresolved" : category] += 1;
+        failureCounts[category] += 1;
       });
       const outcomeClassification = {
         rankable: rankableCount,
@@ -10127,7 +10087,7 @@ async function advanceRankingRefreshJob(id: string) {
           suspended_or_halted: "Only an explicit official status or equivalent exchange evidence can assign this category.",
           no_quote_for_latest_session: "The correct official market snapshot returned normally, but the stock had no usable quote for that source trading date.",
           provider_failure: "A source timed out, failed transport or HTTP validation, or returned an invalid payload.",
-          not_rankable: `A score row exists but fails the score, quote-date, ${RANKING_MIN_ITEM_COVERAGE}% coverage, or no-stale-data publication gate.`,
+          not_rankable: `Verified insufficient history or a row failing the score, quote-date, ${RANKING_MIN_ITEM_COVERAGE}% coverage, or no-stale-data publication gate.`,
           unresolved: "Available evidence cannot distinguish stock status from a source or parsing gap; no status is guessed.",
         },
       };
@@ -11739,7 +11699,143 @@ async function loadSwingOrchestratedReport(codes: string[], universeValue?: unkn
   };
 }
 
+// One checkpoint per scheduled invocation; never loop through the whole market.
+const RANKING_SCHEDULE_TABLE = "ranking_schedule_v1";
+const RANKING_ACCEPTED_PILOT = "9219a741-c1fe-47e7-ac7f-a3bcd73b6ce8";
+
+function rankingScheduleWindow(now = Date.now()) {
+  const local = new Date(now + 8 * 3600000);
+  const hour = local.getUTCHours();
+  const cycle = new Date(local.getTime() - (hour < 8 ? 86400000 : 0));
+  return { offPeak: hour >= 18 || hour < 8, cycleDate: cycle.toISOString().slice(0, 10) };
+}
+
+async function readFinMindBudget() {
+  const token = await getFinMindToken();
+  if (!token) throw new Error("Scheduled ranking requires a configured FinMind token.");
+  // Same endpoint and field names as FinMind's official Python client. Never persist the body.
+  const response = await fetch("https://api.web.finmindtrade.com/v2/user_info", {
+    headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000),
+  });
+  if (!response.ok) throw new Error(`FinMind usage check HTTP ${response.status}`);
+  const body = await response.json();
+  const used = body.user_count, limit = body.api_request_limit;
+  if (typeof used !== "number" || typeof limit !== "number" || !Number.isFinite(used)
+    || !Number.isFinite(limit) || used < 0 || limit <= 0) throw new Error("FinMind usage counters unavailable.");
+  return { used, limit, remaining: Math.max(0, limit - used), checkedAt: new Date().toISOString() };
+}
+
+async function readRankingSchedule() {
+  const rows = await listAllDbRecords(RANKING_SCHEDULE_TABLE, 1);
+  if (rows.length > 1) throw new Error("Multiple scheduler records; automatic execution paused.");
+  return rows[0] || null;
+}
+
+function assertScheduledPilot(pilot: any) {
+  const modes: any[] = Object.values(pilot?.result?.pilotByMode || {});
+  if (pilot?.status !== "completed" || pilot?.pilotSize !== 250
+    || pilot?.requestPolicyVersion !== "finmind-auth-first-v1"
+    || pilot?.schemaVersion !== MARKET_FEATURE_SCHEMA_VERSION
+    || Number(pilot?.performance?.successRatio || 0) < 95
+    || modes.length !== 6 || !modes.every(mode => mode.evidenceGate?.passed)
+    || Number(pilot?.performance?.externalRequests?.unresolvedFinMind || 0) > 0) {
+    throw new Error("Accepted pilot evidence is missing or incompatible; no full-market job created.");
+  }
+}
+
+export async function rankingDailyHandler(event: { type: string; name: string; invocationId: string }) {
+  if (event.type !== "cron" || event.name !== "ranking-offpeak") return { statusCode: 200 };
+  const window = rankingScheduleWindow();
+  if (!window.offPeak) return { statusCode: 200 };
+  let state: any = await readRankingSchedule();
+  if (state?.blocked || state?.lastInvocationId === event.invocationId) return { statusCode: 200 };
+  if (state?.runningAt) {
+    // Ambiguous interrupted mutation needs inspection, never an automatic replay.
+    return { statusCode: 200 };
+  }
+  async function save() {
+    const { id, ...record } = state;
+    record.updatedAt = new Date().toISOString();
+    if (id) {
+      const [ok] = await db.update(RANKING_SCHEDULE_TABLE, [{ id, record }]);
+      if (!ok) throw new Error("Unable to persist ranking schedule checkpoint.");
+    } else {
+      const [newId] = await db.add(RANKING_SCHEDULE_TABLE, [record]);
+      if (!newId) throw new Error("Unable to initialize ranking schedule.");
+      state.id = newId;
+    }
+  }
+  state ||= { cycleDate: window.cycleDate, ticks: 0, jobId: null };
+  if (state.cycleDate !== window.cycleDate) {
+    state.cycleDate = window.cycleDate;
+    state.ticks = 0;
+  }
+  // Finite overnight work. This is a work cap, not a claim about AppDeploy credits.
+  if (state.ticks >= 150 || state.completedCycle === window.cycleDate) return { statusCode: 200 };
+  state.lastInvocationId = event.invocationId;
+  state.runningAt = new Date().toISOString();
+  await save();
+  try {
+    if (!state.pilotVerified) {
+      assertScheduledPilot(await readRankingRefreshJob(RANKING_ACCEPTED_PILOT));
+      state.pilotVerified = RANKING_ACCEPTED_PILOT;
+    }
+    let job = state.jobId ? await readRankingRefreshJob(state.jobId) : null;
+    if (state.jobId && !job) throw new Error("Scheduled job checkpoint missing.");
+    if (job?.status === "running") throw new Error("Previous batch is still running; inspect before resuming.");
+    if (job && ["failed", "rejected"].includes(job.status)) throw new Error("Scheduled ranking rejected; previous public snapshot retained.");
+    if (!job || job.status === "completed") {
+      if (job && state.jobCycle === window.cycleDate) {
+        state.completedCycle = window.cycleDate;
+      } else {
+        job = await createRankingRefreshJob("undervalued");
+        state.jobId = job.id;
+        state.jobCycle = window.cycleDate;
+      }
+    }
+    if (!state.completedCycle || state.completedCycle !== window.cycleDate) {
+      if (job.historyErrors?.length || job.batchErrors?.length) throw new Error("Scheduled source or storage errors require inspection.");
+      const metrics = job.performance?.externalRequests || {};
+      if (metrics.unresolvedFinMind || Number(metrics.failed || 0) > Number(metrics.recoveredFailures || 0)) {
+        throw new Error("Unrecovered provider failure; automatic ranking paused.");
+      }
+      const budget = await readFinMindBudget();
+      state.budget = budget;
+      // Reserve up to six attempts per stock plus headroom for interactive customers.
+      if (budget.remaining < RANKING_JOB_BATCH_SIZE * 6 + 60) {
+        state.status = "waiting-finmind-budget";
+      } else {
+        await save(); // Persist the selected job before a potentially ambiguous mutation.
+        job = await advanceRankingRefreshJob(job.id);
+        state.ticks += 1;
+        state.status = job.status;
+        state.phase = job.phase;
+        state.processed = Number(job.currentIndex || 0);
+        state.total = Number(job.universe?.length || 0);
+        if (job.status === "completed") state.completedCycle = window.cycleDate;
+      }
+    }
+  } catch (err) {
+    state.blocked = true;
+    // Store only controlled errors; source payloads and credentials never enter this record.
+    state.status = "inspection-required";
+    state.reason = err instanceof Error && /^(Scheduled|Previous|Accepted|Unrecovered|FinMind|Ranking job)/.test(err.message)
+      ? err.message.slice(0, 240) : "Scheduled update stopped; inspect the persisted job and platform status.";
+  }
+  state.runningAt = null;
+  await save();
+  return { statusCode: 200 };
+}
+
 export const handler = router({
+  "GET /api/screener/schedule": [async () => {
+    const state = await readRankingSchedule();
+    return json({ ok: true, schedule: "Every five minutes, 18:00-07:55 Asia/Taipei", ...rankingScheduleWindow(),
+      status: state?.status || "awaiting-first-offpeak-run", jobId: state?.jobId || null,
+      processed: state?.processed ?? 0, total: state?.total ?? null, phase: state?.phase || null,
+      blocked: Boolean(state?.blocked || state?.runningAt), completedCycle: state?.completedCycle || null,
+      updatedAt: state?.updatedAt || null });
+  }],
   "GET /api/_healthcheck": [async () => json({ message: "Success" })],
 
   "GET /api/quote": [async ({ query }: any) => {
@@ -11805,29 +11901,6 @@ export const handler = router({
         message: finMindPublicMessage(err),
         generatedAt: new Date().toISOString(),
       }, 200);
-    }
-  }],
-
-  "GET /api/data-library": [async ({ query }: any) => {
-    const code = cleanCode(query.code);
-    const datasetKey = String(query.dataset || "price").replace(/[^a-z]/g, "").slice(0, 24);
-    const startDate = strictIsoDate(query.start_date);
-    const endDate = strictIsoDate(query.end_date);
-    if (!code || !/^\d{4,6}$/.test(code)) return error("Missing or invalid stock code", 400);
-    if (!CUSTOMER_DATASETS[datasetKey]) return error("Unsupported customer dataset", 400);
-    if (!startDate || !endDate || startDate > endDate) return error("Invalid date range", 400);
-    const rangeDays = Math.round((Date.parse(endDate) - Date.parse(startDate)) / 86400000);
-    if (rangeDays > 366) return error("Date range must be 366 days or less", 400);
-    try {
-      return json(await loadCustomerDataset(code, datasetKey, startDate, endDate), 200);
-    } catch (err) {
-      return json({
-        ok: false,
-        code,
-        datasetKey,
-        message: finMindPublicMessage(err),
-        generatedAt: new Date().toISOString(),
-      }, err instanceof FinMindError && err.status === 400 ? 400 : 502);
     }
   }],
 
