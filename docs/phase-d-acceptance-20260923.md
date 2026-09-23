@@ -1,5 +1,13 @@
 # Phase D 完整驗收：2026-09-23
 
+## 最新阻礙：14:50
+
+- 正式排程 inspection-required/blocked，最後更新 14:35，processed=344、scored=316、failed=28。job 本身 queued/features，batchErrors 空，28 家分類 provider_failure 且可重試；並行來源修改後新增 32 家均保存成功，但不能因此宣稱失敗已解決。
+- 平台 cron 顯示 success 是停止狀態下的正常返回，不代表計算持續推進。停止原因尚未取得；目前正式 schedule API 未公開受控 reason。
+- 新增只讀 stopReason 欄位的本機修改已通過排程測試，但 **尚未部署 AppDeploy**。正式 AppDeploy 後端仍是 cc3e2b9 對應版本。
+- AppDeploy get_deploy_instructions 回報 CREDITS_USAGE_LIMIT_REACHED：每日免費 100 點剩餘不足單次部署所需 14 點，禁止在 2026-09-24T00:00:00Z（台灣 9/24 08:00）前重試部署。既有 API 目前仍可讀，部署額度不足不證明就是排程停止原因。未購買額度。
+- 接續：重置前只做有必要的唯讀診斷；重置後先重新取得部署指示，再發布 stopReason 與同批其他已驗證必要修復，取得原因後處理，不能泛化清掉 blocked。
+
 使用者已確認現在開始完整驗收，可調整白天執行方式。未授權付費升級或資料庫搬遷。
 
 ## 已取得證據

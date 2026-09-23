@@ -11898,6 +11898,7 @@ export const handler = router({
       status: state?.status || "awaiting-first-offpeak-run", jobId: state?.jobId || null,
       processed: state?.processed ?? 0, total: state?.total ?? null, phase: state?.phase || null,
       blocked: Boolean(state?.blocked || state?.runningAt), completedCycle: state?.completedCycle || null,
+      stopReason: state?.blocked ? state?.reason || "Scheduled update requires inspection." : null,
       updatedAt: state?.updatedAt || null });
   }],
   "GET /api/_healthcheck": [async () => json({ message: "Success" })],
