@@ -12,6 +12,7 @@ const section = (from, to) => {
 const tables = new Map();
 const table = name => { if (!tables.has(name)) tables.set(name, new Map()); return tables.get(name); };
 let nextId = 0, writes = 0, maxItem = 0, maxRequest = 0, chunkFailure = false, checkpointFailure = null, snapshotFailure = false;
+let rejectedMode = null;
 const copy = value => JSON.parse(JSON.stringify(value));
 function measure(records, envelope) {
   const bytes = Buffer.byteLength(JSON.stringify(envelope));
@@ -52,7 +53,7 @@ const context = {
   compactRankingItem: value => value, withTimeout: value => value,
   settleWithLimit: (values, limit, fn) => Promise.all(values.map(async value => ({ status: 'fulfilled', value: await fn(value) }))),
   compareRankingItems: (a, b) => a.code.localeCompare(b.code), screenerSortValue: () => 1,
-  applyRankingEvidenceGate: payload => ({ ...payload, ok: true, items: payload.items.slice(0, 64), evidenceGate: { passed: true } }),
+  applyRankingEvidenceGate: (payload, mode) => ({ ...payload, ok: mode !== rejectedMode, items: payload.items.slice(0, 64), evidenceGate: { passed: mode !== rejectedMode } }),
   activeRankingRegistry: async () => ({ id: 'active', ...table('registry').get('active') }),
   stableEvidenceId: () => 'test-batch',
 };
@@ -114,6 +115,13 @@ for (const failure of ['before', 'after']) {
 table('registry').set('active', { activeByMode: { undervalued: 'old' } });
 const payload = { generatedAt: new Date().toISOString(), items: Array.from({ length: 64 }, (_, i) => ({ code: String(1000 + i), evidence: '詳細'.repeat(2500) })) };
 snapshotFailure = true;
+const beforeRejectedWrites = writes;
+rejectedMode = 'growth';
+const rejected = await api.publishRankingSnapshots(payload, 'undervalued');
+assert.equal(rejected.ok, false);
+assert.equal(writes, beforeRejectedWrites, 'A failed secondary mode must block every snapshot write');
+assert.equal(rejected.batch.publishedModes.length, 0);
+rejectedMode = null;
 await assert.rejects(() => api.publishRankingSnapshots(payload, 'undervalued'));
 assert.equal(table('registry').get('active').activeByMode.undervalued, 'old', 'Partial snapshot write cannot activate');
 await api.publishRankingSnapshots(payload, 'undervalued');

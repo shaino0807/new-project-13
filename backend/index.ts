@@ -9255,6 +9255,12 @@ async function publishRankingSnapshots(basePayload: any, mode: string, options: 
   const now = new Date().toISOString();
   const completeModes = rankingModes.filter(rankingMode => payloads[rankingMode]?.ok);
   const rejectedModes = rankingModes.filter(rankingMode => !payloads[rankingMode]?.ok);
+  if (rejectedModes.length) {
+    return { ...requestedPayload, ok: false, snapshotStatus: "rejected",
+      message: "All six ranking modes must pass before any new ranking is activated.",
+      batch: { publishedModes: [], evaluatedModes: completeModes, rejectedModes,
+        rejectedByMode: Object.fromEntries(rejectedModes.map(rankingMode => [rankingMode, payloads[rankingMode]?.evidenceGate || null])) } };
+  }
   if (options.activate === false) {
     return {
       ...requestedPayload,
@@ -10017,9 +10023,6 @@ async function advanceRankingRefreshJob(id: string) {
   if (job.phase === "publish") {
     await beginPhase("Publishing passed full-market snapshots with registry replacement only after evidence gates succeed.");
     try {
-      const themeSnapshot = job.pilotSize
-        ? { ok: true, snapshotStatus: "pilot-only", message: "Pilot theme results were evaluated without replacing the active public full-market theme snapshot." }
-        : await publishMarketThemeSnapshot(job);
       const featureRows = await loadMarketFeatureRows(job);
       const basePayload = {
         ok: featureRows.length > 0,
@@ -10032,7 +10035,15 @@ async function advanceRankingRefreshJob(id: string) {
         errors: job.errors,
         terminalFailures: rankingTerminalFailureCounts(job),
       };
-      const rankingResult = await publishRankingSnapshots(basePayload, job.mode || "undervalued", { activate: !job.pilotSize });
+      const rankingPreflight = await publishRankingSnapshots(basePayload, job.mode || "undervalued", { activate: false });
+      const themeSnapshot = job.pilotSize
+        ? { ok: true, snapshotStatus: "pilot-only", message: "Pilot theme results were evaluated without replacing the active public full-market theme snapshot." }
+        : rankingPreflight.ok
+          ? await publishMarketThemeSnapshot(job)
+          : { ok: false, snapshotStatus: "rejected", message: rankingPreflight.message };
+      const rankingResult = job.pilotSize || !rankingPreflight.ok || !themeSnapshot.ok
+        ? rankingPreflight
+        : await publishRankingSnapshots(basePayload, job.mode || "undervalued", { activate: true });
       const attempts = Number(job.performance?.stockAttempts || 0);
       const activeScoringMs = Number(job.performance?.activeScoringMs || 0);
       const universeCount = Number(job.universe?.length || 0);
@@ -11748,7 +11759,22 @@ export async function rankingDailyHandler(event: { type: string; name: string; i
   const window = rankingScheduleWindow();
   if (!window.offPeak) return { statusCode: 200 };
   let state: any = await readRankingSchedule();
-  if (state?.blocked || state?.lastInvocationId === event.invocationId) return { statusCode: 200 };
+  if (state?.lastInvocationId === event.invocationId) return { statusCode: 200 };
+  if (state?.blocked) {
+    // A verified repair may unlock only this specific history failure. Never clear
+    // quota, provider, storage or ambiguous-running failures merely because time passed.
+    if (state.reason !== "Scheduled source or storage errors require inspection." || !state.jobId) return { statusCode: 200 };
+    const repaired = await readRankingRefreshJob(state.jobId);
+    const resolvedAfterStop = (repaired?.resolvedHistoryErrors || []).some((entry: any) =>
+      Date.parse(entry.resolvedAt || "") > Date.parse(state.updatedAt || ""));
+    if (repaired?.status !== "queued" || repaired?.phase !== "history" || repaired.historyErrors?.length
+      || repaired.batchErrors?.length || !resolvedAfterStop) return { statusCode: 200 };
+    state.recoveryAudit = [...(state.recoveryAudit || []), {
+      reason: state.reason, stoppedAt: state.updatedAt, resumedAt: new Date().toISOString(), jobId: state.jobId,
+    }].slice(-20);
+    state.blocked = false;
+    state.reason = null;
+  }
   if (state?.runningAt) {
     // Ambiguous interrupted mutation needs inspection, never an automatic replay.
     return { statusCode: 200 };
