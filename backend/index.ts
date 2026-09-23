@@ -1618,9 +1618,20 @@ async function loadFundamentals(code: string, options: { fast?: boolean; evidenc
   let officialFinancialFallback: Awaited<ReturnType<typeof loadOfficialFinancialFallback>> | null = null;
   let officialRevenueFallback: Awaited<ReturnType<typeof loadOfficialRevenueFallback>> | null = null;
   let officialValuationFallback: Awaited<ReturnType<typeof loadOfficialValuationFallback>> | null = null;
-  if ((!options.fast || options.evidenceMinimum) && assetType === "stock" && (!data.profitability || !data.balanceSheet)) {
+  const financialNeedsFallback = (!options.fast || options.evidenceMinimum) && assetType === "stock" && (!data.profitability || !data.balanceSheet);
+  const revenueNeedsFallback = (!options.fast || options.evidenceMinimum) && assetType === "stock" && !data.revenue;
+  const valuationNeedsFallback = assetType === "stock" && (!data.valuation ||
+    !Number.isFinite(data.valuation.per) || !Number.isFinite(data.valuation.pbr) || !Number.isFinite(data.valuation.dividendYield));
+  // Independent sources share existing caches/inflight requests; do not add their deadlines serially.
+  const officialFallbackResults = await Promise.allSettled([
+    financialNeedsFallback ? loadOfficialFinancialFallback(code, options.metrics) : Promise.resolve(null),
+    revenueNeedsFallback ? loadOfficialRevenueFallback(code, options.metrics, options.companyProfile?.type) : Promise.resolve(null),
+    valuationNeedsFallback ? loadOfficialValuationFallback(code, options.metrics) : Promise.resolve(null),
+  ] as const);
+  if (financialNeedsFallback) {
     try {
-      officialFinancialFallback = await loadOfficialFinancialFallback(code, options.metrics);
+      if (officialFallbackResults[0].status === "rejected") throw officialFallbackResults[0].reason;
+      officialFinancialFallback = officialFallbackResults[0].value;
       if (!data.profitability && officialFinancialFallback.profitability) {
         data.profitability = officialFinancialFallback.profitability as any;
       }
@@ -1639,9 +1650,10 @@ async function loadFundamentals(code: string, options: { fast?: boolean; evidenc
       });
     }
   }
-  if ((!options.fast || options.evidenceMinimum) && assetType === "stock" && !data.revenue) {
+  if (revenueNeedsFallback) {
     try {
-      officialRevenueFallback = await loadOfficialRevenueFallback(code, options.metrics, options.companyProfile?.type);
+      if (officialFallbackResults[1].status === "rejected") throw officialFallbackResults[1].reason;
+      officialRevenueFallback = officialFallbackResults[1].value;
       if (officialRevenueFallback?.revenue) {
         data.revenue = officialRevenueFallback.revenue as any;
         const revenueFetchedAt = Date.parse(officialRevenueFallback.fetchedAt);
@@ -1655,13 +1667,10 @@ async function loadFundamentals(code: string, options: { fast?: boolean; evidenc
       });
     }
   }
-  const valuationNeedsFallback = assetType === "stock" && (!data.valuation ||
-    !Number.isFinite(data.valuation.per) ||
-    !Number.isFinite(data.valuation.pbr) ||
-    !Number.isFinite(data.valuation.dividendYield));
   if (valuationNeedsFallback) {
     try {
-      officialValuationFallback = await loadOfficialValuationFallback(code, options.metrics);
+      if (officialFallbackResults[2].status === "rejected") throw officialFallbackResults[2].reason;
+      officialValuationFallback = officialFallbackResults[2].value;
       if (officialValuationFallback?.valuation) {
         const official = officialValuationFallback.valuation;
         const current: any = data.valuation || {};
@@ -9516,6 +9525,8 @@ function publicRankingRefreshJob(job: any) {
       label: `${job.pilotSize}-stock performance pilot; not a public full-market ranking`,
     } : { enabled: false },
     performance: job.performance || null,
+    failureCategories: rankingTerminalFailureCounts(job),
+    retryableCount: (job.retryableCodes || []).length,
     historySessionCounts: job.historySessionCounts || null,
     historyCoverage: job.historyCoverage || null,
     historyErrors: (job.historyErrors || []).filter((entry: any) => !knownMarketClosure(entry.date)),
