@@ -1994,7 +1994,7 @@
         snapshotStatus: payloads.length ? "complete" : "missing",
         source: "\u516c\u958b\u6392\u884c\u699c\u5feb\u7167 fallback",
         universeMeta: first.universeMeta || { name:"\u53f0\u80a1\u6279\u6b21\u8a55\u5206", version:"public-fallback", requestedCount:allItems.length, scoredCount:allItems.length },
-        finmind: { status:"snapshot", note:"\u5df2\u8b80\u53d6\u5b8c\u6210\u5feb\u7167\uff1b\u9996\u9801\u4e0d\u6703\u89f8\u767c\u500b\u80a1\u91cd\u65b0\u8a55\u5206\u3002" },
+        finmind: { status:payloads.length ? "snapshot" : "missing", note:payloads.length ? "\u5df2\u8b80\u53d6\u5b8c\u6210\u5feb\u7167\uff1b\u9996\u9801\u4e0d\u6703\u89f8\u767c\u500b\u80a1\u91cd\u65b0\u8a55\u5206\u3002" : "\u5c1a\u7121\u901a\u904e\u9a57\u8b49\u7684\u5168\u5e02\u5834\u5feb\u7167\uff0c\u76ee\u524d\u7121\u6cd5\u5224\u5b9a\u8cc7\u6599\u5b8c\u6574\u6027\u3002" },
         marketState: {
           avgScore,
           highChase: allItems.filter(item => (item.scores?.chaseRisk?.score || 0) >= 72).length,
@@ -3642,7 +3642,7 @@
         valueCard("\u5168\u81fa\u80a1\u516c\u53f8", meta.fullMarketCompanyCount ? `${meta.fullMarketCompanyCount} \u6a94` : "\u5f85\u6aa2\u67e5", meta.fullMarketStatus === "connected" ? "\u5f8c\u81fa\u89c0\u5bdf\u7bc4\u570d\u5df2\u9023\u7dda" : (meta.fullMarketMessage || "\u8acb\u5230\u5f8c\u81fa\u6aa2\u67e5"), meta.fullMarketStatus === "connected" ? "bull" : "warn"),
         valueCard("\u672c\u6b21\u6279\u6b21\u8a55\u5206", `${meta.scoredCount || 0}/${meta.requestedCount || 0}`, meta.version || "", "neut"),
         valueCard("\u5e73\u5747\u5c08\u696d\u5206", scoreText(state.avgScore), state.note || "", state.tone === "opportunity" ? "bull" : state.tone === "risk" ? "bear" : "warn"),
-        valueCard("FinMind", payload?.finmind?.status || "\u672a\u6aa2\u67e5", payload?.finmind?.note || "", "bull"),
+        valueCard("FinMind", payload?.finmind?.status || "\u672a\u6aa2\u67e5", payload?.finmind?.note || "", payload?.finmind?.status === "missing" ? "warn" : "neutral"),
       ].join("");
       $("marketStatePanel").innerHTML = `
         <div class="client-grid">

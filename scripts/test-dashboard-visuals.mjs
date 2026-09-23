@@ -27,6 +27,7 @@ console.log('PASS: missing vs zero, bounded gauges, broken/flat series, escaping
 const fallback=vm.runInNewContext(html.slice(html.indexOf('    async function buildWorkbenchFallback('),html.indexOf('    function analyze(code, quote)'))+';buildWorkbenchFallback',{normalizeWorkbenchItem:x=>x});
 const missing=await fallback({get:async()=>({data:{ok:false,snapshotStatus:'rejected',generatedAt:'old',universeMeta:{scoredCount:64},items:[{code:'2330'}]}})});
 assert.equal(missing.snapshotStatus,'missing');assert.equal(missing.generatedAt,null);assert.equal(missing.universeMeta.scoredCount,0);assert.equal(missing.ranked.observationPool.length,0);
+assert.equal(missing.finmind.status,'missing');
 const complete=await fallback({get:async()=>({data:{ok:true,snapshotStatus:'complete',snapshotGeneratedAt:'2026-09-21T10:00:00Z',items:[]}})});
 assert.equal(complete.generatedAt,'2026-09-21T10:00:00Z');
 console.log('PASS: rejected snapshots never become fresh homepage data; original snapshot timestamp preserved');

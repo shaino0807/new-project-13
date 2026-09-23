@@ -177,7 +177,7 @@ const RANKING_MIN_ITEM_COVERAGE = 60;
 const RANKING_OUTPUT_LIMIT = 64;
 const RANKING_PILOT_SIZE = 250;
 const RANKING_PILOT_VERSION = "ranking-pilot-v3-liquidity-metrics";
-const RANKING_JOB_BATCH_SIZE = 20;
+const RANKING_JOB_BATCH_SIZE = 4;
 const RANKING_JOB_CONCURRENCY = 4;
 const RANKING_SNAPSHOT_ITEM_LIMIT = RANKING_OUTPUT_LIMIT;
 const MARKET_FEATURE_SCHEMA_VERSION = "market-features-v7-official-universe";
@@ -5717,7 +5717,7 @@ async function loadNews(code: string, name = FALLBACK_NAMES[code] || code, optio
           cached: true,
           stale: true,
           unavailableReason: isTimeout ? "timeout" : "upstream",
-          generatedAt: new Date().toISOString(),
+          generatedAt: cached.payload.generatedAt,
           note: isTimeout
             ? "\u65B0\u805E\u4F86\u6E90\u672C\u6B21\u903E\u6642\uFF0C\u986F\u793A\u6700\u8FD1\u4E00\u6B21\u6210\u529F\u53D6\u5F97\u7684\u5FEB\u53D6\u3002"
             : "\u65B0\u805E\u4F86\u6E90\u672C\u6B21\u66AB\u6642\u4E0D\u53EF\u7528\uFF0C\u986F\u793A\u6700\u8FD1\u4E00\u6B21\u6210\u529F\u53D6\u5F97\u7684\u5FEB\u53D6\u3002",
@@ -11713,6 +11713,8 @@ async function loadSwingOrchestratedReport(codes: string[], universeValue?: unkn
 // One checkpoint per scheduled invocation; never loop through the whole market.
 const RANKING_SCHEDULE_TABLE = "ranking_schedule_v1";
 const RANKING_ACCEPTED_PILOT = "9219a741-c1fe-47e7-ac7f-a3bcd73b6ce8";
+// User-authorized one-job daytime acceptance. Never creates another daytime job.
+const RANKING_DAYTIME_ACCEPTANCE_JOB = "d6944662-8179-4c8e-af78-77847945a966";
 
 function rankingScheduleWindow(now = Date.now()) {
   const local = new Date(now + 8 * 3600000);
@@ -11757,8 +11759,12 @@ function assertScheduledPilot(pilot: any) {
 export async function rankingDailyHandler(event: { type: string; name: string; invocationId: string }) {
   if (event.type !== "cron" || event.name !== "ranking-offpeak") return { statusCode: 200 };
   const window = rankingScheduleWindow();
-  if (!window.offPeak) return { statusCode: 200 };
   let state: any = await readRankingSchedule();
+  if (!window.offPeak) {
+    if (state?.jobId !== RANKING_DAYTIME_ACCEPTANCE_JOB) return { statusCode: 200 };
+    const acceptanceJob = await readRankingRefreshJob(state.jobId);
+    if (!["queued", "running"].includes(acceptanceJob?.status)) return { statusCode: 200 };
+  }
   if (state?.lastInvocationId === event.invocationId) return { statusCode: 200 };
   if (state?.blocked) {
     // A verified repair may unlock only this specific history failure. Never clear
@@ -11775,10 +11781,6 @@ export async function rankingDailyHandler(event: { type: string; name: string; i
     state.blocked = false;
     state.reason = null;
   }
-  if (state?.runningAt) {
-    // Ambiguous interrupted mutation needs inspection, never an automatic replay.
-    return { statusCode: 200 };
-  }
   async function save() {
     const { id, ...record } = state;
     record.updatedAt = new Date().toISOString();
@@ -11790,6 +11792,30 @@ export async function rankingDailyHandler(event: { type: string; name: string; i
       if (!newId) throw new Error("Unable to initialize ranking schedule.");
       state.id = newId;
     }
+  }
+  if (state?.runningAt) {
+    // Operator-verified 2026-09-23 03:25 UTC platform 504, not a general stale-lock replay.
+    const interruptedAt = Date.parse(state.runningAt);
+    const knownTimeout = state.jobId === RANKING_DAYTIME_ACCEPTANCE_JOB
+      && interruptedAt >= Date.parse("2026-09-23T03:25:00Z")
+      && interruptedAt < Date.parse("2026-09-23T03:26:00Z")
+      && Date.now() - interruptedAt > 120000;
+    if (!knownTimeout) return { statusCode: 200 };
+    const interrupted = await readRankingRefreshJob(state.jobId);
+    if (interrupted?.phase !== "features" || interrupted.currentIndex !== 200
+      || !["running", "queued"].includes(interrupted.status)
+      || interrupted.historyErrors?.length || interrupted.batchErrors?.length) return { statusCode: 200 };
+    if (!interrupted.timeoutRecovery) {
+      interrupted.timeoutRecovery = { runningAt: state.runningAt, recoveredAt: new Date().toISOString(),
+        reason: "Platform confirmed runner_task_timeout at 30000ms; resume uncommitted checkpoint with four-stock batches." };
+      interrupted.status = "queued";
+      interrupted.runningBatchAt = null;
+      await saveRankingRefreshJob(state.jobId, interrupted);
+    }
+    state.recoveryAudit = [...(state.recoveryAudit || []), interrupted.timeoutRecovery];
+    state.runningAt = null;
+    await save();
+    return { statusCode: 200 }; // Recovery is its own checkpoint; next invocation scores.
   }
   state ||= { cycleDate: window.cycleDate, ticks: 0, jobId: null };
   if (state.cycleDate !== window.cycleDate) {
@@ -11856,7 +11882,8 @@ export async function rankingDailyHandler(event: { type: string; name: string; i
 export const handler = router({
   "GET /api/screener/schedule": [async () => {
     const state = await readRankingSchedule();
-    return json({ ok: true, schedule: "Every five minutes, 18:00-07:55 Asia/Taipei", ...rankingScheduleWindow(),
+    return json({ ok: true, schedule: "Every five minutes; normal updates 18:00-07:55 Asia/Taipei; one existing acceptance job may continue during daytime", ...rankingScheduleWindow(),
+      daytimeAcceptanceJobId: RANKING_DAYTIME_ACCEPTANCE_JOB,
       status: state?.status || "awaiting-first-offpeak-run", jobId: state?.jobId || null,
       processed: state?.processed ?? 0, total: state?.total ?? null, phase: state?.phase || null,
       blocked: Boolean(state?.blocked || state?.runningAt), completedCycle: state?.completedCycle || null,
