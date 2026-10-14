@@ -39,7 +39,7 @@ https://shaino0807.github.io/new-project-13/
 - Progress, next steps, and pitfalls live in the Obsidian dashboard:
 
 ```text
-G:\我的雲端硬碟\oB 與 Obsidian\Projects\New project 13\專案工作流程.md
+G:\我的雲端硬碟\oB\Project Vaults\New project 13\00 Vault Index.md
 ```
 
 - Say `開工` to resume from `AGENTS.md` plus the Obsidian dashboard.
