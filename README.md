@@ -2,6 +2,15 @@
 
 This project has been prepared for portable Codex skill restore.
 
+## Current handoff — 2026-10-14
+
+Next work: local batch fetching and calculation, cloud PostgreSQL persistence, and a cloud API serving saved results. The three-stage implementation has not started; production PostgreSQL and full-market daily acceptance remain pending.
+
+- [Next-start plan and three stages](docs/architecture/local-compute-cloud-postgres-next.md)
+- [Closeout, evidence boundaries, and pitfalls](docs/closeout-20261014.md)
+
+This closeout publishes documentation. Existing uncommitted frontend, backend, PostgreSQL prototype, and Skill work remain local.
+
 ## Purpose
 
 This workspace hosts a public Taiwan stock technical-analysis Agent, AppDeploy deployment files, and reusable Codex workflow skills.
